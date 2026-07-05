@@ -97,6 +97,21 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
             $themeDir = TIGER_CORE_PATH . '/themes/' . $theme;
         }
 
+        // Available skins = the CSS files on disk. The active skin may be overridden
+        // per-request by the `tiger_skin` cookie (the skin switcher) — validated
+        // against the file list, so the cookie can never point outside the skins dir.
+        $availableSkins = array();
+        foreach (glob($themeDir . '/assets/skins/*.css') ?: array() as $skinFile) {
+            $availableSkins[] = basename($skinFile, '.css');
+        }
+        sort($availableSkins);
+        $cookieSkin = isset($_COOKIE['tiger_skin'])
+            ? strtolower(preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $_COOKIE['tiger_skin']))
+            : '';
+        if ($cookieSkin !== '' && in_array($cookieSkin, $availableSkins, true)) {
+            $skin = $cookieSkin;
+        }
+
         defined('THEME') || define('THEME', $theme);
         defined('SKIN')  || define('SKIN', $skin);
 
@@ -113,6 +128,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
 
         $view->theme       = $theme;
         $view->skin        = $skin;
+        $view->skins       = $availableSkins;   // for the skin switcher
         $view->themeAssets = '/_theme';
 
         Zend_Controller_Action_HelperBroker::getStaticHelper('viewRenderer')->setView($view);

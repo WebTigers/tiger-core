@@ -28,12 +28,22 @@ $_lang = defined('LANG') ? LANG : 'en';
     <link rel="stylesheet" href="<?= $this->themeAssets ?>/css/bootstrap.min.css">
     <link rel="stylesheet" href="<?= $this->themeAssets ?>/default.css">
 <?php if (!empty($this->skin)): ?>
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
+    <link id="tiger-skin" rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
 <?php endif; ?>
 </head>
 <body>
 <?= $this->layout()->content ?>
 
+<?php if (APPLICATION_ENV !== 'production' && !empty($this->skins)): ?>
+<!-- Floating skin switcher — a prototyping affordance so devs can preview skins on
+     any page (public pages have no header). Non-production only; the admin header
+     carries the same control. -->
+<div class="position-fixed bottom-0 end-0 m-3 bg-body border rounded-pill shadow-sm" style="z-index:1050;">
+    <?= $this->render('_partials/skin-switcher.phtml') ?>
+</div>
+<?php endif; ?>
+
 <script src="<?= $this->themeAssets ?>/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $this->themeAssets ?>/js/tiger.prefs.js"></script>
 </body>
 </html>

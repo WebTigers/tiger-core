@@ -46,7 +46,7 @@ $_hasAside = !empty($this->rightAside);
     <link rel="stylesheet" href="<?= $this->themeAssets ?>/css/bootstrap.min.css">
     <link rel="stylesheet" href="<?= $this->themeAssets ?>/default.css">
 <?php if (!empty($this->skin)): ?>
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
+    <link id="tiger-skin" rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
 <?php endif; ?>
     <!-- The admin shell chrome (our MIT layout CSS — Bootstrap ships no app shell). -->
     <link rel="stylesheet" href="<?= $this->themeAssets ?>/admin.css">

@@ -74,6 +74,25 @@
             return;
         }
 
+        var skin = e.target.closest('.tiger-skin-switch');
+        if (skin) {
+            e.preventDefault();
+            var s = skin.getAttribute('data-skin');
+            setCookie('tiger_skin', s);
+            // Hot-swap the skin stylesheet in place — no reload. Keep the same path,
+            // just change the /skins/<name>.css filename.
+            var link = document.getElementById('tiger-skin');
+            if (link) { link.setAttribute('href', link.getAttribute('href').replace(/skins\/[^\/?]+\.css/, 'skins/' + s + '.css')); }
+            var label = document.getElementById('tiger-skin-label');
+            if (label) { label.textContent = skin.getAttribute('data-label') || s; }
+            var items = document.querySelectorAll('.tiger-skin-switch');
+            for (var i = 0; i < items.length; i++) {
+                items[i].classList.toggle('active', items[i].getAttribute('data-skin') === s);
+            }
+            persist({ skin: s });
+            return;
+        }
+
         var sidebar = e.target.closest('[data-tiger-toggle="sidebar"]');
         if (sidebar) {
             e.preventDefault();
