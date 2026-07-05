@@ -1,0 +1,18 @@
+<?php
+/**
+ * PUMA admin left sidebar (MIT, Tiger-original).
+ *
+ * The collapsible nav rail. Renders the menu partial in the SAME scope (render())
+ * so $this->nav flows through. Collapse/off-canvas behavior is in tiger.prefs.js
+ * (toggled via the header's data-tiger-toggle="sidebar" button).
+ */
+?>
+<aside class="tiger-sidebar-left">
+    <div class="tiger-sidebar-title">Navigation</div>
+
+    <?= $this->render('_partials/admin-menu.phtml') ?>
+
+    <div class="tiger-sidebar-footer tiger-nav-label">
+        <small class="text-secondary">Tiger Admin</small>
+    </div>
+</aside>

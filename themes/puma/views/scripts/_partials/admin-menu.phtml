@@ -1,0 +1,73 @@
+<?php
+/**
+ * PUMA admin menu (MIT, Tiger-original).
+ *
+ * Data-driven, ACL-aware, active-state navigation. Feed it $this->nav; falls back
+ * to a sensible default so the shell renders out of the box. Each item:
+ *   label     (string)  display text
+ *   href      (string)  link target
+ *   icon      (string)  Font Awesome class, top level only (e.g. 'fa-users')
+ *   match     (string)  path prefix that marks the item active (default: href)
+ *   resource  (string)  optional ACL resource — item HIDES if the live role can't
+ *                       reach it (menus mirror permissions automatically)
+ *   children  (array)   nested items (submenu)
+ *
+ * The role is read live from the identity; ACL from the registry. This is the
+ * same principle AskLevi used via Zend_Navigation, distilled to a plain tree so a
+ * module can hand one in without the full navigation stack.
+ */
+$nav = $this->nav ?? [
+    ['label' => 'Dashboard',     'href' => '/admin',        'icon' => 'fa-gauge-high', 'match' => '/admin'],
+    ['label' => 'Users',         'href' => '/admin/users',  'icon' => 'fa-users',      'match' => '/admin/users'],
+    ['label' => 'Organizations', 'href' => '/admin/orgs',   'icon' => 'fa-building',   'match' => '/admin/orgs'],
+    ['label' => 'Config',        'href' => '/admin/config', 'icon' => 'fa-gear',       'match' => '/admin/config'],
+];
+
+$acl  = Zend_Registry::isRegistered('Zend_Acl') ? Zend_Registry::get('Zend_Acl') : null;
+$idn  = Zend_Auth::getInstance()->getIdentity();
+$role = ($idn && !empty($idn->role)) ? $idn->role : 'guest';
+$path = rtrim(Zend_Controller_Front::getInstance()->getRequest()->getPathInfo(), '/');
+
+// Hidden only when there IS an ACL, the resource is known to it, and the role is denied.
+$allowed = function ($item) use ($acl, $role) {
+    if (empty($item['resource']) || !$acl) { return true; }
+    return $acl->hasResource($item['resource']) ? $acl->isAllowed($role, $item['resource']) : true;
+};
+
+// Active when the current path is the item (or under it). The dashboard root
+// ('/admin') matches exactly so it doesn't light up for every /admin/* child.
+$isActive = function ($item) use ($path) {
+    $m = rtrim($item['match'] ?? $item['href'] ?? '', '/');
+    if ($m === '/admin') { return $path === '/admin' || $path === ''; }
+    return $m !== '' && strpos($path, $m) === 0;
+};
+
+$render = function ($items, $depth = 0) use (&$render, $allowed, $isActive) {
+    $html = '';
+    foreach ($items as $item) {
+        if (!$allowed($item)) { continue; }
+        $children = !empty($item['children']) ? array_values(array_filter($item['children'], $allowed)) : [];
+        $active   = $isActive($item);
+        $classes  = trim(($active ? 'active ' : '') . ($children ? 'has-children' : ''));
+
+        $html .= '<li' . ($classes ? ' class="' . $classes . '"' : '') . '>';
+        $html .= '<a href="' . htmlspecialchars($item['href'] ?? '#') . '">';
+        if ($depth === 0) {
+            $html .= '<i class="fa-solid ' . htmlspecialchars($item['icon'] ?? 'fa-circle') . ' fa-fw"></i>';
+        }
+        $html .= '<span class="tiger-nav-label">' . htmlspecialchars($item['label']) . '</span>';
+        if ($children) { $html .= '<i class="fa-solid fa-angle-down tiger-nav-caret tiger-nav-label"></i>'; }
+        $html .= '</a>';
+        if ($children) {
+            $html .= '<ul class="tiger-nav tiger-nav-children">' . $render($children, $depth + 1) . '</ul>';
+        }
+        $html .= '</li>';
+    }
+    return $html;
+};
+?>
+<nav class="tiger-nav-wrap" role="navigation" aria-label="Main">
+    <ul class="tiger-nav">
+        <?= $render($nav) ?>
+    </ul>
+</nav>

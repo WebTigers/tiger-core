@@ -1,0 +1,99 @@
+<?php
+/**
+ * PUMA admin header (MIT, Tiger-original).
+ *
+ * Brand + sidebar toggle, search, notifications, LANGUAGE switcher, light/dark
+ * THEME switcher, and the user box. Rendered in the layout scope via render(),
+ * so $this->themeAssets/escape are available. Behavior: assets/js/tiger.prefs.js
+ * (vanilla, no jQuery) — the markup only supplies data-attributes.
+ */
+$auth     = Zend_Auth::getInstance();
+$identity = $auth->hasIdentity() ? $auth->getIdentity() : null;
+$userName = $identity->email    ?? 'Guest';
+$userRole = $identity->role     ?? 'guest';
+$orgName  = $identity->org_name ?? '';
+
+// Language: active locale + the options offered (flag + label). Wire real
+// enabled-locale config later; two shown as the pattern.
+$lang  = defined('LANG') ? LANG : 'en';
+$langs = ['en' => ['🇺🇸', 'English'], 'es' => ['🇲🇽', 'Español']];
+$flag  = $langs[$lang][0] ?? '🇺🇸';
+
+// Theme: the current preference drives the top-bar icon (browser/light/dark).
+$pref = $_COOKIE['tiger_theme'] ?? 'browser';
+if (!in_array($pref, ['browser', 'light', 'dark'], true)) { $pref = 'browser'; }
+$themeIcons = ['browser' => 'fa-solid fa-display', 'light' => 'fa-solid fa-sun', 'dark' => 'fa-solid fa-moon'];
+?>
+<header class="tiger-header">
+
+    <button class="btn btn-link text-body p-1" data-tiger-toggle="sidebar" aria-label="Toggle navigation">
+        <i class="fa-solid fa-bars fa-lg"></i>
+    </button>
+
+    <a class="tiger-brand ms-1" href="/admin">
+        <i class="fa-solid fa-paw"></i><span class="tiger-nav-label">Tiger</span>
+    </a>
+
+    <form class="tiger-search ms-3" action="/admin/search" role="search">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
+            <input type="search" name="q" class="form-control border-start-0" placeholder="Search…" aria-label="Search">
+        </div>
+    </form>
+
+    <div class="tiger-header-spacer"></div>
+
+    <!-- Notifications (demo content; wire to real feeds later) -->
+    <div class="dropdown">
+        <a href="#" class="btn btn-link text-body position-relative px-2" data-bs-toggle="dropdown" aria-label="Alerts">
+            <i class="fa-solid fa-bell fa-lg"></i>
+            <span class="position-absolute translate-middle badge rounded-pill bg-danger" style="top:.35rem;left:calc(100% - .35rem);font-size:.6rem;">3</span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end shadow p-0" style="min-width:290px;">
+            <div class="dropdown-header d-flex justify-content-between"><span>Alerts</span><span class="badge text-bg-secondary">3</span></div>
+            <a class="dropdown-item d-flex gap-2 py-2" href="#"><i class="fa-solid fa-triangle-exclamation text-warning mt-1"></i><span><strong>User locked</strong><br><small class="text-secondary">15 minutes ago</small></span></a>
+            <a class="dropdown-item d-flex gap-2 py-2" href="#"><i class="fa-solid fa-signal text-success mt-1"></i><span><strong>Connection restored</strong><br><small class="text-secondary">1 hour ago</small></span></a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item text-center small py-2" href="#">View all</a>
+        </div>
+    </div>
+
+    <!-- LANGUAGE switcher: sets `locale` cookie, persists, reloads in-locale. -->
+    <div class="dropdown">
+        <a href="#" class="btn btn-link text-body fs-5 px-2 lh-1" data-bs-toggle="dropdown" aria-label="Language"><?= $flag ?></a>
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+<?php foreach ($langs as $code => $l): ?>
+            <li><a class="dropdown-item tiger-lang-switch<?= $code === $lang ? ' active' : '' ?>" href="#" data-lang="<?= $this->escape($code) ?>"><span class="me-2"><?= $l[0] ?></span><?= $this->escape($l[1]) ?></a></li>
+<?php endforeach; ?>
+        </ul>
+    </div>
+
+    <!-- THEME switcher: sets `tiger_theme` cookie, flips data-bs-theme, persists. -->
+    <div class="dropdown">
+        <a href="#" class="btn btn-link text-body px-2" data-bs-toggle="dropdown" aria-label="Theme"><i id="tiger-theme-icon" class="<?= $this->escape($themeIcons[$pref]) ?>"></i></a>
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+            <li><a class="dropdown-item tiger-theme-switch<?= $pref === 'browser' ? ' active' : '' ?>" href="#" data-theme="browser"><i class="fa-solid fa-display me-2 fa-fw"></i>Browser</a></li>
+            <li><a class="dropdown-item tiger-theme-switch<?= $pref === 'light' ? ' active' : '' ?>" href="#" data-theme="light"><i class="fa-solid fa-sun me-2 fa-fw"></i>Light</a></li>
+            <li><a class="dropdown-item tiger-theme-switch<?= $pref === 'dark' ? ' active' : '' ?>" href="#" data-theme="dark"><i class="fa-solid fa-moon me-2 fa-fw"></i>Dark</a></li>
+        </ul>
+    </div>
+
+    <!-- User box -->
+    <div class="dropdown ms-1">
+        <a href="#" class="d-flex align-items-center gap-2 text-decoration-none text-body" data-bs-toggle="dropdown">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle flex-shrink-0" style="width:34px;height:34px;"><i class="fa-solid fa-user text-secondary"></i></span>
+            <span class="d-none d-md-block text-start lh-sm">
+                <span class="d-block small fw-semibold"><?= $this->escape($userName) ?></span>
+                <span class="d-block text-secondary" style="font-size:.72rem;"><?= $this->escape($orgName ?: ucfirst($userRole)) ?></span>
+            </span>
+            <i class="fa-solid fa-chevron-down small text-secondary d-none d-md-inline"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+            <li><a class="dropdown-item" href="/admin/profile"><i class="fa-solid fa-id-badge me-2 fa-fw"></i>My Profile</a></li>
+            <li><a class="dropdown-item" href="/admin/config"><i class="fa-solid fa-gear me-2 fa-fw"></i>Settings</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/auth/logout"><i class="fa-solid fa-power-off me-2 fa-fw"></i>Sign Out</a></li>
+        </ul>
+    </div>
+
+</header>

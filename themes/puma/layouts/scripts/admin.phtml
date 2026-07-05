@@ -1,0 +1,79 @@
+<?php
+/**
+ * PUMA — Admin shell layout (MIT, Tiger-original).
+ *
+ * The application chrome: fixed header, collapsible left sidebar, main content,
+ * and an OPTIONAL right aside. Written from scratch on Bootstrap 5.3 — NO paid
+ * template. Light/dark is Bootstrap's native `data-bs-theme`; components are stock
+ * Bootstrap; only the shell layout is our own CSS (assets/admin.css).
+ *
+ * A controller opts in with `$this->_helper->layout()->setLayout('admin')`.
+ * View vars honored:
+ *   $this->rightAside (bool)  render the right aside rail
+ *   $this->nav        (array) sidebar nav tree (see _partials/admin-menu.phtml)
+ *
+ * Shell partials are pulled with render() (NOT partial()) so the layout's view
+ * vars — themeAssets, skin, nav — flow into them; partial() clears the scope.
+ */
+
+// No-FOUC: resolve the theme cookie server-side so the FIRST paint is already
+// correct for explicit light/dark. 'browser' starts light here and is corrected
+// client-side by theme-init.js (matchMedia) before stylesheets apply.
+$_pref = $_COOKIE['tiger_theme'] ?? 'browser';
+if (!in_array($_pref, ['browser', 'light', 'dark'], true)) { $_pref = 'browser'; }
+$_mode = ($_pref === 'dark') ? 'dark' : 'light';
+$_lang = defined('LANG') ? LANG : 'en';
+$_hasAside = !empty($this->rightAside);
+?><!doctype html>
+<html lang="<?= $this->escape($_lang) ?>" data-bs-theme="<?= $_mode ?>" class="tiger-admin<?= $_hasAside ? ' has-right-aside' : '' ?>">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= $this->escape($this->title ?? 'Tiger Admin') ?></title>
+
+    <!-- No-FOUC theme resolver: MUST run before the stylesheets below paint. -->
+    <script src="<?= $this->themeAssets ?>/js/theme-init.js"></script>
+
+    <!-- Google Fonts (Inter). CDN for dev; vendor per deployment if desired. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Free. CDN for dev; vendor for production. -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Cascade (last wins): base Bootstrap → theme defaults → active skin. -->
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/default.css">
+<?php if (!empty($this->skin)): ?>
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
+<?php endif; ?>
+    <!-- The admin shell chrome (our MIT layout CSS — Bootstrap ships no app shell). -->
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/admin.css">
+</head>
+<body>
+<div class="tiger-shell">
+
+    <?= $this->render('_partials/admin-header.phtml') ?>
+
+    <div class="tiger-body">
+        <?= $this->render('_partials/admin-sidebar-left.phtml') ?>
+
+        <main class="tiger-content" role="main">
+            <?= $this->layout()->content ?>
+        </main>
+
+<?php if ($_hasAside): ?>
+        <?= $this->render('_partials/admin-sidebar-right.phtml') ?>
+<?php endif; ?>
+    </div>
+
+</div>
+
+<!-- Backdrop for the off-canvas sidebar on mobile. -->
+<div class="tiger-backdrop" data-tiger-toggle="sidebar"></div>
+
+<script src="<?= $this->themeAssets ?>/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $this->themeAssets ?>/js/tiger.prefs.js"></script>
+</body>
+</html>

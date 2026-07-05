@@ -1,0 +1,101 @@
+/**
+ * PUMA top-bar preferences + sidebar (MIT, Tiger-original).
+ *
+ * Vanilla JS — NO jQuery, NO plugin bundle. The markup supplies only data-
+ * attributes; this wires the behavior:
+ *
+ *   .tiger-lang-switch[data-lang]    -> set `locale` cookie, persist, reload in-locale
+ *   .tiger-theme-switch[data-theme]  -> set `tiger_theme` cookie, flip data-bs-theme, persist
+ *   [data-tiger-toggle="sidebar"]    -> collapse/expand (desktop) or open/close (mobile)
+ *   [data-tiger-toggle="aside"]      -> close the right aside on mobile
+ *
+ * Preferences persist best-effort through the Tiger /api gateway
+ * (core/user/setprefs). The cookie is the source of truth — persistence is a
+ * convenience so the choice follows the user across devices once that service
+ * exists. Failure is silent by design (the cookie already did the job).
+ */
+(function () {
+    'use strict';
+
+    var YEAR = 365 * 864e5;
+    var ICON = { browser: 'fa-solid fa-display', light: 'fa-solid fa-sun', dark: 'fa-solid fa-moon' };
+    var root = document.documentElement;
+
+    function setCookie(name, value) {
+        document.cookie = name + '=' + encodeURIComponent(value) +
+            '; expires=' + new Date(Date.now() + YEAR).toUTCString() + '; path=/; samesite=lax';
+    }
+
+    function persist(params) {
+        try {
+            fetch('/api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.assign({ module: 'core', service: 'user', method: 'setprefs' }, params)),
+                keepalive: true
+            });
+        } catch (e) { /* best-effort */ }
+    }
+
+    function resolve(pref) {
+        if (pref === 'dark')  { return 'dark'; }
+        if (pref === 'light') { return 'light'; }
+        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+
+    function applyTheme(pref) {
+        root.setAttribute('data-bs-theme', resolve(pref));
+        var icon = document.getElementById('tiger-theme-icon');
+        if (icon) { icon.className = ICON[pref] || ICON.browser; }
+        var items = document.querySelectorAll('.tiger-theme-switch');
+        for (var i = 0; i < items.length; i++) {
+            items[i].classList.toggle('active', items[i].getAttribute('data-theme') === pref);
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        var lang = e.target.closest('.tiger-lang-switch');
+        if (lang) {
+            e.preventDefault();
+            var l = lang.getAttribute('data-lang');
+            setCookie('locale', l);
+            persist({ lang: l });
+            window.location.reload();   // server re-renders the page in the new locale
+            return;
+        }
+
+        var theme = e.target.closest('.tiger-theme-switch');
+        if (theme) {
+            e.preventDefault();
+            var t = theme.getAttribute('data-theme');
+            setCookie('tiger_theme', t);
+            applyTheme(t);
+            persist({ mode: t });
+            return;
+        }
+
+        var sidebar = e.target.closest('[data-tiger-toggle="sidebar"]');
+        if (sidebar) {
+            e.preventDefault();
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                root.classList.toggle('sidebar-open');       // off-canvas
+            } else {
+                root.classList.toggle('sidebar-collapsed');  // icons-only rail
+                try { localStorage.setItem('tiger_sidebar', root.classList.contains('sidebar-collapsed') ? '1' : '0'); } catch (e2) {}
+            }
+            return;
+        }
+
+        var aside = e.target.closest('[data-tiger-toggle="aside"]');
+        if (aside) { e.preventDefault(); root.classList.toggle('aside-open'); }
+    });
+
+    // Keep 'browser' mode following the OS while the page is open.
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+            var m = document.cookie.match(/(?:^|;\s*)tiger_theme=([^;]+)/);
+            var pref = m ? decodeURIComponent(m[1]) : 'browser';
+            if (pref === 'browser') { applyTheme('browser'); }
+        });
+    }
+})();

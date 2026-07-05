@@ -1,0 +1,21 @@
+<?php
+/**
+ * PUMA admin right aside (MIT, Tiger-original).
+ *
+ * Optional contextual rail. Rendered ONLY when a controller/view sets
+ * $this->rightAside = true (the layout adds `.has-right-aside` to <html>, which
+ * reserves the space). Fill with page-contextual widgets — activity, help, filters.
+ */
+?>
+<aside class="tiger-sidebar-right">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="text-secondary text-uppercase small mb-0">Activity</h6>
+        <button class="btn btn-sm btn-link text-secondary p-0 d-md-none" data-tiger-toggle="aside" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <p class="small text-secondary">
+        This optional rail appears when a view sets <code>$this-&gt;rightAside = true</code>.
+        Drop contextual widgets here — recent activity, inline help, filters.
+    </p>
+</aside>
