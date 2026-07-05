@@ -105,18 +105,20 @@ switch ($cmd) {
 
     case 'install:admin':
         // Create the founding org + owner. Non-interactive via flags
-        // (--email= --password= --org= [--slug=] [--role=]); prompts for anything missing.
+        // (--email= --password= --org= [--username=] [--slug=] [--role=]); prompts for anything missing.
         tiger_db();
         $flags = tiger_flags($argv);
         $email = isset($flags['email']) ? $flags['email'] : tiger_prompt('Admin email');
         $org   = isset($flags['org'])   ? $flags['org']   : tiger_prompt('Organization name');
         $slug  = isset($flags['slug'])  ? $flags['slug']  : null;
         $role  = isset($flags['role'])  ? $flags['role']  : 'developer';   // god by default: a fresh install needs full access
+        $username = isset($flags['username']) ? $flags['username'] : null;  // optional display username
         $pass  = isset($flags['password']) ? $flags['password'] : tiger_prompt_secret('Password (min 8)');
         try {
-            $r = Tiger_Install::createOwner($email, $pass, $org, $slug, $role);
+            $r = Tiger_Install::createOwner($email, $pass, $org, $slug, $role, $username);
             echo "\n  \xE2\x9C\x93 Admin created.\n";
             echo "    email   : {$r['email']}\n";
+            if (!empty($r['username'])) { echo "    username: {$r['username']}\n"; }
             echo "    org     : {$r['org']}  ({$r['slug']})\n";
             echo "    role    : {$r['role']}\n";
             echo "    user_id : {$r['user_id']}\n";
@@ -162,7 +164,7 @@ switch ($cmd) {
         echo "  migrate:status         Show applied [x] / pending [ ] migrations\n";
         echo "  migrate:rollback [n]   Reverse the last n migrations (default 1)\n";
         echo "  install:admin          Create the founding org + owner (flags or prompts:\n";
-        echo "                         --email= --password= --org= [--slug=] [--role=developer])\n";
+        echo "                         --email= --password= --org= [--username=] [--slug=] [--role=developer])\n";
         echo "  make:module <name>     Scaffold a new application module (controller + /api service + acl)\n";
         echo "  version                Show the Tiger Core version\n";
         break;

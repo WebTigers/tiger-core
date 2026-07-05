@@ -23,10 +23,11 @@ class Tiger_Install
      * @param  string|null $orgSlug  derived from the org name if null
      * @param  string      $role     the membership role (default 'developer' = god,
      *                               because a fresh install's founder needs full access)
-     * @return array{org_id:string,user_id:string,org_user_id:string,role:string,email:string,org:string,slug:string}
-     * @throws RuntimeException on validation error or conflict (existing email/slug)
+     * @param  string|null $username optional display username (email stays the login id)
+     * @return array{org_id:string,user_id:string,org_user_id:string,role:string,email:string,username:?string,org:string,slug:string}
+     * @throws RuntimeException on validation error or conflict (existing email/slug/username)
      */
-    public static function createOwner($email, $password, $orgName, $orgSlug = null, $role = 'developer')
+    public static function createOwner($email, $password, $orgName, $orgSlug = null, $role = 'developer', $username = null)
     {
         $email   = trim(strtolower((string) $email));
         $orgName = trim((string) $orgName);
@@ -52,9 +53,17 @@ class Tiger_Install
             throw new RuntimeException("An organization with slug '{$slug}' already exists.");
         }
 
+        // Optional username — must be unique if given (email stays the login id).
+        $username = ($username !== null) ? trim((string) $username) : '';
+        if ($username !== '' && $userModel->fetchRow($userModel->activeSelect()->where('username = ?', $username))) {
+            throw new RuntimeException("A user with username '{$username}' already exists.");
+        }
+
         // Genesis rows (no actor -> created_by NULL).
-        $orgId  = $orgModel->insert(array('name' => $orgName, 'slug' => $slug));
-        $userId = $userModel->insert(array('email' => $email));
+        $orgId    = $orgModel->insert(array('name' => $orgName, 'slug' => $slug));
+        $userData = array('email' => $email);
+        if ($username !== '') { $userData['username'] = $username; }
+        $userId   = $userModel->insert($userData);
         (new Tiger_Model_UserCredential())->setPassword($userId, (string) $password);
         $ouId = (new Tiger_Model_OrgUser())->insert(array(
             'org_id'  => $orgId,
@@ -68,6 +77,7 @@ class Tiger_Install
             'org_user_id' => $ouId,
             'role'        => $role,
             'email'       => $email,
+            'username'    => $username !== '' ? $username : null,
             'org'         => $orgName,
             'slug'        => $slug,
         );
