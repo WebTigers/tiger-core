@@ -228,6 +228,24 @@ A module is **purely additive** — it plugs in by convention, touching no Core 
 
 ---
 
+### 7a. Standard columns (enterprise boilerplate)
+
+Every domain table carries these, and `Tiger_Model_Table` maintains them
+automatically (each applied only if the column exists):
+
+| Column | Purpose |
+|---|---|
+| `status` | lifecycle state (active/suspended/…) |
+| `deleted` | soft-delete flag `TINYINT(1)`; **reads exclude deleted by default** via `activeSelect()` / `findById`, flipped by `softDelete()` / `restore()` |
+| `created_by` / `updated_by` | actor stamps (`user_id`) — **no FK** (a stamp must not block deleting the user it points at; `NULL` = system/genesis) |
+| `created_at` / `updated_at` | timestamps |
+
+The **current actor** is set by auth on login (`Tiger_Model_Table::setActor()`);
+CLI / system inserts leave it `NULL`. **Audit *trails* (who-changed-what history)
+are deliberately an app concern** — core ships the stamp columns, not a history
+table. (Soft-delete + a UNIQUE column: a deleted row still holds its unique value,
+e.g. `org.slug`; reuse policy is the app's call, not core's.)
+
 ## 8. ACL
 
 - **Subject-agnostic:** `can(Subject, permission, context)` — the engine doesn't care whether

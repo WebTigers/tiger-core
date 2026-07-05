@@ -33,7 +33,7 @@ class Tiger_Model_User extends Tiger_Model_Table
      */
     public function findByEmail($email)
     {
-        return $this->fetchRow($this->select()->where('email = ?', $email)) ?: null;
+        return $this->fetchRow($this->activeSelect()->where('email = ?', $email)) ?: null;
     }
 
     /**

@@ -29,7 +29,7 @@ class Tiger_Model_Org extends Tiger_Model_Table
      */
     public function findBySlug($slug)
     {
-        return $this->fetchRow($this->select()->where('slug = ?', $slug)) ?: null;
+        return $this->fetchRow($this->activeSelect()->where('slug = ?', $slug)) ?: null;
     }
 
     /**
@@ -40,6 +40,6 @@ class Tiger_Model_Org extends Tiger_Model_Table
      */
     public function children($orgId)
     {
-        return $this->fetchAll($this->select()->where('parent_org_id = ?', $orgId));
+        return $this->fetchAll($this->activeSelect()->where('parent_org_id = ?', $orgId));
     }
 }

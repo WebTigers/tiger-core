@@ -19,6 +19,9 @@ return array(
             `user_id`     CHAR(36)    NOT NULL,
             `role`        VARCHAR(64) NOT NULL DEFAULT 'member',  -- role IN this org
             `status`      VARCHAR(32) NOT NULL DEFAULT 'active',  -- active/invited/suspended
+            `deleted`     TINYINT(1)  NOT NULL DEFAULT 0,         -- soft-delete flag (1 = deleted)
+            `created_by`  CHAR(36)        NULL,                   -- user_id who created (NULL = system)
+            `updated_by`  CHAR(36)        NULL,                   -- user_id who last updated
             `created_at`  DATETIME    NOT NULL,
             `updated_at`  DATETIME        NULL,
             PRIMARY KEY (`org_user_id`),

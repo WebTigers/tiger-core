@@ -39,7 +39,7 @@ class Tiger_Model_OrgUser extends Tiger_Model_Table
     public function membership($orgId, $userId)
     {
         return $this->fetchRow(
-            $this->select()->where('org_id = ?', $orgId)->where('user_id = ?', $userId)
+            $this->activeSelect()->where('org_id = ?', $orgId)->where('user_id = ?', $userId)
         ) ?: null;
     }
 
@@ -65,7 +65,7 @@ class Tiger_Model_OrgUser extends Tiger_Model_Table
      */
     public function orgsForUser($userId)
     {
-        return $this->fetchAll($this->select()->where('user_id = ?', $userId));
+        return $this->fetchAll($this->activeSelect()->where('user_id = ?', $userId));
     }
 
     /**
@@ -76,6 +76,6 @@ class Tiger_Model_OrgUser extends Tiger_Model_Table
      */
     public function usersInOrg($orgId)
     {
-        return $this->fetchAll($this->select()->where('org_id = ?', $orgId));
+        return $this->fetchAll($this->activeSelect()->where('org_id = ?', $orgId));
     }
 }

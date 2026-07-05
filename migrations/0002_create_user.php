@@ -20,6 +20,9 @@ return array(
             `username`      VARCHAR(64)      NULL,
             `password_hash` VARCHAR(255)     NULL,   -- NULL = SSO-only / not activated
             `status`        VARCHAR(32)  NOT NULL DEFAULT 'active',
+            `deleted`       TINYINT(1)   NOT NULL DEFAULT 0,   -- soft-delete flag (1 = deleted)
+            `created_by`    CHAR(36)         NULL,             -- user_id who created (NULL = system/genesis)
+            `updated_by`    CHAR(36)         NULL,             -- user_id who last updated
             `created_at`    DATETIME     NOT NULL,
             `updated_at`    DATETIME         NULL,
             PRIMARY KEY (`user_id`),

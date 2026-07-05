@@ -15,6 +15,22 @@
  *     limit on older MySQL (5.6). Keeps the schema portable to any MySQL/MariaDB.
  *   - DATETIME (not TIMESTAMP): no 2038 problem, no implicit timezone surprises;
  *     timestamps are written by the app in UTC (Tiger_Model_Table::_now).
+ *
+ * STANDARD COLUMNS — every Tiger DOMAIN table carries these, maintained
+ * automatically by Tiger_Model_Table:
+ *   status      VARCHAR(32)  — lifecycle state (active/suspended/…)
+ *   deleted     TINYINT(1)   — soft-delete flag (0/1); reads exclude deleted by default
+ *   created_by  CHAR(36)     — user_id who created (NULL = system/genesis)
+ *   updated_by  CHAR(36)     — user_id who last updated
+ *   created_at  DATETIME     — set on insert
+ *   updated_at  DATETIME     — refreshed on update
+ * created_by/updated_by are intentionally NOT foreign-keyed: they're informational
+ * stamps that must not block deleting the user they point at. Audit TRAILS (change
+ * history) are an app concern, not core's.
+ *
+ * NOTE (soft-delete + UNIQUE): a soft-deleted row still occupies its unique values
+ * (e.g. org.slug). If an app needs to reuse a slug/email after soft-delete, it
+ * handles that policy (e.g. rename-on-delete) — core doesn't force one.
  */
 return array(
     'up' => array(
@@ -24,6 +40,9 @@ return array(
             `name`          VARCHAR(255) NOT NULL,
             `slug`          VARCHAR(191) NOT NULL,   -- URL/route-safe identifier
             `status`        VARCHAR(32)  NOT NULL DEFAULT 'active',
+            `deleted`       TINYINT(1)   NOT NULL DEFAULT 0,   -- soft-delete flag (1 = deleted)
+            `created_by`    CHAR(36)         NULL,             -- user_id who created (NULL = system/genesis)
+            `updated_by`    CHAR(36)         NULL,             -- user_id who last updated
             `created_at`    DATETIME     NOT NULL,
             `updated_at`    DATETIME         NULL,
             PRIMARY KEY (`org_id`),
