@@ -28,6 +28,9 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
     /** How long a lockout lasts, in minutes. */
     const LOCK_MINUTES = 15;
 
+    /** How many retired password hashes to retain (bounds password_history; policy checks <= this). */
+    const HISTORY_KEEP = 24;
+
     /**
      * Hash a plaintext password. PASSWORD_DEFAULT = bcrypt today, upgraded by PHP
      * over time. A password hash is one-way, so it's stored as-is (not encrypted).
@@ -49,6 +52,13 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
         $existing = $this->factor($userId, self::TYPE_PASSWORD);
 
         if ($existing) {
+            // Archive the outgoing hash for reuse-prevention (Tiger_Policy_Password),
+            // then keep the history bounded.
+            if ($existing->secret !== null) {
+                $history = new Tiger_Model_PasswordHistory();
+                $history->archive($userId, $existing->secret);
+                $history->prune($userId, self::HISTORY_KEEP);
+            }
             $this->update(
                 array('secret' => $hash, 'verified_at' => $this->_now()),
                 $this->getAdapter()->quoteInto('credential_id = ?', $existing->credential_id)

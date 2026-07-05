@@ -34,8 +34,9 @@ class Tiger_Install
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new RuntimeException('A valid email is required.');
         }
-        if (strlen((string) $password) < self::MIN_PASSWORD) {
-            throw new RuntimeException('Password must be at least ' . self::MIN_PASSWORD . ' characters.');
+        $violations = (new Tiger_Policy_Password())->validate((string) $password);
+        if ($violations) {
+            throw new RuntimeException('Password does not meet policy: ' . implode(', ', $violations));
         }
         if ($orgName === '') {
             throw new RuntimeException('An organization name is required.');
