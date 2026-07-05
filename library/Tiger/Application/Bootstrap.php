@@ -22,8 +22,10 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $this->bootstrap('frontController');
         $front = $this->getResource('frontController');
 
-        // Default namespace = Core, shipped from the package:
-        $front->setControllerDirectory(TIGER_CORE_PATH . '/core/controllers', 'default');
+        // Default namespace = Core, shipped from the package. Use ADD (not SET) —
+        // setControllerDirectory() wipes the whole module->dir map first, which would
+        // erase every app module the frontController.moduleDirectory scan registered.
+        $front->addControllerDirectory(TIGER_CORE_PATH . '/core/controllers', 'default');
 
         // First-party core modules (if any ship in the package):
         if (is_dir(TIGER_CORE_PATH . '/modules')) {
