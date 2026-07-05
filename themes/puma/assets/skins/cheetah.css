@@ -1,0 +1,20 @@
+/* Skin: Cheetah — teal.
+ * Same PUMA theme, different brand. Flip `tiger.skin = "cheetah"` and the navbar,
+ * buttons, links and accents recolor — zero rebuild. */
+:root {
+    --bs-primary: #0d9488;
+    --bs-primary-rgb: 13, 148, 136;
+    --bs-link-color: #0d9488;
+    --bs-link-color-rgb: 13, 148, 136;
+    --bs-link-hover-color: #0b7f75;
+    --bs-border-radius: .5rem;
+}
+
+.btn-primary {
+    --bs-btn-bg: #0d9488;
+    --bs-btn-border-color: #0d9488;
+    --bs-btn-hover-bg: #0b7f75;
+    --bs-btn-hover-border-color: #0a6e66;
+    --bs-btn-active-bg: #0a6e66;
+    --bs-btn-active-border-color: #095f58;
+}

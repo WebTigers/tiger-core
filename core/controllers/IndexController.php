@@ -10,20 +10,10 @@ class IndexController extends Zend_Controller_Action
 {
     public function indexAction()
     {
-        $this->_helper->viewRenderer->setNoRender(true);
-        $this->getResponse()->setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-        $lines = [
-            'Hello from Tiger Core.',
-            '',
-            'Served by : ' . __FILE__,
-            'Tiger Core: ' . Tiger_Version::VERSION,
-            'ZF engine : ' . Zend_Version::VERSION,
-            'PHP       : ' . PHP_VERSION,
-            '',
-            'This controller ships in vendor/webtigers/tiger-core — the app dir was never touched.',
-            'Core CSS asset (via the public/_tiger symlink): /_tiger/css/tiger.css',
-        ];
-        $this->getResponse()->setBody(implode("\n", $lines) . "\n");
+        // Rendered via index/index.phtml, wrapped in the active theme's layout.
+        // The app Bootstrap already put theme/skin/themeAssets on the view.
+        $this->view->servedBy     = __FILE__;
+        $this->view->tigerVersion = Tiger_Version::VERSION;
+        $this->view->zendVersion  = Zend_Version::VERSION;
     }
 }

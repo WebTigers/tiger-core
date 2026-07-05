@@ -1,0 +1,21 @@
+/* Skin: Jaguar — Tiger orange.
+ * Pure CSS-variable overrides of PUMA's default.css. No build step.
+ * :root recolors bg-/text-/border-primary + links; the .btn-primary block
+ * retints buttons (Bootstrap buttons carry their own --bs-btn-* component vars). */
+:root {
+    --bs-primary: #c8641e;
+    --bs-primary-rgb: 200, 100, 30;
+    --bs-link-color: #c8641e;
+    --bs-link-color-rgb: 200, 100, 30;
+    --bs-link-hover-color: #9e4d15;
+    --bs-border-radius: .5rem;
+}
+
+.btn-primary {
+    --bs-btn-bg: #c8641e;
+    --bs-btn-border-color: #c8641e;
+    --bs-btn-hover-bg: #9e4d15;
+    --bs-btn-hover-border-color: #8a4312;
+    --bs-btn-active-bg: #8a4312;
+    --bs-btn-active-border-color: #7a3b10;
+}

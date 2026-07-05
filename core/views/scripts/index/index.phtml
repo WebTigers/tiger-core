@@ -1,0 +1,44 @@
+<?php $this->title = 'Tiger — PUMA'; ?>
+<nav class="navbar bg-primary" data-bs-theme="dark">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1">🐯 Tiger</span>
+        <span class="navbar-text">
+            theme: <strong><?= $this->escape($this->theme) ?></strong>
+            &middot; skin: <strong><?= $this->escape($this->skin) ?></strong>
+        </span>
+    </div>
+</nav>
+
+<main class="container tiger-hero">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="card-title h3 mb-3">Hello from Tiger Core.</h1>
+                    <p class="text-secondary">
+                        Server-rendered by Core, wrapped in the <strong>PUMA</strong> theme,
+                        painted by the <strong><?= $this->escape($this->skin) ?></strong> skin —
+                        no build step, every asset vendored.
+                    </p>
+
+                    <dl class="row small mb-4">
+                        <dt class="col-sm-3">Served by</dt>
+                        <dd class="col-sm-9"><code><?= $this->escape($this->servedBy) ?></code></dd>
+                        <dt class="col-sm-3">Tiger Core</dt>
+                        <dd class="col-sm-9"><?= $this->escape($this->tigerVersion) ?></dd>
+                        <dt class="col-sm-3">ZF engine</dt>
+                        <dd class="col-sm-9"><?= $this->escape($this->zendVersion) ?></dd>
+                        <dt class="col-sm-3">PHP</dt>
+                        <dd class="col-sm-9"><?= $this->escape(PHP_VERSION) ?></dd>
+                    </dl>
+
+                    <button class="btn btn-primary">Primary button</button>
+                    <a href="#" class="btn btn-link">A themed link</a>
+                </div>
+            </div>
+            <p class="text-center mt-4 text-secondary small">
+                Flip <code>tiger.skin</code> in <code>application.ini</code> to reskin — zero rebuild.
+            </p>
+        </div>
+    </div>
+</main>

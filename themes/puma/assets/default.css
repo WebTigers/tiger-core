@@ -1,0 +1,12 @@
+/* PUMA base — puma's own defaults layered on Bootstrap.
+ * Skins (assets/skins/*.css) override THIS file, not Bootstrap directly. */
+:root {
+    --bs-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.tiger-hero { padding: 4rem 0; }
+
+footer.tiger-foot {
+    color: var(--bs-secondary-color);
+    padding: 2rem 0;
+}

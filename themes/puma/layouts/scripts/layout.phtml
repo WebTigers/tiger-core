@@ -1,0 +1,28 @@
+<?php
+/**
+ * PUMA layout — the page chrome.
+ *
+ * CSS load order (cascade, last wins): bootstrap → default → active skin.
+ * Asset base `$this->themeAssets` (default: /_theme) is the docroot symlink to this
+ * theme's assets/ dir. Theme + skin are chosen by the app Bootstrap (config now,
+ * per-org later).
+ */
+?><!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= $this->escape($this->title ?? 'Tiger') ?></title>
+
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/default.css">
+<?php if (!empty($this->skin)): ?>
+    <link rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
+<?php endif; ?>
+</head>
+<body>
+<?= $this->layout()->content ?>
+
+<script src="<?= $this->themeAssets ?>/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
