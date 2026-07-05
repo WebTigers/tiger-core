@@ -32,6 +32,29 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Register the TIGER /api gateway routes: the bare `/api` (POST body carries
+     * module/service/method — the primary form all JS clients use) and the URL
+     * form `/api/:module/:service/:action` (svc_* params so they don't collide
+     * with ZF1's reserved :module/:controller/:action). Both dispatch to the
+     * default-namespace ApiController, which hands off to Tiger_Ajax_ServiceFactory.
+     */
+    protected function _initApiRoutes()
+    {
+        $this->bootstrap('frontController');
+        $router = $this->getResource('frontController')->getRouter();
+
+        $target = array('module' => 'default', 'controller' => 'api', 'action' => 'index');
+
+        // Bare /api (POST body form) — the primary TIGER message endpoint.
+        $router->addRoute('tiger_api_root', new Zend_Controller_Router_Route('api', $target));
+
+        // URL form /api/:module/:service/:action (secondary convenience form).
+        $router->addRoute('tiger_api', new Zend_Controller_Router_Route(
+            'api/:svc_module/:svc_service/:svc_action', $target
+        ));
+    }
+
+    /**
      * Theme as a path (AskLevi-style, generalized). Active theme + skin resolve
      * from config now; per-org via the DB layer later. Layout comes from the
      * active theme; view script paths cascade Core -> theme -> app. No
