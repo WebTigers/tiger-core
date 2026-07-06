@@ -9,6 +9,20 @@ working to-do, not a changelog (git history is the changelog).
 
 ## Features (planned)
 
+- **Core CMS module** *(building this week)* — a first-party module for DB-driven page content,
+  so anyone can build a module that renders pages. The vision: a better-architected WordPress.
+  - **`page` table** holds **layouts, partials, and pages** (a `type` column) — plus slug/route,
+    title, body/template, a layout reference, status, and the standard columns. Multi-tenant
+    (per-org) and i18n-aware where it fits; live-editable via the DB-override pattern.
+  - **Non-file rendering** — `Zend_View::render()` takes a script *file*; DB-stored templates
+    need string / non-file rendering. Add that capability (likely a `Tiger_View` extension, or a
+    `Zend_View` enhancement in TigerZF since it's generic engine behavior). Cache compiled output.
+  - **Security (the WordPress footgun)** — DB templates are code. Restrict authoring to trusted
+    admins and/or use a safe, limited template syntax (never raw `eval` of arbitrary PHP). Design
+    this in from the start, not after.
+  - **Extensible** — modules register renderable content/types, so the CMS is a rendering
+    *substrate*, not a monolith.
+
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
 - **User prefs service** (`core/user/setprefs`) — `tiger.prefs.js` posts theme/skin/lang
