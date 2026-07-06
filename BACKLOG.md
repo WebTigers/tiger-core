@@ -28,6 +28,17 @@ working to-do, not a changelog (git history is the changelog).
   - **Extensible** — modules register renderable content/types, so the CMS is a rendering
     *substrate*, not a monolith.
 
+- **Billing module — installable, Stripe-only** — a reusable **app-level module** (NOT core;
+  billing is a module like Account) that interfaces **Stripe exclusively** (deliberate: no
+  multi-processor abstraction — "no one uses the others"). Scope (TBD, but roughly): a Stripe
+  customer per **org** (ties to the tenant substrate), plans/prices, subscriptions, Checkout +
+  Customer Portal, and a webhook endpoint (Stripe events → local state). Declares its own
+  `stripe/stripe-php` dependency. Underpins the hosted/marketplace/SaaS business paths.
+- **Marketplace module — app-level, PRIVATE (WebTigers-only)** — an INTERNAL module (NOT
+  shipped/installable; only our own apps use it), functionality TBD, that works **with the Billing
+  module** (transactions settled through Stripe). Likely the themes/modules/apps marketplace of the
+  "ecosystem" business path. Keep private for now.
+
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
 - **User prefs service** (`core/user/setprefs`) — `tiger.prefs.js` posts theme/skin/lang
