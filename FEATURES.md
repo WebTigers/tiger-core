@@ -18,6 +18,21 @@ plus a skeleton (`webtigers/tiger`, created once with `composer create-project`)
   IPs, and redirects are correct behind an ALB or reverse proxy.
 - **App entry hook.** An optional `custom.php` runs early and survives framework updates.
 
+## Front-end agnostic
+
+Tiger imposes no front-end framework. The core ships none, and the same backend supports
+whatever you want to build against it:
+
+- **Server-rendered** `.phtml` + progressive JavaScript — the default, and what the PUMA theme
+  uses (Bootstrap, no build step).
+- **SPA** — React, Vue, Svelte, or anything else — talking to the JSON `/api` message endpoint.
+- **Any client** — a mobile app, htmx, or a CLI — the `/api` contract is plain JSON.
+
+Rendering is a *theme* concern, not a platform one: a theme can ship server-rendered views, a
+built SPA bundle, or both. The `/api` message pattern is the single stable contract every
+front-end consumes, so your choice of UI stack (or lack of one) is never dictated by the
+framework.
+
 ## Multi-tenancy
 
 - **Org / User / membership model.** `org` (self-referential `parent_org_id` for sub-tenants),
