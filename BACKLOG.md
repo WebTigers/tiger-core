@@ -62,17 +62,33 @@ working to-do, not a changelog (git history is the changelog).
   1. **ADD** (most plugins) — just *be* a module (auto-discovery; zero registration).
   2. **REGISTER** — typed registries per surface (have: `Tiger_Cms_Renderer::registerShortcode`;
      later: admin nav items, dashboard widgets, settings panels).
-  3. **REACT** — one small **`Tiger_Event`** bus: semantic, **namespaced**, **declared** events
-     (~30–50 core, *ever*), documented like ACL resources / translation keys. `on()`/`emit()`
-     (action) + a `filter()` variant (value transform, used sparingly). Modules fire their own
-     namespaced events (`billing.*`).
+  3. **REACT** — one small **`Tiger_Event`** facade over ZF1's **`Zend_EventManager`** (already in
+     TigerZF — don't build a bus from scratch): `on($e,$cb,$pri=1)`→`attach`, `emit($e,$target,$params)`→
+     `trigger` (action), `filter($e,$value,$ctx)`→`trigger` + `ResponseCollection::last()` (value
+     transform, used sparingly). Semantic, **namespaced**, **declared** events (~30–50 core, *ever*),
+     documented like ACL resources / translation keys; modules fire their own (`billing.*`).
+     Declarative subscriptions (module config) are `attach`ed at bootstrap.
   4. **MODIFY** — service polymorphism (`App_Service_Base extends Tiger_Service_Service`), not filters.
   Lifecycle = the Module Manager registry. **KEY WIN: subscriptions are DECLARATIVE** (in module
   config, like `acl.ini`/`routes.ini`) → the Module Manager/Marketplace shows exactly what a module
   hooks/routes/requests BEFORE install = inspectable + auditable (WP can't).
-  **Seed core events (first dozen):** `user.created` · `auth.login` · `auth.login_failed` ·
-  `auth.locked` · `password.changed` · `org.created` · `org.member_added` · `org.member_role_changed`
-  · `page.saved` · `page.published` · `module.activated` · `module.deactivated`.
+  **Seed core events (first dozen)** — all *actions* (notify + side-effect); rare value-transforms go
+  in a tiny separate `filter:` set (`filter: page.body`, `filter: mail.message`):
+
+  | Event | Fired when / by | Payload | Subscribers (examples) |
+  |---|---|---|---|
+  | `user.created` | new identity (Tiger_Install / signup) | user_id, email | welcome email, provisioning |
+  | `auth.login` | sign-in succeeds (Tiger_Service_Authentication) | user_id, org_id, ip | last-seen, audit |
+  | `auth.login_failed` | a sign-in fails | identifier, ip, reason | brute-force/rate-limit, alerting |
+  | `auth.locked` | account locked after N failures | user_id, until | security alert |
+  | `password.changed` | password credential (re)set | user_id | notify, invalidate other sessions |
+  | `org.created` | new tenant/org | org_id, created_by | **provision Stripe customer**, seed defaults |
+  | `org.member_added` | user joins an org (org_user) | org_id, user_id, role | onboarding, **seat billing** |
+  | `org.member_role_changed` | membership role change | org_id, user_id, from, to | access review, audit |
+  | `page.saved` | CMS page saved (Page::save) | page_id, status, version | search reindex, cache bust |
+  | `page.published` | page goes live | page_id, slug, locale | sitemap, notifications |
+  | `module.activated` | Module Manager activate | module, version | cross-module wiring |
+  | `module.deactivated` | Module Manager deactivate | module | cleanup |
 
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
