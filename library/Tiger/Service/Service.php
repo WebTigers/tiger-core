@@ -45,7 +45,7 @@ abstract class Tiger_Service_Service
     /** @var string|null current org id (the tenant the identity is acting in) */
     protected $_org_id = null;
 
-    public function __construct(array $params = array())
+    public function __construct(array $params = [])
     {
         $this->_response = new Tiger_Model_ResponseObject();
 
@@ -96,7 +96,7 @@ abstract class Tiger_Service_Service
         // Only real, callable methods dispatch. (The '_' guard below keeps the
         // message from reaching protected/internal helpers named like actions.)
         if ($action === '' || $action[0] === '_'
-            || !method_exists($this, $action) || !is_callable(array($this, $action))) {
+            || !method_exists($this, $action) || !is_callable([$this, $action])) {
             $this->_error('api.error.invalid_action');
             return;
         }
@@ -160,6 +160,56 @@ abstract class Tiger_Service_Service
             return false;   // an ungoverned resource can't grant access
         }
         return $acl->isAllowed($role, $resource, $privilege);
+    }
+
+    // ----- data / transactions ----------------------------------------------
+
+    /** The default DB adapter, or a clear failure if none is configured. */
+    protected function _db()
+    {
+        $db = Zend_Db_Table_Abstract::getDefaultAdapter();
+        if (!$db) {
+            throw new RuntimeException('No database adapter is configured.');
+        }
+        return $db;
+    }
+
+    /**
+     * Run $work inside a DB transaction: begin -> $work($db) -> commit. Any
+     * throwable rolls back and re-throws, so the caller's catch turns it into an
+     * error response. This is the canonical Tiger service flow — validate a form
+     * FIRST, then wrap the mutation:
+     *
+     *   public function create(array $params): void
+     *   {
+     *       $form = new Some_Form();
+     *       if (!$form->isValid($params)) { $this->_formErrors($form); return; }   // isValidPartial() for PATCH
+     *       try {
+     *           $id = $this->_transaction(function ($db) use ($params) {
+     *               // ... inserts/updates; throw to abort + roll back ...
+     *               return $newId;
+     *           });
+     *           $this->_success(['id' => $id], 'some.success');
+     *       } catch (Throwable $e) {
+     *           $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'api.error.general');
+     *       }
+     *   }
+     *
+     * @param  callable $work receives the adapter; its return value is passed back
+     * @return mixed
+     */
+    protected function _transaction(callable $work)
+    {
+        $db = $this->_db();
+        $db->beginTransaction();
+        try {
+            $result = $work($db);
+            $db->commit();
+            return $result;
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 
     // -------------------------------------------------------------------------

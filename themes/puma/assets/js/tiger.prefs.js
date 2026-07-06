@@ -59,6 +59,7 @@
             e.preventDefault();
             var l = lang.getAttribute('data-lang');
             setCookie('locale', l);
+            try { localStorage.setItem('tiger_locale', l); } catch (e2) {}
             persist({ lang: l });
             window.location.reload();   // server re-renders the page in the new locale
             return;
@@ -108,6 +109,13 @@
         var aside = e.target.closest('[data-tiger-toggle="aside"]');
         if (aside) { e.preventDefault(); root.classList.toggle('aside-open'); }
     });
+
+    // Keep localStorage in step with the server-resolved `locale` cookie — e.g. after
+    // a /xx/ URL visit set the cookie server-side. The cookie is the source of truth.
+    try {
+        var lm = document.cookie.match(/(?:^|;\s*)locale=([^;]+)/);
+        if (lm) { localStorage.setItem('tiger_locale', decodeURIComponent(lm[1])); }
+    } catch (e4) {}
 
     // Keep 'browser' mode following the OS while the page is open.
     if (window.matchMedia) {

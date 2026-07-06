@@ -45,7 +45,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $this->bootstrap('frontController');
         $router = $this->getResource('frontController')->getRouter();
 
-        $target = array('module' => 'default', 'controller' => 'api', 'action' => 'index');
+        $target = ['module' => 'default', 'controller' => 'api', 'action' => 'index'];
 
         // Bare /api (POST body form) — the primary TIGER message endpoint.
         $router->addRoute('tiger_api_root', new Zend_Controller_Router_Route('api', $target));
@@ -70,6 +70,28 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         Zend_Registry::set('Zend_Acl', new Tiger_Acl_Acl());
         $this->getResource('frontController')
              ->registerPlugin(new Tiger_Controller_Plugin_Authorization());
+    }
+
+    /**
+     * I18N: register the locale plugin — semantic /xx/ URLs + per-request language
+     * resolution (URL prefix > cookie > browser > default). Supported languages and
+     * the default come from config (tiger.i18n.*, language-only per convention). It
+     * runs at routeStartup (before dispatch), so LANG is defined for every view and
+     * the /xx/ segment is stripped before authorization resolves the resource.
+     */
+    protected function _initLocale()
+    {
+        $this->bootstrap('frontController');
+
+        $tiger     = (array) $this->getOption('tiger');
+        $i18n      = (array) ($tiger['i18n'] ?? []);
+        $supported = !empty($i18n['locales'])
+            ? array_values(array_filter(array_map('trim', explode(',', (string) $i18n['locales']))))
+            : ['en'];
+        $default   = !empty($i18n['default']) ? (string) $i18n['default'] : $supported[0];
+
+        $this->getResource('frontController')
+             ->registerPlugin(new Tiger_Controller_Plugin_LocalePrefix($supported, $default));
     }
 
     /**
@@ -100,8 +122,8 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         // Available skins = the CSS files on disk. The active skin may be overridden
         // per-request by the `tiger_skin` cookie (the skin switcher) — validated
         // against the file list, so the cookie can never point outside the skins dir.
-        $availableSkins = array();
-        foreach (glob($themeDir . '/assets/skins/*.css') ?: array() as $skinFile) {
+        $availableSkins = [];
+        foreach (glob($themeDir . '/assets/skins/*.css') ?: [] as $skinFile) {
             $availableSkins[] = basename($skinFile, '.css');
         }
         sort($availableSkins);
@@ -135,10 +157,10 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
 
         // Layout from the active theme:
         if (is_dir($themeDir . '/layouts/scripts')) {
-            $layout = Zend_Layout::startMvc(array(
+            $layout = Zend_Layout::startMvc([
                 'layoutPath' => $themeDir . '/layouts/scripts',
                 'layout'     => 'layout',
-            ));
+            ]);
             $layout->setView($view);
         }
 
@@ -167,8 +189,8 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
      */
     protected function _initDb()
     {
-        $opts = $this->getOption('tiger') ?: array();
-        $db   = isset($opts['db']) ? (array) $opts['db'] : array();
+        $opts = $this->getOption('tiger') ?: [];
+        $db   = isset($opts['db']) ? (array) $opts['db'] : [];
 
         if (empty($db['host']) || empty($db['dbname'])) {
             return null;   // no DB configured — boot without one
@@ -180,13 +202,13 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
 
         $adapter = Zend_Db::factory(
             isset($db['adapter']) ? $db['adapter'] : 'Pdo_Mysql',
-            array(
+            [
                 'host'     => $db['host'],
                 'dbname'   => $db['dbname'],
                 'username' => isset($db['username']) ? $db['username'] : '',
                 'password' => isset($db['password']) ? $db['password'] : '',
                 'charset'  => isset($db['charset']) ? $db['charset'] : 'utf8mb4',
-            )
+            ]
         );
 
         // Make it the default for every Tiger_Model_Table, and expose it in the registry.
@@ -205,15 +227,15 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     protected function _resolveDbSecret($secretId, array $opts)
     {
         $region = isset($opts['aws']['region']) ? $opts['aws']['region'] : 'us-east-1';
-        $client = new Aws\SecretsManager\SecretsManagerClient(array(
+        $client = new Aws\SecretsManager\SecretsManagerClient([
             'version' => '2017-10-17',
             'region'  => $region,
-        ));
-        $result = $client->getSecretValue(array('SecretId' => $secretId));
-        $secret = json_decode((string) $result['SecretString'], true) ?: array();
+        ]);
+        $result = $client->getSecretValue(['SecretId' => $secretId]);
+        $secret = json_decode((string) $result['SecretString'], true) ?: [];
 
-        $creds = array();
-        foreach (array('host', 'username', 'password', 'dbname') as $key) {
+        $creds = [];
+        foreach (['host', 'username', 'password', 'dbname'] as $key) {
             if (isset($secret[$key])) {
                 $creds[$key] = $secret[$key];
             }
@@ -238,7 +260,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     {
         $this->bootstrap('db');
 
-        $opts    = $this->getOption('tiger') ?: array();
+        $opts    = $this->getOption('tiger') ?: [];
         $adapter = Zend_Db_Table_Abstract::getDefaultAdapter();
         $prefer  = isset($opts['session']['handler']) ? $opts['session']['handler'] : ($adapter ? 'db' : 'files');
 
@@ -248,13 +270,13 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         }
         if ($useDb) {
             try {
-                Zend_Session::setSaveHandler(new Tiger_Session_SaveHandler_DbTable(array(
+                Zend_Session::setSaveHandler(new Tiger_Session_SaveHandler_DbTable([
                     'name'           => 'session',
                     'primary'        => 'session_id',
                     'modifiedColumn' => 'modified',
                     'dataColumn'     => 'data',
                     'lifetimeColumn' => 'lifetime',
-                )));
+                ]));
             } catch (Throwable $e) {
                 error_log('Tiger session: DB handler failed, using files — ' . $e->getMessage());
             }
@@ -312,7 +334,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         while (count($parts) > 1) {
             $part = array_shift($parts);
             if (!isset($node->{$part}) || !($node->{$part} instanceof Zend_Config)) {
-                $node->{$part} = array();   // Zend_Config wraps to a nested modifiable node
+                $node->{$part} = [];   // Zend_Config wraps to a nested modifiable node
             }
             $node = $node->{$part};
         }

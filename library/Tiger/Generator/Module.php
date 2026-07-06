@@ -35,10 +35,10 @@ class Tiger_Generator_Module
             throw new RuntimeException("Module '{$name}' already exists at {$dir}.");
         }
 
-        $created = array();
+        $created = [];
         foreach (self::_templates() as $rel => $template) {
             $path    = $dir . '/' . $rel;
-            $content = str_replace(array('{{name}}', '{{Name}}'), array($name, $Name), $template);
+            $content = str_replace(['{{name}}', '{{Name}}'], [$name, $Name], $template);
             if (!is_dir(dirname($path))) {
                 mkdir(dirname($path), 0775, true);
             }
@@ -100,7 +100,7 @@ class {{Name}}_Service_Example extends Tiger_Service_Service
 {
     public function ping(array $params)
     {
-        $this->_success(array('pong' => true, 'module' => '{{name}}'));
+        $this->_success(['pong' => true, 'module' => '{{name}}']);
     }
 }
 
@@ -177,7 +177,7 @@ INI;
 
 INI;
 
-        return array(
+        return [
             'Bootstrap.php'                     => $bootstrap,
             'controllers/IndexController.php'   => $controller,
             'services/Example.php'              => $service,
@@ -187,6 +187,6 @@ INI;
             'configs/routes.ini'                => $routesIni,
             'models/.gitkeep'                   => '',
             'migrations/.gitkeep'               => '',
-        );
+        ];
     }
 }
