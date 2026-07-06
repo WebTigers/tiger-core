@@ -11,9 +11,14 @@ working to-do, not a changelog (git history is the changelog).
 
 - **Core CMS module** *(building this week)* — a first-party module for DB-driven page content,
   so anyone can build a module that renders pages. The vision: a better-architected WordPress.
-  - **`page` table** holds **layouts, partials, and pages** (a `type` column) — plus slug/route,
-    title, body/template, a layout reference, status, and the standard columns. Multi-tenant
-    (per-org) and i18n-aware where it fits; live-editable via the DB-override pattern.
+  - **✅ Data layer built** — `page` / `page_version` / `page_redirect` (migrations 0014-0016) +
+    `Tiger_Model_Page` (org-cascade resolve + publish/schedule gate). Decisions locked: page|layout|
+    partial in one table, `org_id` cascade ('' = global, tenant wins), formats html/markdown/phtml
+    (phtml = trusted-only), versioning from day 1, future `published_at` = scheduled, theme-agnostic.
+  - **Renderer + CMS service** — render `body` by `format` (html/markdown/phtml) with a view
+    context; a `[shortcode]` processor for dynamic bits in html/markdown; version-on-save.
+  - **Page dispatcher** — resolve slug → render (org + locale cascade), 301 via `page_redirect` on
+    a miss. Plus the admin UI to author pages/layouts/partials.
   - **Non-file rendering — goes in `Zend_View` (TigerZF).** DECIDED: `Zend_View::render()` takes
     a script *file* only, which is a severe limitation; add string / non-file (DB-template)
     rendering directly to `Zend_View` in the engine — it's generic behavior that benefits any ZF1
