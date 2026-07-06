@@ -56,6 +56,24 @@ working to-do, not a changelog (git history is the changelog).
   - Ties into the migrator (run a module's OWN migrations on activate) and `bin/tiger`
     (`module:install|activate|deactivate|list`).
 
+- **Extension model — how modules extend Tiger (the anti-WP-hooks design; decide before the admin UI).**
+  NOT WP's ~2,000 stringly-typed hooks (WP needs them because it's procedural). Four typed mechanisms
+  + lifecycle:
+  1. **ADD** (most plugins) — just *be* a module (auto-discovery; zero registration).
+  2. **REGISTER** — typed registries per surface (have: `Tiger_Cms_Renderer::registerShortcode`;
+     later: admin nav items, dashboard widgets, settings panels).
+  3. **REACT** — one small **`Tiger_Event`** bus: semantic, **namespaced**, **declared** events
+     (~30–50 core, *ever*), documented like ACL resources / translation keys. `on()`/`emit()`
+     (action) + a `filter()` variant (value transform, used sparingly). Modules fire their own
+     namespaced events (`billing.*`).
+  4. **MODIFY** — service polymorphism (`App_Service_Base extends Tiger_Service_Service`), not filters.
+  Lifecycle = the Module Manager registry. **KEY WIN: subscriptions are DECLARATIVE** (in module
+  config, like `acl.ini`/`routes.ini`) → the Module Manager/Marketplace shows exactly what a module
+  hooks/routes/requests BEFORE install = inspectable + auditable (WP can't).
+  **Seed core events (first dozen):** `user.created` · `auth.login` · `auth.login_failed` ·
+  `auth.locked` · `password.changed` · `org.created` · `org.member_added` · `org.member_role_changed`
+  · `page.saved` · `page.published` · `module.activated` · `module.deactivated`.
+
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
 - **User prefs service** (`core/user/setprefs`) — `tiger.prefs.js` posts theme/skin/lang
