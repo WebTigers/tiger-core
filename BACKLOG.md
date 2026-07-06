@@ -25,8 +25,6 @@ working to-do, not a changelog (git history is the changelog).
 
 - **Error pages not i18n-keyed** — `core/views/scripts/error/error.phtml` uses literal English;
   key it to `core.error.*` (the keys are already seeded in `core/languages/`).
-- **Admin shell CDN assets** — Font Awesome + Google Fonts load from a CDN in the admin layout;
-  vendor them for production/offline use.
 - **Packagist webhooks** — only TigerZF has its per-repo Packagist auto-update hook; add one
   for TigerCore + Tiger before their first tagged release (or install the org-wide Packagist
   GitHub App).
