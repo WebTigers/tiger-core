@@ -9,8 +9,6 @@ working to-do, not a changelog (git history is the changelog).
 
 ## Features (planned)
 
-- **Public site header + landing** — the public side currently has only the floating skin
-  switcher; it needs real chrome (header/nav) and a landing page. (Theme-level.)
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
 - **User prefs service** (`core/user/setprefs`) — `tiger.prefs.js` posts theme/skin/lang

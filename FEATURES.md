@@ -128,6 +128,8 @@ framework.
   and no-flash resolution.
 - **Admin shell** — fixed header (search, notifications, language/theme/skin switchers, user
   menu), collapsible sidebar with ACL-aware nav, and an optional right aside.
+- **Public site chrome** — a responsive header/nav + footer and a starter landing page ship in
+  the PUMA theme, ready to customize (the switchers restyle the page live).
 - **Theme vs skin split** — theme = structure/layout; skin = CSS-only look; both resolve
   per request and can vary per org.
 
