@@ -15,10 +15,11 @@ working to-do, not a changelog (git history is the changelog).
     `Tiger_Model_Page` (org-cascade resolve + publish/schedule gate). Decisions locked: page|layout|
     partial in one table, `org_id` cascade ('' = global, tenant wins), formats html/markdown/phtml
     (phtml = trusted-only), versioning from day 1, future `published_at` = scheduled, theme-agnostic.
-  - **Renderer + CMS service** — render `body` by `format` (html/markdown/phtml) with a view
-    context; a `[shortcode]` processor for dynamic bits in html/markdown; version-on-save.
-  - **Page dispatcher** — resolve slug → render (org + locale cascade), 301 via `page_redirect` on
-    a miss. Plus the admin UI to author pages/layouts/partials.
+  - **✅ Renderer built** — `Tiger_Cms_Renderer` (html/markdown[Parsedown]/phtml[renderString] +
+    `[shortcode]` registry + layout wrap). Needs `Zend_View` string rendering (done: TigerZF 1.32.0).
+  - **Page dispatcher** — a default-namespace controller: resolve slug → render (org + locale
+    cascade), 301 via `page_redirect` on a miss. Plus **version-on-save** (→ `page_version`) and the
+    **admin UI** to author pages/layouts/partials.
   - **Non-file rendering — goes in `Zend_View` (TigerZF).** DECIDED: `Zend_View::render()` takes
     a script *file* only, which is a severe limitation; add string / non-file (DB-template)
     rendering directly to `Zend_View` in the engine — it's generic behavior that benefits any ZF1
