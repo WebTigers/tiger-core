@@ -34,10 +34,27 @@ working to-do, not a changelog (git history is the changelog).
   customer per **org** (ties to the tenant substrate), plans/prices, subscriptions, Checkout +
   Customer Portal, and a webhook endpoint (Stripe events → local state). Declares its own
   `stripe/stripe-php` dependency. Underpins the hosted/marketplace/SaaS business paths.
-- **Marketplace module — app-level, PRIVATE (WebTigers-only)** — an INTERNAL module (NOT
-  shipped/installable; only our own apps use it), functionality TBD, that works **with the Billing
-  module** (transactions settled through Stripe). Likely the themes/modules/apps marketplace of the
-  "ecosystem" business path. Keep private for now.
+- **Marketplace module — app-level, PRIVATE (WebTigers-only)** — the **catalog / storefront**: a
+  listing of installable plugins/modules (+ themes) browsable from within Tiger that feeds the core
+  **Module Manager** (below) for auto-install. Works **with the Billing module** (paid items settle
+  via Stripe). Private/internal (only our apps run the storefront); what it lists installs anywhere.
+  Curated — we vet everything listed.
+
+- **Core Module Manager — WordPress-style plugin lifecycle (CORE, Tiger-owned)** — find, install,
+  and manage marketplace modules from inside Tiger:
+  - **Find** (browse the Marketplace) → **Install** (download + verify + unzip the package into the
+    managed-modules dir) → **Activate** (run the module's IDEMPOTENT setup — its own migrations + an
+    `activate` hook) → **Deactivate** (teardown/disable; uninstall removes the files).
+  - **Module-aware = the safety guarantee:** tracks ONLY managed (marketplace-installed) modules in
+    a registry (a `module` table + per-module manifest) and **never touches developer-authored
+    custom modules** — the same ownership boundary as `vendor/` (managed vs custom = Tiger-owned vs
+    app-owned).
+  - **Security = the WordPress supply-chain footgun; design in from day 1:** curated + signed
+    packages from the trusted WebTigers marketplace ONLY, checksum verification, install gated to
+    superadmin/developer, explicit "activate runs code" trust boundary. Do NOT copy WP's
+    install-anything-from-anywhere model.
+  - Ties into the migrator (run a module's OWN migrations on activate) and `bin/tiger`
+    (`module:install|activate|deactivate|list`).
 
 - **SMS / OTP flow** — storage is built (`auth_challenge` + the `user_credential` `sms` factor);
   needs the send + verify actions wired.
