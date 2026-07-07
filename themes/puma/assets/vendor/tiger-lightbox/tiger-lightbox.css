@@ -1,0 +1,84 @@
+/*!
+ * TigerLightbox v1.0.0 — styles. MIT License.
+ * Theme via the --tlb-* custom properties (defaults below suit a dark overlay on any page).
+ */
+:root {
+    --tlb-bg: rgba(15, 17, 21, .92);
+    --tlb-fg: #fff;
+    --tlb-ctrl: rgba(255, 255, 255, .82);
+    --tlb-ctrl-hover: #fff;
+    --tlb-radius: 8px;
+    --tlb-z: 2000;
+    --tlb-max-w: 92vw;
+    --tlb-max-h: 82vh;
+}
+
+html.tlb-open { overflow: hidden; }
+
+.tlb {
+    position: fixed; inset: 0; z-index: var(--tlb-z);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .2s ease;
+}
+.tlb.tlb-in { opacity: 1; }
+.tlb[hidden] { display: none; }
+
+.tlb-backdrop {
+    position: absolute; inset: 0; background: var(--tlb-bg);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+
+.tlb-stage {
+    position: relative; z-index: 1; margin: 0;
+    display: flex; flex-direction: column; align-items: center;
+    max-width: var(--tlb-max-w); max-height: 88vh;
+}
+.tlb-media {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    min-width: 60px; min-height: 60px; max-width: var(--tlb-max-w); max-height: var(--tlb-max-h);
+}
+.tlb-el {
+    max-width: var(--tlb-max-w); max-height: var(--tlb-max-h);
+    border-radius: var(--tlb-radius); box-shadow: 0 12px 48px rgba(0, 0, 0, .5); background: #000;
+    display: block;
+}
+.tlb-frame { width: 90vw; height: var(--tlb-max-h); border: 0; background: #fff; }
+
+.tlb-caption {
+    margin-top: .8rem; max-width: 80vw; text-align: center; color: var(--tlb-fg);
+    font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+}
+.tlb-caption[hidden] { display: none; }
+
+.tlb-counter {
+    position: absolute; top: 1rem; left: 1.1rem; z-index: 2;
+    color: var(--tlb-fg); opacity: .78; font: 13px system-ui, sans-serif;
+}
+
+.tlb-btn {
+    position: absolute; z-index: 2; padding: .5rem; border: 0; background: none; cursor: pointer;
+    color: var(--tlb-ctrl); display: flex; transition: color .1s ease, transform .1s ease;
+}
+.tlb-btn:hover { color: var(--tlb-ctrl-hover); }
+.tlb-btn:active { transform: scale(.92); }
+.tlb-btn[hidden] { display: none; }
+.tlb-btn svg {
+    width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .6));
+}
+.tlb-close { top: .7rem; right: .7rem; }
+.tlb-prev { left: .4rem; top: 50%; transform: translateY(-50%); }
+.tlb-next { right: .4rem; top: 50%; transform: translateY(-50%); }
+.tlb-prev:active, .tlb-next:active { transform: translateY(-50%) scale(.92); }
+
+.tlb-media.tlb-loading::after {
+    content: ''; position: absolute; width: 38px; height: 38px;
+    border: 3px solid rgba(255, 255, 255, .25); border-top-color: #fff; border-radius: 50%;
+    animation: tlb-spin .8s linear infinite;
+}
+@keyframes tlb-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+    .tlb-btn svg { width: 26px; height: 26px; }
+    .tlb-frame { width: 96vw; }
+}

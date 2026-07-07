@@ -6,6 +6,9 @@
  * richer Isotope portfolio view + pdf.js previews + the picker are P3 (see MEDIA.md).
  */
 ?>
+<link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.css') ?>">
+<script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.js') ?>" defer></script>
+
 <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
         <h1 class="h3 mb-1">Media Library</h1>
@@ -70,7 +73,10 @@ document.addEventListener('DOMContentLoaded', function () {
     function icon(k){ return '<i class="fa-solid '+(KIND_ICON[k]||'fa-file')+'"></i>'; }
     function preview(row){
         if (row.kind === 'image' && row.thumb) {
-            return '<img src="'+esc(row.thumb)+'" alt="'+esc(row.alt_text||row.filename||'')+'" class="rounded" style="width:48px;height:48px;object-fit:cover;">';
+            // Thumbnail opens the fullsize (large variant) in TigerLightbox; all image rows
+            // on the page share the "media" group -> a navigable gallery.
+            return '<a href="'+esc(row.large||row.url)+'" data-tiger-lightbox="media" data-type="image" data-caption="'+esc(row.title||row.filename||'')+'">'
+                 + '<img src="'+esc(row.thumb)+'" alt="'+esc(row.alt_text||row.filename||'')+'" class="rounded" style="width:48px;height:48px;object-fit:cover;cursor:zoom-in;"></a>';
         }
         return '<span class="d-inline-flex align-items-center justify-content-center rounded bg-body-secondary text-body-secondary" style="width:48px;height:48px;">'+icon(row.kind)+'</span>';
     }
