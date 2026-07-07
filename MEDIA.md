@@ -122,7 +122,7 @@ webhook approves it.
    drag-drop uploader and a DataTables library. *(box prep: raise upload limits, install
    `php-gd`, create the storage roots + public symlink.)*
 2. **Image variants** — `Tiger_Media_Image` (GD) thumbnail/small/medium/large on upload.
-3. **Portfolio UI** — Isotope grid, size selector, fullsize modal, pdf.js preview, the picker.
+3. **Portfolio UI** — Portfolio grid (vanilla CSS grid, MIT-clean), size selector, fullsize modal, pdf.js preview, the picker.
 4. **Scanning** — `Tiger_Media_Scanner_*`: ClamAV, Rekognition image, then async video +
    the SNS webhook + the moderation queue.
 5. **Cloud storage** — the S3 adapter (SDK), then GCS/Azure.

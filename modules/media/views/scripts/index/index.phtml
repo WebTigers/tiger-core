@@ -1,15 +1,28 @@
 <?php
 /**
- * Media Library (admin shell). A drag-drop uploader (one XHR per file for real progress)
- * over a DataTables grid whose rows load from /api (Media_Service_Media::datatable). The
- * server renders only this shell; thumbnails/URLs + ACL flags come from the service. The
- * richer Isotope portfolio view + pdf.js previews + the picker are P3 (see MEDIA.md).
+ * Media Library (admin shell). A drag-drop uploader over two views of the same /api data
+ * (Media_Service_Media::datatable): a DataTables **List** and a vanilla CSS-grid
+ * **Portfolio** (no Isotope — MIT-clean, zero-dep). Shared search + type filter; the grid
+ * adds a size selector (thumbnail/small/medium/large) and opens images in TigerLightbox.
+ * The reusable picker + pdf.js previews are the remaining P3 pieces (see MEDIA.md).
  */
 ?>
 <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.css') ?>">
 <script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.js') ?>" defer></script>
+<style>
+#media-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--tile,168px), 1fr)); gap:.6rem; }
+.media-tile { position:relative; }
+.media-tile > a { display:block; aspect-ratio:1; border-radius:8px; overflow:hidden; background:var(--bs-secondary-bg); }
+.media-tile img { width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
+.media-tile-icon { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:.35rem; color:var(--bs-secondary-color); text-decoration:none; }
+.media-tile-icon i { font-size:1.7rem; }
+.media-tile-name { font-size:.74rem; margin-top:.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--bs-secondary-color); }
+.media-tile-del { position:absolute; top:.3rem; right:.3rem; width:22px; height:22px; line-height:20px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transition:opacity .1s; }
+.media-tile:hover .media-tile-del { opacity:1; }
+#media-list .dataTables_filter { display:none; }   /* the shared search drives it */
+</style>
 
-<div class="d-flex align-items-center justify-content-between mb-4">
+<div class="d-flex align-items-center justify-content-between mb-3">
     <div>
         <h1 class="h3 mb-1">Media Library</h1>
         <p class="text-body-secondary mb-0">Images, documents, PDFs, video, and archives — drag &amp; drop to upload.</p>
@@ -24,18 +37,19 @@
     </div>
 </div>
 
-<div id="media-drop" class="border border-2 border-dashed rounded p-4 text-center text-body-secondary mb-3" style="transition:background .1s;">
-    <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2 d-block"></i>
-    Drop files here to upload
+<div id="media-drop" class="border border-2 border-dashed rounded p-4 text-center text-body-secondary mb-3">
+    <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2 d-block"></i>Drop files here to upload
 </div>
 <div id="media-queue" class="mb-3"></div>
 
 <div class="card">
     <div class="card-header bg-transparent">
-        <div class="row g-2 align-items-end">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md">
+                <input type="search" id="media-search" class="form-control form-control-sm" placeholder="Search filename, title, caption…">
+            </div>
             <div class="col-auto">
-                <label class="form-label small text-body-secondary mb-1" for="media-filter-kind">Type</label>
-                <select id="media-filter-kind" class="form-select form-select-sm">
+                <select id="media-kind" class="form-select form-select-sm">
                     <option value="">All types</option>
                     <option value="image">Images</option>
                     <option value="pdf">PDFs</option>
@@ -45,75 +59,151 @@
                     <option value="archive">Archives</option>
                 </select>
             </div>
+            <div class="col-auto" id="media-size-wrap" hidden>
+                <select id="media-size" class="form-select form-select-sm" title="Tile size">
+                    <option value="thumbnail">Thumbnail</option>
+                    <option value="small" selected>Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <div class="btn-group btn-group-sm" role="group" aria-label="View">
+                    <button type="button" class="btn btn-outline-secondary active" id="media-view-list" title="List"><i class="fa-solid fa-list"></i></button>
+                    <button type="button" class="btn btn-outline-secondary" id="media-view-grid" title="Portfolio"><i class="fa-solid fa-table-cells"></i></button>
+                </div>
+            </div>
         </div>
     </div>
     <div class="card-body">
-        <div class="table-responsive">
+        <div id="media-list" class="table-responsive">
             <table id="media-table" class="table table-hover align-middle" style="width:100%;">
                 <thead><tr>
                     <th style="width:64px;" data-orderable="false"></th>
-                    <th>File</th>
-                    <th>Type</th>
-                    <th>Size</th>
-                    <th>Visibility</th>
+                    <th>File</th><th>Type</th><th>Size</th><th>Visibility</th>
                     <th class="text-end" data-orderable="false">Actions</th>
                 </tr></thead>
             </table>
+        </div>
+        <div id="media-grid-wrap" hidden>
+            <div id="media-grid"></div>
+            <div class="text-center mt-3">
+                <button type="button" id="media-more" class="btn btn-outline-secondary btn-sm" hidden>Load more</button>
+                <div id="media-grid-empty" class="text-body-secondary py-4" hidden>Nothing here yet.</div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-var MEDIA_CLIENT_THUMB = <?= !empty($this->clientThumb) ? 'true' : 'false' ?>;   // server has no GD -> browser makes the thumb
+var MEDIA_CLIENT_THUMB = <?= !empty($this->clientThumb) ? 'true' : 'false' ?>;
 var MEDIA_THUMB_PX     = <?= (int) ($this->thumbPx ?? 200) ?>;
 document.addEventListener('DOMContentLoaded', function () {
     var $ = jQuery, esc = tigerDataTable.esc;
     var KIND_ICON = { image:'fa-image', pdf:'fa-file-pdf', document:'fa-file-lines', video:'fa-film', audio:'fa-music', archive:'fa-file-zipper', other:'fa-file' };
+    var TILE_PX   = { thumbnail:120, small:168, medium:240, large:336 };
     function human(n){ n=+n||0; var u=['B','KB','MB','GB']; var i=0; while(n>=1024&&i<u.length-1){n/=1024;i++;} return (i?n.toFixed(1):n)+' '+u[i]; }
     function icon(k){ return '<i class="fa-solid '+(KIND_ICON[k]||'fa-file')+'"></i>'; }
-    function preview(row){
-        if (row.kind === 'image' && row.thumb) {
-            // Thumbnail opens the fullsize (large variant) in TigerLightbox; all image rows
-            // on the page share the "media" group -> a navigable gallery.
-            return '<a href="'+esc(row.large||row.url)+'" data-tiger-lightbox="media" data-type="image" data-caption="'+esc(row.title||row.filename||'')+'">'
-                 + '<img src="'+esc(row.thumb)+'" alt="'+esc(row.alt_text||row.filename||'')+'" class="rounded" style="width:48px;height:48px;object-fit:cover;cursor:zoom-in;"></a>';
-        }
-        return '<span class="d-inline-flex align-items-center justify-content-center rounded bg-body-secondary text-body-secondary" style="width:48px;height:48px;">'+icon(row.kind)+'</span>';
-    }
 
-    var fKind = document.getElementById('media-filter-kind');
+    var mode = 'list';
+    var searchEl = document.getElementById('media-search'), kindEl = document.getElementById('media-kind'),
+        sizeEl = document.getElementById('media-size'), grid = document.getElementById('media-grid');
+
+    // ---------- List (DataTables) ----------
+    function imgAnchor(row, imgSrc, cls){
+        return '<a href="'+esc(row.large||row.url)+'" data-tiger-lightbox="media" data-type="image" data-caption="'+esc(row.title||row.filename||'')+'">'
+             + '<img src="'+esc(imgSrc)+'" alt="'+esc(row.alt_text||row.filename||'')+'" '+cls+'></a>';
+    }
     var table = tigerDataTable('#media-table', {
         service: { module:'media', service:'media', action:'datatable' },
         order: [[1,'desc']],
-        language: { search:'', searchPlaceholder:'Search media…' },
-        extraData: function(){ return { kind: fKind.value }; },
+        extraData: function(){ return { kind: kindEl.value }; },
         columns: [
-            { data:null, orderable:false, className:'text-center', render:function(t,type,row){ return preview(row); } },
+            { data:null, orderable:false, className:'text-center', render:function(t,type,row){
+                if (row.kind==='image' && row.thumb) { return imgAnchor(row, row.thumb, 'class="rounded" style="width:48px;height:48px;object-fit:cover;cursor:zoom-in;"'); }
+                return '<span class="d-inline-flex align-items-center justify-content-center rounded bg-body-secondary text-body-secondary" style="width:48px;height:48px;">'+icon(row.kind)+'</span>'; } },
             { data:'filename', render:function(t,type,row){ if(type!=='display')return t;
-                var name = esc(row.filename||row.title||'(file)');
-                return '<div class="fw-semibold text-truncate" style="max-width:340px;">'+name+'</div>'
+                return '<div class="fw-semibold text-truncate" style="max-width:340px;">'+esc(row.filename||row.title||'(file)')+'</div>'
                      + (row.title && row.title!==row.filename ? '<div class="small text-body-secondary text-truncate" style="max-width:340px;">'+esc(row.title)+'</div>' : ''); } },
             { data:'kind', render:function(t,type){ return type!=='display'?t:'<span class="badge text-bg-light">'+icon(t)+' '+esc(t)+'</span>'; } },
             { data:'file_size', render:function(t,type){ return type!=='display'?t:human(t); } },
             { data:'visibility', render:function(t,type){ return type!=='display'?t:'<span class="badge text-bg-'+(t==='public'?'success':'secondary')+'">'+esc(t)+'</span>'; } },
             { data:null, orderable:false, searchable:false, className:'text-end text-nowrap', render:function(t,type,row){
                 var h = '<a href="'+esc(row.url)+'" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Open"><i class="fa-solid fa-up-right-from-square"></i></a> ';
-                h += row.can_delete
-                    ? '<button type="button" class="btn btn-sm btn-outline-danger" data-media-delete="'+esc(row.media_id)+'" title="Delete"><i class="fa-solid fa-trash"></i></button>'
-                    : '<button type="button" class="btn btn-sm btn-outline-danger" disabled><i class="fa-solid fa-trash"></i></button>';
+                h += row.can_delete ? '<button type="button" class="btn btn-sm btn-outline-danger" data-media-delete="'+esc(row.media_id)+'" title="Delete"><i class="fa-solid fa-trash"></i></button>'
+                                    : '<button type="button" class="btn btn-sm btn-outline-danger" disabled><i class="fa-solid fa-trash"></i></button>';
                 return h; } }
         ]
     });
 
-    fKind.addEventListener('change', function(){ table.ajax.reload(); });
-    $('#media-table tbody').on('click', '[data-media-delete]', function(){
+    // ---------- Grid (vanilla) ----------
+    var gRows = [], gOffset = 0, gTotal = 0, GLEN = 60, gBusy = false;
+    function variantSrc(row){ var m={thumbnail:'thumb',small:'small',medium:'medium',large:'large'}; return row[m[sizeEl.value]] || row.thumb || row.url; }
+    function tile(row){
+        var del = row.can_delete ? '<button class="media-tile-del" data-media-delete="'+esc(row.media_id)+'" title="Delete">&times;</button>' : '';
+        var name = '<div class="media-tile-name" title="'+esc(row.filename||'')+'">'+esc(row.title||row.filename||'')+'</div>';
+        if (row.kind==='image'){
+            return '<div class="media-tile" data-media-id="'+esc(row.media_id)+'">'
+                 + '<a href="'+esc(row.large||row.url)+'" data-tiger-lightbox="media" data-type="image" data-caption="'+esc(row.title||row.filename||'')+'">'
+                 + '<img src="'+esc(variantSrc(row))+'" loading="lazy" alt="'+esc(row.alt_text||row.filename||'')+'"></a>'+del+name+'</div>';
+        }
+        return '<div class="media-tile" data-media-id="'+esc(row.media_id)+'">'
+             + '<a href="'+esc(row.url)+'" target="_blank" rel="noopener" class="media-tile-icon">'+icon(row.kind)+'<span class="small text-uppercase">'+esc(row.extension||row.kind)+'</span></a>'+del+name+'</div>';
+    }
+    function renderGrid(){
+        grid.style.setProperty('--tile', (TILE_PX[sizeEl.value]||168)+'px');
+        grid.innerHTML = gRows.map(tile).join('');
+        document.getElementById('media-grid-empty').hidden = gRows.length > 0;
+        document.getElementById('media-more').hidden = gRows.length >= gTotal;
+    }
+    function gridFetch(reset){
+        if (gBusy) { return; }
+        gBusy = true;
+        if (reset) { gOffset = 0; gRows = []; }
+        var body = new URLSearchParams({ module:'media', service:'media', method:'datatable', draw:1, start:gOffset, length:GLEN });
+        body.set('search[value]', searchEl.value); body.set('kind', kindEl.value);
+        fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:body })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                gBusy = false;
+                if (!res || res.result!==1 || !res.data) { return; }
+                gTotal = res.data.recordsFiltered || 0;
+                gRows = gRows.concat(res.data.data || []);
+                gOffset = gRows.length;
+                renderGrid();
+            }).catch(function(){ gBusy = false; });
+    }
+    document.getElementById('media-more').addEventListener('click', function(){ gridFetch(false); });
+    sizeEl.addEventListener('change', renderGrid);   // variant + tile-size swap, no refetch
+
+    // ---------- shared toolbar + view toggle ----------
+    function refresh(){ if (mode==='grid') { gridFetch(true); } else { table.ajax.reload(null,false); } }
+    var t;
+    searchEl.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(function(){ if(mode==='grid') gridFetch(true); else table.search(searchEl.value).draw(); }, 250); });
+    kindEl.addEventListener('change', function(){ if(mode==='grid') gridFetch(true); else table.ajax.reload(); });
+
+    function setMode(m){
+        mode = m;
+        document.getElementById('media-list').hidden = (m==='grid');
+        document.getElementById('media-grid-wrap').hidden = (m!=='grid');
+        document.getElementById('media-size-wrap').hidden = (m!=='grid');
+        document.getElementById('media-view-list').classList.toggle('active', m==='list');
+        document.getElementById('media-view-grid').classList.toggle('active', m==='grid');
+        if (m==='grid') { gridFetch(true); }
+    }
+    document.getElementById('media-view-list').addEventListener('click', function(){ setMode('list'); });
+    document.getElementById('media-view-grid').addEventListener('click', function(){ setMode('grid'); });
+
+    // ---------- delete (delegated — works in both views) ----------
+    document.addEventListener('click', function(e){
+        var b = e.target.closest('[data-media-delete]');
+        if (!b) { return; }
         if (!confirm('Delete this file? The stored bytes are removed.')) { return; }
-        fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'},
-            body:new URLSearchParams({ module:'media', service:'media', method:'delete', media_id:this.getAttribute('data-media-delete') }) })
-            .then(function(){ table.ajax.reload(null,false); }).catch(function(){ table.ajax.reload(null,false); });
+        fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:new URLSearchParams({ module:'media', service:'media', method:'delete', media_id:b.getAttribute('data-media-delete') }) })
+            .then(function(){ refresh(); }).catch(function(){ refresh(); });
     });
 
-    // --- drag-drop upload (one XHR per file, real progress) ---
+    // ---------- drag-drop upload (one XHR per file, real progress) ----------
     var drop = document.getElementById('media-drop'), queue = document.getElementById('media-queue'), input = document.getElementById('media-input');
     document.getElementById('media-browse').addEventListener('click', function(){ input.click(); });
     input.addEventListener('change', function(){ upload(this.files); this.value=''; });
@@ -121,51 +211,37 @@ document.addEventListener('DOMContentLoaded', function () {
     ['dragleave','drop'].forEach(function(e){ drop.addEventListener(e, function(ev){ ev.preventDefault(); drop.classList.remove('bg-body-secondary'); }); });
     drop.addEventListener('drop', function(ev){ if(ev.dataTransfer&&ev.dataTransfer.files) upload(ev.dataTransfer.files); });
 
-    // Client-side thumbnail (canvas): only when the server can't (no GD). Contain, no crop.
     function makeThumb(file, maxEdge){
         return new Promise(function(resolve){
             if (!/^image\//.test(file.type) || /svg/.test(file.type)) { resolve(null); return; }
             var img = new Image(), url = URL.createObjectURL(file);
             img.onload = function(){
-                var s = Math.min(1, maxEdge / Math.max(img.width, img.height));   // never upscale
-                var w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
-                var c = document.createElement('canvas'); c.width = w; c.height = h;
-                c.getContext('2d').drawImage(img, 0, 0, w, h);
-                URL.revokeObjectURL(url);
-                c.toBlob(function(b){ resolve(b); }, 'image/jpeg', 0.9);
+                var s = Math.min(1, maxEdge/Math.max(img.width,img.height));
+                var w = Math.max(1,Math.round(img.width*s)), h = Math.max(1,Math.round(img.height*s));
+                var c = document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+                URL.revokeObjectURL(url); c.toBlob(function(b){ resolve(b); }, 'image/jpeg', 0.9);
             };
             img.onerror = function(){ URL.revokeObjectURL(url); resolve(null); };
             img.src = url;
         });
     }
-
     function send(file, thumbBlob, row, bar, pct){
         var fd = new FormData();
         fd.append('module','media'); fd.append('service','media'); fd.append('method','upload');
-        fd.append('visibility', document.getElementById('media-vis').value);
-        fd.append('file', file);
+        fd.append('visibility', document.getElementById('media-vis').value); fd.append('file', file);
         if (thumbBlob) { fd.append('thumbnail', thumbBlob, 'thumb.jpg'); }
-
         var xhr = new XMLHttpRequest();
-        xhr.open('POST','/api');
-        xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
+        xhr.open('POST','/api'); xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
         xhr.upload.onprogress = function(e){ if(e.lengthComputable){ var p=Math.round(e.loaded/e.total*100); bar.style.width=p+'%'; pct.textContent=p+'%'; } };
         xhr.onload = function(){
-            var res = {}; try { res = JSON.parse(xhr.responseText); } catch(e){}
-            if (res.result === 1) {
-                row.querySelector('.progress').classList.add('d-none'); pct.className='small text-success'; pct.textContent='Done';
-                bar.classList.add('bg-success'); setTimeout(function(){ row.remove(); }, 1500);
-                table.ajax.reload(null,false);
-            } else {
-                bar.classList.add('bg-danger'); pct.className='small text-danger'; pct.textContent='';
-                var msg = (res.messages && res.messages[0]) ? res.messages[0].message : 'Upload failed';
-                row.insertAdjacentHTML('beforeend','<span class="small text-danger ms-2">'+esc(msg)+'</span>');
-            }
+            var res={}; try{ res=JSON.parse(xhr.responseText); }catch(e){}
+            if (res.result===1){ row.querySelector('.progress').classList.add('d-none'); pct.className='small text-success'; pct.textContent='Done'; bar.classList.add('bg-success'); setTimeout(function(){ row.remove(); },1500); refresh(); }
+            else { bar.classList.add('bg-danger'); pct.className='small text-danger'; pct.textContent='';
+                var msg=(res.messages&&res.messages[0])?res.messages[0].message:'Upload failed'; row.insertAdjacentHTML('beforeend','<span class="small text-danger ms-2">'+esc(msg)+'</span>'); }
         };
         xhr.onerror = function(){ bar.classList.add('bg-danger'); pct.className='small text-danger'; pct.textContent='Error'; };
         xhr.send(fd);
     }
-
     function upload(files){
         Array.prototype.forEach.call(files, function(file){
             var row = document.createElement('div');
@@ -175,12 +251,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 + '<span class="small text-body-secondary" style="width:44px;text-align:right;">0%</span>';
             queue.appendChild(row);
             var bar = row.querySelector('.progress-bar'), pct = row.querySelector('.small');
-
-            if (MEDIA_CLIENT_THUMB) {
-                makeThumb(file, MEDIA_THUMB_PX).then(function(blob){ send(file, blob, row, bar, pct); });
-            } else {
-                send(file, null, row, bar, pct);
-            }
+            if (MEDIA_CLIENT_THUMB) { makeThumb(file, MEDIA_THUMB_PX).then(function(blob){ send(file, blob, row, bar, pct); }); }
+            else { send(file, null, row, bar, pct); }
         });
     }
 });

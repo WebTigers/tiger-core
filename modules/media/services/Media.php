@@ -264,7 +264,10 @@ class Media_Service_Media extends Tiger_Service_Service
             'scan_status'=> $m['scan_status'] ?? null,
             'url'        => $model->url($m),
             'thumb'      => $model->thumbUrl($m),
-            'large'      => $model->url($m, 'large'),   // lightbox source (falls back to original)
+            // Per-size sources (each falls back to the original when that variant wasn't made).
+            'small'      => $model->url($m, 'small'),
+            'medium'     => $model->url($m, 'medium'),
+            'large'      => $model->url($m, 'large'),   // also the lightbox source
         ];
     }
 
