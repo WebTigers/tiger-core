@@ -1,0 +1,87 @@
+<?php
+/**
+ * User editor — thin identity (email / username / status). ViewHelper-only form
+ * elements (the view owns markup). Saving is an /api call to Access_Service_User;
+ * the JSON response drives the redirect / inline errors.
+ */
+$form   = $this->form;
+$user   = $this->user;
+$isEdit = (bool) $user;
+$el = function ($name) use ($form) { return $form->getElement($name); };
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1"><?= $isEdit ? 'Edit User' : 'New User' ?></h1>
+        <p class="text-body-secondary mb-0"><a href="/access/user" class="text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to users</a></p>
+    </div>
+    <div class="text-nowrap">
+        <a href="/access/user" class="btn btn-outline-secondary">Cancel</a>
+        <button type="button" id="access-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="access-feedback"></div>
+
+<form id="access-user-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <?= $el('user_id') ?>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('email')->getId()) ?>">Email</label>
+                        <?= $el('email') ?>
+                        <div class="form-text">The canonical login identifier. Must be unique.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('username')->getId()) ?>">Username</label>
+                        <?= $el('username') ?>
+                        <div class="form-text">Optional. Unique if set.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('status')->getId()) ?>">Status</label>
+                        <?= $el('status') ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('access-user-form');
+    var fb   = document.getElementById('access-feedback');
+
+    function alertHtml(msg, cls) {
+        var ctx = (cls === 'error') ? 'danger' : (cls || 'info');
+        return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert">' + String(msg) +
+               '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
+    }
+    function clearErrors() {
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+    }
+    document.getElementById('access-save').addEventListener('click', function () {
+        clearErrors();
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'access'); fd.set('service', 'user'); fd.set('method', 'save');
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.result === 1) { window.location = res.redirect || '/access/user'; return; }
+                if (res.form) {
+                    Object.keys(res.form).forEach(function (field) {
+                        var input = form.querySelector('[name="' + field + '"]');
+                        if (input) { input.classList.add('is-invalid'); }
+                    });
+                }
+                (res.messages || []).forEach(function (m) { fb.innerHTML += alertHtml(m.message, m.class); });
+                if (!res.messages || !res.messages.length) { fb.innerHTML = alertHtml('Please fix the highlighted fields and try again.', 'error'); }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .catch(function () { fb.innerHTML = alertHtml('Network error — please try again.', 'error'); });
+    });
+});
+</script>

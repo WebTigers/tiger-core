@@ -1,0 +1,114 @@
+<?php
+/**
+ * Organizations list — a DataTables grid sourced from /api (Access_Service_Org::
+ * datatable). Server-side search/sort/paginate + a Status filter toolbar. Action
+ * controls render off per-row ACL flags; you can't delete the org you're acting in.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Organizations</h1>
+        <p class="text-body-secondary mb-0">Tenants — name, slug, hierarchy, and membership.</p>
+    </div>
+    <a href="/access/org/edit" class="btn btn-primary"><i class="fa-solid fa-building-circle-arrow-right me-2"></i>New Organization</a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-transparent">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label small text-body-secondary mb-1" for="access-org-status">Status</label>
+                <select id="access-org-status" class="form-select form-select-sm">
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" id="access-org-clear" class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                    <i class="fa-solid fa-filter-circle-xmark me-1"></i>Clear
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="access-org-table" class="table table-hover align-middle" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Slug</th>
+                        <th>Parent</th>
+                        <th>Members</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end" data-orderable="false">Actions</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tigerDataTable !== 'function') { return; }
+    var $   = jQuery;
+    var esc = tigerDataTable.esc;
+    var BADGE = { active: 'success', suspended: 'warning' };
+    function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    var fStatus = document.getElementById('access-org-status');
+
+    var table = tigerDataTable('#access-org-table', {
+        service: { module: 'access', service: 'org', action: 'datatable' },
+        order: [[0, 'asc']],
+        language: { search: '', searchPlaceholder: 'Search name / slug…' },
+        extraData: function () { return { status: fStatus.value }; },
+        columns: [
+            { data: 'name', render: function (t, type, row) {
+                return type !== 'display' ? t :
+                    '<a href="/access/org/edit/id/' + encodeURIComponent(row.org_id) + '" class="fw-semibold text-decoration-none">' + esc(t) + '</a>';
+            } },
+            { data: 'slug', render: function (t, type) {
+                return type !== 'display' ? t : '<code class="text-body-secondary">' + esc(t) + '</code>';
+            } },
+            { data: 'parent', render: function (t, type) {
+                if (type !== 'display') { return t; }
+                return t ? esc(t) : '<span class="text-body-secondary">— root —</span>';
+            } },
+            { data: 'member_count', render: function (t, type) {
+                return type !== 'display' ? t : '<span class="badge rounded-pill text-bg-secondary">' + (parseInt(t, 10) || 0) + '</span>';
+            } },
+            { data: 'status', render: function (t, type) {
+                return type !== 'display' ? t : '<span class="badge text-bg-' + (BADGE[t] || 'secondary') + '">' + esc(cap(t)) + '</span>';
+            } },
+            { data: 'created' },
+            { data: null, orderable: false, searchable: false, className: 'text-end text-nowrap', render: function (t, type, row) {
+                var html = '';
+                if (row.can_edit) {
+                    html += '<a href="/access/org/edit/id/' + encodeURIComponent(row.org_id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a> ';
+                }
+                if (row.can_delete) {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" data-org-delete="' + esc(row.org_id) + '" title="Delete"><i class="fa-solid fa-trash"></i></button>';
+                } else {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" disabled title="Your active organization can\'t be deleted"><i class="fa-solid fa-trash"></i></button>';
+                }
+                return html || '<span class="text-body-secondary">—</span>';
+            } }
+        ]
+    });
+
+    $('#access-org-status').on('change', function () { table.ajax.reload(); });
+    $('#access-org-clear').on('click', function () { fStatus.value = ''; table.ajax.reload(); });
+
+    $('#access-org-table tbody').on('click', '[data-org-delete]', function () {
+        if (!confirm('Delete this organization? It is soft-deleted and can be recovered.')) { return; }
+        var body = new URLSearchParams({ module: 'access', service: 'org', method: 'delete', org_id: this.getAttribute('data-org-delete') });
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+            .then(function (r) { return r.json(); })
+            .then(function () { table.ajax.reload(null, false); })
+            .catch(function () { table.ajax.reload(null, false); });
+    });
+});
+</script>

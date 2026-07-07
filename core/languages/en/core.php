@@ -19,6 +19,17 @@ return [
     'core.api.error.missing_service' => 'No service was specified.',
     'core.api.error.missing_action'  => 'No action was specified.',
 
+    // --- Forms: reCAPTCHA validation ---
+    'core.form.recaptcha.missing'    => 'Please confirm you are not a robot.',
+    'core.form.recaptcha.failed'     => "reCAPTCHA verification failed. Please try again.",
+    'core.form.recaptcha.error'      => "Couldn't verify reCAPTCHA right now. Please try again.",
+
+    // --- Two-factor auth (TOTP) ---
+    'core.auth.twofa.enabled'        => 'Two-factor authentication is now on.',
+    'core.auth.twofa.disabled'       => 'Two-factor authentication has been turned off.',
+    'core.auth.twofa.bad_code'       => 'That code is incorrect or has expired.',
+    'core.auth.twofa.unavailable'    => 'Two-factor authentication is not available on this install.',
+
     // --- Error pages ---
     'core.error.403.title'           => "You don't have access to that.",
     'core.error.404.title'           => "That page doesn't exist.",

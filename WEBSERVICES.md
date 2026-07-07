@@ -137,6 +137,24 @@ contract between client and server. That consistency is the point:
 `info`) so the client renders feedback without inspecting content. Specialized
 consumers (DataTables, Select2) may return their own shapes — this is the default.
 
+**DataTables (server-side processing) is built in.** A grid is client/server like
+everything else: the view renders an empty `<table id>`, and rows are fetched from an
+`/api` service — never server-rendered. The pattern (modeled on AskLevi):
+
+- The service exposes a `datatable(array $params)` action. `Tiger_Service_Service`
+  provides the two helpers: **`_dtParams()`** normalizes the DataTables request
+  (`draw`/`start`/`length`/`search`/`order`), and **`_dtResponse($draw, $recordsTotal,
+  $recordsFiltered, $data)`** emits `{draw, recordsTotal, recordsFiltered, data}` inside
+  the standard envelope.
+- **`data` is structured rows only — never HTML.** Each row also carries the caller's
+  **server-computed permission flags** (e.g. `can_edit`, `can_delete`, privilege-checked
+  via the ACL), and the client's `columns[].render` builds the cells + gates the controls
+  off those flags. Authorization lives on the server; the client only draws.
+- The shared client helper **`tiger.datatable.js`** (`tigerDataTable('#id', {service,
+  columns, order, extraData})`) does the `/api` POST and unwraps the Tiger envelope into
+  the shape DataTables consumes. See `modules/cms` (`Cms_Service_Page::datatable` + the
+  content list view) for the reference implementation.
+
 ## 6. Routing & resolution
 
 The factory resolves each field from **POST body › GET query › route params**

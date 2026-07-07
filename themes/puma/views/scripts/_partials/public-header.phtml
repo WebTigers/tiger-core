@@ -11,7 +11,7 @@ $identity = Zend_Auth::getInstance()->hasIdentity() ? Zend_Auth::getInstance()->
 <nav class="navbar navbar-expand-lg border-bottom sticky-top" style="background: var(--bs-body-bg);">
     <div class="container">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
-            <i class="fa-solid fa-paw text-primary"></i> Tiger
+            <i class="fa-solid fa-paw text-primary"></i> <?= $this->escape($this->siteName ?? 'Tiger') ?>
         </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#tigerNav"

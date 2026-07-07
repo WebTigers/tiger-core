@@ -1,0 +1,43 @@
+<?php
+/**
+ * PUMA — Auth layout (MIT, Tiger-original).
+ *
+ * A centered card shell for the sign-in / lock / password-reset flows — deliberately
+ * NOT the admin shell (no sidebar/header). Theme-aware (Bootstrap `data-bs-theme`),
+ * vendored assets (no CDN), no-FOUC theme resolution, cache-busted via $this->asset().
+ * A controller opts in with `$this->_helper->layout()->setLayout('auth')`.
+ */
+$_pref = $_COOKIE['tiger_theme'] ?? 'browser';
+if (!in_array($_pref, ['browser', 'light', 'dark'], true)) { $_pref = 'browser'; }
+$_mode = ($_pref === 'dark') ? 'dark' : 'light';
+$_lang = defined('LANG') ? LANG : 'en';
+?><!doctype html>
+<html lang="<?= $this->escape($_lang) ?>" data-bs-theme="<?= $_mode ?>" class="tiger-auth">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= $this->escape($this->title ?? 'Sign in — Tiger') ?></title>
+
+    <!-- No-FOUC theme resolver: MUST run before the stylesheets below paint. -->
+    <script src="<?= $this->asset($this->themeAssets . '/js/theme-init.js') ?>"></script>
+
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/fonts/inter/inter.css') ?>">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/fontawesome/css/all.min.css') ?>">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/css/bootstrap.min.css') ?>">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/default.css') ?>">
+<?php if (!empty($this->skin)): ?>
+    <link id="tiger-skin" rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/skins/' . $this->skin . '.css') ?>">
+<?php endif; ?>
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/auth.css') ?>">
+</head>
+<body class="tiger-auth-body">
+    <main class="tiger-auth-wrap">
+        <div class="tiger-auth-card">
+            <?= $this->layout()->content ?>
+        </div>
+    </main>
+
+    <script src="<?= $this->asset($this->themeAssets . '/js/bootstrap.bundle.min.js') ?>"></script>
+    <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
+</body>
+</html>

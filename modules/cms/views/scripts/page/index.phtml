@@ -1,0 +1,144 @@
+<?php
+/**
+ * CMS content list — a DataTables grid whose DATA loads over AJAX from the /api
+ * service (Cms_Service_Page::datatable), per the client/server paradigm: the server
+ * renders only this shell; the browser fetches rows as a Tiger Webservice.
+ *
+ * Filtering + sorting are all server-side: the global search box spans every public
+ * text column, the Status/Type toolbar scopes the working set (wired via the
+ * tigerDataTable `extraData` hook), and every data column is sortable. Action
+ * controls are built client-side from per-row permission flags the service computes
+ * (can_edit / can_delete) — authorization stays server-side.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Content</h1>
+        <p class="text-body-secondary mb-0">Pages, layouts, and partials — the CMS content store.</p>
+    </div>
+    <a href="/cms/page/edit" class="btn btn-primary"><i class="fa-solid fa-plus me-2"></i>New Page</a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-transparent">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label small text-body-secondary mb-1" for="cms-filter-status">Status</label>
+                <select id="cms-filter-status" class="form-select form-select-sm">
+                    <option value="">All statuses</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label small text-body-secondary mb-1" for="cms-filter-type">Type</label>
+                <select id="cms-filter-type" class="form-select form-select-sm">
+                    <option value="">All types</option>
+                    <option value="page">Page</option>
+                    <option value="layout">Layout</option>
+                    <option value="partial">Partial</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" id="cms-filter-clear" class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                    <i class="fa-solid fa-filter-circle-xmark me-1"></i>Clear
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="cms-pages-table" class="table table-hover align-middle" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Slug / Key</th>
+                        <th>Lang</th>
+                        <th>Status</th>
+                        <th>Updated</th>
+                        <th class="text-end" data-orderable="false">Actions</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tigerDataTable !== 'function') { return; }
+    var $   = jQuery;
+    var esc = tigerDataTable.esc;
+    var TYPE_ICON = { page: 'fa-file-lines', layout: 'fa-table-columns', partial: 'fa-puzzle-piece' };
+    var BADGE     = { published: 'success', draft: 'secondary', archived: 'warning' };
+    function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    var fStatus = document.getElementById('cms-filter-status');
+    var fType   = document.getElementById('cms-filter-type');
+
+    var table = tigerDataTable('#cms-pages-table', {
+        service: { module: 'cms', service: 'page', action: 'datatable' },
+        order: [[5, 'desc']],
+        language: { search: '', searchPlaceholder: 'Search content…' },
+        // Toolbar filters ride along on every request (server-side scoping).
+        extraData: function () {
+            return { status: fStatus.value, type: fType.value };
+        },
+        columns: [
+            { data: 'title', render: function (t, type, row) {
+                return type !== 'display' ? t :
+                    '<a href="/cms/page/edit/id/' + encodeURIComponent(row.page_id) + '" class="fw-semibold text-decoration-none">' + esc(t) + '</a>';
+            } },
+            { data: 'type', render: function (t, type) {
+                return type !== 'display' ? t :
+                    '<i class="fa-solid ' + (TYPE_ICON[t] || 'fa-file') + ' fa-fw text-body-secondary me-1"></i>' + esc(cap(t));
+            } },
+            { data: 'handle', render: function (t, type) {
+                return type !== 'display' ? t : '<code class="text-body-secondary">' + esc(t) + '</code>';
+            } },
+            { data: 'locale', render: function (t, type) {
+                return type !== 'display' ? t : '<span class="badge text-bg-light text-uppercase">' + esc(t) + '</span>';
+            } },
+            { data: 'status', render: function (t, type, row) {
+                if (type !== 'display') { return t; }
+                var h = '<span class="badge text-bg-' + (BADGE[t] || 'secondary') + '">' + esc(cap(t)) + '</span>';
+                if (row.scheduled) { h += ' <span class="badge text-bg-info ms-1">Scheduled</span>'; }
+                return h;
+            } },
+            { data: 'updated' },
+            { data: null, orderable: false, searchable: false, className: 'text-end text-nowrap', render: function (t, type, row) {
+                var html = '';
+                if (row.can_edit) {
+                    html += '<a href="/cms/page/edit/id/' + encodeURIComponent(row.page_id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a> ';
+                }
+                if (row.can_delete) {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" data-cms-delete="' + esc(row.page_id) + '" title="Delete"><i class="fa-solid fa-trash"></i></button>';
+                } else {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" disabled title="Not permitted"><i class="fa-solid fa-trash"></i></button>';
+                }
+                return html || '<span class="text-body-secondary">—</span>';
+            } }
+        ]
+    });
+
+    // Re-query when a toolbar filter changes; Clear resets both.
+    $('#cms-filter-status, #cms-filter-type').on('change', function () { table.ajax.reload(); });
+    $('#cms-filter-clear').on('click', function () {
+        fStatus.value = '';
+        fType.value = '';
+        table.ajax.reload();
+    });
+
+    // Soft-delete via /api, then reload just the table data (no page reload).
+    $('#cms-pages-table tbody').on('click', '[data-cms-delete]', function () {
+        if (!confirm('Delete this page? It is soft-deleted and can be recovered.')) { return; }
+        var body = new URLSearchParams({ module: 'cms', service: 'page', method: 'delete', page_id: this.getAttribute('data-cms-delete') });
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+            .then(function (r) { return r.json(); })
+            .then(function () { table.ajax.reload(null, false); })
+            .catch(function () { table.ajax.reload(null, false); });
+    });
+});
+</script>

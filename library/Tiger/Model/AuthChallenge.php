@@ -74,6 +74,55 @@ class Tiger_Model_AuthChallenge extends Tiger_Model_Table
     }
 
     /**
+     * The newest still-usable challenge for a user+type (not consumed, not expired,
+     * not attempt-locked), or null. Used to verify a code by email (no id in the URL).
+     *
+     * @return Zend_Db_Table_Row_Abstract|null
+     */
+    public function latestActive($userId, $type)
+    {
+        return $this->fetchRow(
+            $this->activeSelect()
+                ->where('user_id = ?', (string) $userId)
+                ->where('type = ?', (string) $type)
+                ->where('consumed_at IS NULL')
+                ->where('expires_at > ?', date('Y-m-d H:i:s'))
+                ->where('attempts < ?', self::MAX_ATTEMPTS)
+                ->order('created_at DESC')
+                ->limit(1)
+        );
+    }
+
+    /**
+     * Invalidate (consume) a user's outstanding challenges of a type — call before
+     * issuing a fresh one so only the newest code is ever valid, which also keeps
+     * latestActive() unambiguous.
+     *
+     * @return int rows invalidated
+     */
+    public function invalidateActive($userId, $type)
+    {
+        $db    = $this->getAdapter();
+        $where = $db->quoteInto('user_id = ?', (string) $userId)
+               . ' AND ' . $db->quoteInto('type = ?', (string) $type)
+               . ' AND consumed_at IS NULL AND deleted = 0';
+        return $this->update(['consumed_at' => $this->_now()], $where);
+    }
+
+    /** How many challenges of a type a user got in the last $seconds (send-rate guard). */
+    public function countRecent($userId, $type, $seconds)
+    {
+        $db  = $this->getAdapter();
+        $sel = $db->select()
+            ->from($this->_name, ['c' => new Zend_Db_Expr('COUNT(*)')])
+            ->where('user_id = ?', (string) $userId)
+            ->where('type = ?', (string) $type)
+            ->where('created_at >= ?', date('Y-m-d H:i:s', time() - (int) $seconds))
+            ->where('deleted = 0');
+        return (int) $db->fetchOne($sel);
+    }
+
+    /**
      * Delete expired/consumed challenges. Call periodically (cron / bin/tiger).
      * Hard delete — dead challenges have no audit value.
      *

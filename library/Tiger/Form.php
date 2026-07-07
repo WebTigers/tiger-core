@@ -37,24 +37,39 @@
  */
 class Tiger_Form extends Zend_Form
 {
-    /** @var callable translate helper backing $this->_t() */
-    protected $_translator;
+    /** CSRF token lifetime, seconds (must be > 0). Override in a subclass if needed. */
+    const CSRF_TIMEOUT = 7200;
+
+    /**
+     * @var callable translate helper backing $this->_t(). Named `_translateFn`, NOT
+     * `_translator` — the latter is Zend_Form's own property (a Zend_Translate), and
+     * shadowing it with a closure makes the form hand that closure to every validator
+     * ("Invalid translator specified"). Kept separate so Zend_Form's real translator
+     * (the registered Zend_Translate) still localizes validation messages.
+     */
+    protected $_translateFn;
 
     public function init()
     {
         $this->setMethod('post');
         $this->setDecorators([]);   // no <form> chrome; the view renders fields itself
 
+        // Tiger's own element types (e.g. 'recaptcha' -> Tiger_Form_Element_Recaptcha).
+        $this->addPrefixPath('Tiger_Form_Element', 'Tiger/Form/Element/', self::ELEMENT);
+
         $translate = Zend_Registry::isRegistered('Zend_Translate')
             ? Zend_Registry::get('Zend_Translate')
             : null;
-        $this->_translator = static function ($key) use ($translate) {
+        $this->_translateFn = static function ($key) use ($translate) {
             return ($translate && $translate->isTranslated($key)) ? $translate->translate($key) : $key;
         };
 
-        // CSRF: a per-session token every form carries by default.
+        // CSRF: a per-session token every form carries by default. `timeout` is the
+        // token's lifetime in SECONDS and must be positive — Zend_Form_Element_Hash
+        // rejects 0 ("Seconds must be positive"), which silently breaks the token.
+        // Two hours is generous enough for long edits without outliving the session.
         if ($this->csrf()) {
-            $this->addElement('hash', '_csrf', ['salt' => static::class, 'timeout' => 0]);
+            $this->addElement('hash', '_csrf', ['salt' => static::class, 'timeout' => static::CSRF_TIMEOUT]);
         }
 
         // Declarative schema: [type, name, options].
@@ -89,6 +104,6 @@ class Tiger_Form extends Zend_Form
     /** Translate a semantic key (returns the key itself when untranslated). */
     protected function _t(string $key): string
     {
-        return ($this->_translator)($key);
+        return ($this->_translateFn)($key);
     }
 }

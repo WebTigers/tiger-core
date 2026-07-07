@@ -1,0 +1,210 @@
+<?php
+/**
+ * Two-factor authentication management (admin shell). Two states:
+ *   - disabled -> an "Enable" wizard: setup (QR + manual key + recovery codes) then a
+ *     live-code confirm (POST /auth/totp-setup, then /auth/totp-activate).
+ *   - enabled  -> status + remaining recovery codes + a disable control
+ *     (POST /auth/totp-disable, which requires a current code).
+ * All mutations are AJAX/JSON — the page never posts to itself.
+ *
+ * QR rendering is progressive: if a QR renderer (window.QRCode) is present it draws the
+ * otpauth URI; otherwise the manual setup key (always shown) is the reliable path —
+ * every authenticator app supports "enter a setup key".
+ */
+$twofa     = $this->twofa ?? ['enabled' => false, 'recovery' => 0, 'available' => false];
+$enabled   = !empty($twofa['enabled']);
+$available = !empty($twofa['available']);
+?>
+<div class="container-fluid py-4" style="max-width:760px;">
+
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle" style="width:52px;height:52px;">
+            <i class="fa-solid fa-shield-halved fa-lg text-primary"></i>
+        </span>
+        <div>
+            <h1 class="h4 mb-0">Two-Factor Authentication</h1>
+            <p class="text-body-secondary small mb-0">Add a one-time code from an authenticator app to your sign-in.</p>
+        </div>
+    </div>
+
+    <div id="twofa-feedback"></div>
+
+    <?php if (!$available): ?>
+        <div class="alert alert-warning">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+            Two-factor authentication isn't available on this install yet — the app encryption key
+            (<code>tiger.crypto.key</code>) is not configured. Ask an administrator to set it.
+        </div>
+    <?php elseif ($enabled): ?>
+        <!-- ENABLED -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge text-bg-success"><i class="fa-solid fa-check me-1"></i>Enabled</span>
+                    <span class="text-body-secondary small">Your authenticator app is protecting this account.</span>
+                </div>
+                <p class="mb-1"><strong>Recovery codes remaining:</strong> <?= (int) $twofa['recovery'] ?></p>
+                <p class="text-body-secondary small">
+                    Recovery codes let you sign in if you lose your device. Re-enable to generate a fresh set.
+                </p>
+                <hr>
+                <p class="small text-body-secondary mb-2">To turn off two-factor auth, confirm with a current code from your app (or a recovery code):</p>
+                <form id="twofa-disable-form" class="row g-2 align-items-center" novalidate>
+                    <div class="col-auto">
+                        <input type="text" class="form-control" id="disable-code" name="code" style="width:180px;"
+                               inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" id="disable-btn" class="btn btn-outline-danger">Disable 2FA</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php else: ?>
+        <!-- DISABLED: enable wizard -->
+        <div class="card shadow-sm" id="twofa-intro">
+            <div class="card-body">
+                <p class="mb-3">Protect your account with a time-based code from an app like Google Authenticator,
+                    1Password, Authy, or Microsoft Authenticator.</p>
+                <button type="button" id="twofa-begin" class="btn btn-primary">
+                    <i class="fa-solid fa-plus me-1"></i>Enable two-factor authentication
+                </button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm" id="twofa-setup" style="display:none;">
+            <div class="card-body">
+                <ol class="mb-0" style="line-height:2;">
+                    <li class="mb-3">
+                        <strong>Scan the QR code</strong> with your authenticator app — or enter the key by hand.
+                        <div class="d-flex flex-wrap gap-4 align-items-center mt-3">
+                            <div id="totp-qr" class="border rounded p-2 bg-white d-inline-flex align-items-center justify-content-center"
+                                 style="width:180px;height:180px;">
+                                <span class="text-body-secondary small text-center px-2">QR preview</span>
+                            </div>
+                            <div>
+                                <div class="text-body-secondary small mb-1">Setup key (manual entry)</div>
+                                <code id="totp-secret" class="user-select-all fs-6 d-inline-block mb-2" style="letter-spacing:.15em;">–</code>
+                                <div><a href="#" id="totp-uri-link" class="small text-decoration-none" target="_blank" rel="noopener">Open in app</a></div>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="mb-3">
+                        <strong>Save your recovery codes.</strong> Each can be used once if you lose your device. Store them somewhere safe.
+                        <div class="bg-body-secondary rounded p-3 mt-2 d-flex flex-wrap gap-x-4 gap-y-1 font-monospace" id="recovery-codes" style="column-gap:2rem;"></div>
+                        <button type="button" id="copy-recovery" class="btn btn-sm btn-outline-secondary mt-2">
+                            <i class="fa-regular fa-copy me-1"></i>Copy codes
+                        </button>
+                    </li>
+                    <li>
+                        <strong>Confirm.</strong> Enter the 6-digit code your app shows now:
+                        <form id="twofa-confirm-form" class="row g-2 align-items-center mt-1" novalidate>
+                            <div class="col-auto">
+                                <input type="text" class="form-control text-center" id="confirm-code" name="code" style="width:160px;letter-spacing:.3em;"
+                                       inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="000000" required>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" id="confirm-btn" class="btn btn-primary">Verify &amp; turn on</button>
+                            </div>
+                        </form>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <div class="mt-3">
+        <a href="/admin" class="small text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to admin</a>
+    </div>
+</div>
+
+<?php /* QR renderer (vendored, MIT). Progressive: security.phtml uses window.QRCode if present. */ ?>
+<script src="<?= $this->asset($this->themeAssets . '/js/vendor/qrcode.min.js') ?>"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb = document.getElementById('twofa-feedback');
+    function note(msg, kind) {
+        fb.innerHTML = '<div class="alert alert-' + (kind || 'danger') + ' py-2" role="alert">' + msg + '</div>';
+    }
+    function post(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams(body || {})
+        }).then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+
+    // --- Disable flow ---
+    var disableForm = document.getElementById('twofa-disable-form');
+    if (disableForm) {
+        disableForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            fb.innerHTML = '';
+            var btn = document.getElementById('disable-btn');
+            btn.disabled = true;
+            post('/auth/totp-disable', { code: document.getElementById('disable-code').value }).then(function (res) {
+                if (res && res.result === 1) { note('Two-factor authentication disabled.', 'success'); setTimeout(function(){ location.reload(); }, 800); return; }
+                btn.disabled = false;
+                note('That code is incorrect. Two-factor auth is still on.');
+            }).catch(function () { btn.disabled = false; note('Network error — please try again.'); });
+        });
+    }
+
+    // --- Enable wizard ---
+    var beginBtn = document.getElementById('twofa-begin');
+    if (!beginBtn) { return; }
+
+    function renderQr(uri) {
+        var box = document.getElementById('totp-qr');
+        box.innerHTML = '';
+        if (window.QRCode) {                       // progressive: renderer present
+            try { new window.QRCode(box, { text: uri, width: 164, height: 164 }); return; }
+            catch (e) { /* fall through to the manual-key note */ }
+        }
+        box.innerHTML = '<span class="text-body-secondary small text-center px-2">Use the setup key &rarr;</span>';
+    }
+
+    beginBtn.addEventListener('click', function () {
+        fb.innerHTML = '';
+        beginBtn.disabled = true;
+        beginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Preparing…';
+        post('/auth/totp-setup').then(function (res) {
+            if (!res || res.result !== 1 || !res.data) { beginBtn.disabled = false; beginBtn.textContent = 'Enable two-factor authentication'; note('Could not start setup. Please try again.'); return; }
+            var d = res.data;
+            document.getElementById('totp-secret').textContent = d.secret;
+            var link = document.getElementById('totp-uri-link');
+            link.setAttribute('href', d.otpauth);
+            var rc = document.getElementById('recovery-codes');
+            rc.innerHTML = '';
+            (d.recovery || []).forEach(function (code) {
+                var span = document.createElement('span');
+                span.textContent = code;
+                rc.appendChild(span);
+            });
+            renderQr(d.otpauth);
+            document.getElementById('twofa-intro').style.display = 'none';
+            document.getElementById('twofa-setup').style.display = '';
+            document.getElementById('confirm-code').focus();
+        }).catch(function () { beginBtn.disabled = false; beginBtn.textContent = 'Enable two-factor authentication'; note('Network error — please try again.'); });
+    });
+
+    document.getElementById('copy-recovery').addEventListener('click', function () {
+        var codes = Array.prototype.map.call(document.querySelectorAll('#recovery-codes span'), function (s) { return s.textContent; }).join('\n');
+        if (navigator.clipboard) { navigator.clipboard.writeText(codes); this.innerHTML = '<i class="fa-solid fa-check me-1"></i>Copied'; }
+    });
+
+    document.getElementById('twofa-confirm-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        var btn = document.getElementById('confirm-btn');
+        btn.disabled = true;
+        post('/auth/totp-activate', { code: document.getElementById('confirm-code').value }).then(function (res) {
+            if (res && res.result === 1) { note('Two-factor authentication is on. 🎉', 'success'); setTimeout(function(){ location.reload(); }, 900); return; }
+            btn.disabled = false;
+            note('That code didn\'t match. Check your app\'s clock and try the current code.');
+            document.getElementById('confirm-code').value = '';
+            document.getElementById('confirm-code').focus();
+        }).catch(function () { btn.disabled = false; note('Network error — please try again.'); });
+    });
+});
+</script>

@@ -1,0 +1,137 @@
+<?php
+/**
+ * Passwordless sign-in card (two steps). Step 1 emails a one-time code; step 2 verifies
+ * it. Both POST over AJAX to /auth/otp (JSON). The response never reveals whether the
+ * account exists, so step 1 always advances to step 2. Email channel only in this
+ * version (SMS plugs in at the service layer later).
+ */
+?>
+<div class="tiger-auth-brand">
+    <span class="tiger-auth-mark"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+    <h1 class="h4 mb-1">Sign in with a code</h1>
+    <p class="text-body-secondary small mb-0">We'll email you a one-time code — no password needed.</p>
+</div>
+
+<div id="otp-feedback"></div>
+
+<!-- Step 1: email -->
+<form id="otp-request-form" novalidate>
+    <div class="mb-3">
+        <label class="form-label" for="otp-email">Email</label>
+        <input type="email" class="form-control form-control-lg" id="otp-email" name="email"
+               autocomplete="username" inputmode="email" autofocus required>
+    </div>
+    <?php $rc = $this->formRecaptcha(); if ($rc): ?>
+    <div class="mb-3 d-flex justify-content-center"><?= $rc ?></div>
+    <?php endif; ?>
+    <div class="d-grid">
+        <button type="submit" id="otp-request-submit" class="btn btn-primary btn-lg">Email me a code</button>
+    </div>
+</form>
+
+<!-- Step 2: code (revealed after step 1) -->
+<form id="otp-verify-form" novalidate style="display:none;">
+    <input type="hidden" name="email" id="otp-email-hidden">
+    <p class="small text-body-secondary" id="otp-sent-note"></p>
+    <div class="mb-3">
+        <label class="form-label" for="otp-code">Verification code</label>
+        <input type="text" class="form-control form-control-lg text-center" id="otp-code" name="code"
+               inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+               pattern="[0-9]*" placeholder="000000" style="letter-spacing:.4em;" required>
+    </div>
+    <div class="d-grid mb-2">
+        <button type="submit" id="otp-verify-submit" class="btn btn-primary btn-lg">Sign in</button>
+    </div>
+    <div class="text-center">
+        <a href="#" id="otp-restart" class="small text-decoration-none">Use a different email</a>
+    </div>
+</form>
+
+<div class="text-center mt-3">
+    <a href="/auth/login" class="small text-decoration-none">Sign in with a password instead</a>
+</div>
+
+<div class="tiger-auth-foot">
+    <a href="/" class="small text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Return to <?= $this->escape($this->siteName ?? 'Tiger') ?></a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var reqForm = document.getElementById('otp-request-form');
+    var verForm = document.getElementById('otp-verify-form');
+    var fb      = document.getElementById('otp-feedback');
+    var reqBtn  = document.getElementById('otp-request-submit');
+    var verBtn  = document.getElementById('otp-verify-submit');
+
+    function fail(msg) {
+        fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">' + msg + '</div>';
+    }
+    function rcReset() { if (window.grecaptcha) { try { grecaptcha.reset(); } catch (e) {} } }
+    function post(body) {
+        return fetch('/auth/otp', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams(body)
+        }).then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+
+    // Step 1 -> request a code, then reveal step 2 (regardless of whether the email exists).
+    reqForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        var email = document.getElementById('otp-email').value;
+        reqBtn.disabled = true;
+        reqBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending…';
+        // FormData carries the reCAPTCHA token (g-recaptcha-response) when the widget is on.
+        post(new FormData(reqForm)).then(function (res) {
+            if (res && res.result === 0 && res.recaptcha) {
+                reqBtn.disabled = false;
+                reqBtn.textContent = 'Email me a code';
+                rcReset();
+                fail('Please complete the reCAPTCHA and try again.');
+                return;
+            }
+            document.getElementById('otp-email-hidden').value = email;
+            document.getElementById('otp-sent-note').textContent =
+                'If an account exists for ' + email + ', we sent a 6-digit code. Enter it below.';
+            reqForm.style.display = 'none';
+            verForm.style.display = '';
+            document.getElementById('otp-code').focus();
+        }).catch(function () {
+            reqBtn.disabled = false;
+            reqBtn.textContent = 'Email me a code';
+            fail('Network error — please try again.');
+        });
+    });
+
+    // Step 2 -> verify + sign in.
+    verForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        verBtn.disabled = true;
+        verBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in…';
+        post({ email: document.getElementById('otp-email-hidden').value, code: document.getElementById('otp-code').value })
+        .then(function (res) {
+            if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
+            verBtn.disabled = false;
+            verBtn.textContent = 'Sign in';
+            fail('That code is invalid or has expired.');
+            document.getElementById('otp-code').value = '';
+        }).catch(function () {
+            verBtn.disabled = false;
+            verBtn.textContent = 'Sign in';
+            fail('Network error — please try again.');
+        });
+    });
+
+    document.getElementById('otp-restart').addEventListener('click', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        verForm.style.display = 'none';
+        reqForm.style.display = '';
+        reqBtn.disabled = false;
+        reqBtn.textContent = 'Email me a code';
+        document.getElementById('otp-email').focus();
+    });
+});
+</script>

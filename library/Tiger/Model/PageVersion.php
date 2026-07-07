@@ -17,9 +17,11 @@ class Tiger_Model_PageVersion extends Tiger_Model_Table
     /** The next version number for a page (1-based). */
     public function nextVersion($pageId)
     {
-        $max = (int) $this->getAdapter()->fetchOne(
-            'SELECT MAX(version) FROM ' . $this->getAdapter()->quoteIdentifier($this->_name) . ' WHERE page_id = ?',
-            [(string) $pageId]
+        $db  = $this->getAdapter();
+        $max = (int) $db->fetchOne(
+            $db->select()
+                ->from($this->_name, ['m' => new Zend_Db_Expr('MAX(version)')])
+                ->where('page_id = ?', (string) $pageId)
         );
         return $max + 1;
     }

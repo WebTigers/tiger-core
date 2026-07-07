@@ -18,9 +18,11 @@
  */
 $nav = $this->nav ?? [
     ['label' => 'Dashboard',     'href' => '/admin',        'icon' => 'fa-gauge-high', 'match' => '/admin'],
-    ['label' => 'Users',         'href' => '/admin/users',  'icon' => 'fa-users',      'match' => '/admin/users'],
-    ['label' => 'Organizations', 'href' => '/admin/orgs',   'icon' => 'fa-building',   'match' => '/admin/orgs'],
-    ['label' => 'Config',        'href' => '/admin/config', 'icon' => 'fa-gear',       'match' => '/admin/config'],
+    ['label' => 'Content',       'href' => '/cms/page',     'icon' => 'fa-file-lines', 'match' => '/cms/page', 'resource' => 'Cms_PageController'],
+    ['label' => 'Menus',         'href' => '/cms/menu',     'icon' => 'fa-bars',       'match' => '/cms/menu', 'resource' => 'Cms_MenuController'],
+    ['label' => 'Users',         'href' => '/access/user',  'icon' => 'fa-users',      'match' => '/access/user', 'resource' => 'Access_UserController'],
+    ['label' => 'Organizations', 'href' => '/access/org',   'icon' => 'fa-building',   'match' => '/access/org',  'resource' => 'Access_OrgController'],
+    ['label' => 'Settings',      'href' => '/cms/settings', 'icon' => 'fa-gear',       'match' => '/cms/settings', 'resource' => 'Cms_SettingsController'],
 ];
 
 $acl  = Zend_Registry::isRegistered('Zend_Acl') ? Zend_Registry::get('Zend_Acl') : null;
@@ -31,7 +33,7 @@ $path = rtrim(Zend_Controller_Front::getInstance()->getRequest()->getPathInfo(),
 // Hidden only when there IS an ACL, the resource is known to it, and the role is denied.
 $allowed = function ($item) use ($acl, $role) {
     if (empty($item['resource']) || !$acl) { return true; }
-    return $acl->hasResource($item['resource']) ? $acl->isAllowed($role, $item['resource']) : true;
+    return $acl->has($item['resource']) ? $acl->isAllowed($role, $item['resource']) : true;
 };
 
 // Active when the current path is the item (or under it). The dashboard root

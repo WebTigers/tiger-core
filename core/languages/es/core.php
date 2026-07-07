@@ -15,6 +15,17 @@ return [
     'core.api.error.missing_service' => 'No se especificó ningún servicio.',
     'core.api.error.missing_action'  => 'No se especificó ninguna acción.',
 
+    // --- Formularios: validación de reCAPTCHA ---
+    'core.form.recaptcha.missing'    => 'Confirma que no eres un robot.',
+    'core.form.recaptcha.failed'     => 'La verificación de reCAPTCHA falló. Inténtalo de nuevo.',
+    'core.form.recaptcha.error'      => 'No se pudo verificar reCAPTCHA en este momento. Inténtalo de nuevo.',
+
+    // --- Autenticación de dos factores (TOTP) ---
+    'core.auth.twofa.enabled'        => 'La autenticación de dos factores está activada.',
+    'core.auth.twofa.disabled'       => 'Se desactivó la autenticación de dos factores.',
+    'core.auth.twofa.bad_code'       => 'Ese código es incorrecto o ha caducado.',
+    'core.auth.twofa.unavailable'    => 'La autenticación de dos factores no está disponible en esta instalación.',
+
     // --- Páginas de error ---
     'core.error.403.title'           => 'No tienes acceso a eso.',
     'core.error.404.title'           => 'Esa página no existe.',

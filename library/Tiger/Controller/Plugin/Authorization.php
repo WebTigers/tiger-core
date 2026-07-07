@@ -34,6 +34,10 @@ class Tiger_Controller_Plugin_Authorization extends Zend_Controller_Plugin_Abstr
             return;
         }
 
+        // A LOCKED screen is a suspended session: authorize it as guest (below), so
+        // guest-accessible resources (the public site, the auth pages) still render,
+        // and anything requiring auth is denied and bounced to the lock card by
+        // _deny(). Enforced through the SAME ACL path — pages and /api services alike.
         $role     = $this->_resolveRole();
         $resource = $this->_resourceFor($request);
         if ($resource === null) {
@@ -73,6 +77,14 @@ class Tiger_Controller_Plugin_Authorization extends Zend_Controller_Plugin_Abstr
             return self::ROLE_GUEST;
         }
 
+        // Locked screen: the session is SUSPENDED — authorize as guest everywhere
+        // (pages AND /api services, which read $identity->role too) until the user
+        // re-verifies at the lock card. Identity is otherwise preserved.
+        if ((new Tiger_Service_Authentication())->isLocked()) {
+            $identity->role = self::ROLE_GUEST;
+            return self::ROLE_GUEST;
+        }
+
         Tiger_Model_Table::setActor($identity->user_id);   // created_by/updated_by flow
 
         $role = self::ROLE_AUTHENTICATED;
@@ -105,12 +117,26 @@ class Tiger_Controller_Plugin_Authorization extends Zend_Controller_Plugin_Abstr
         return $class;
     }
 
-    /** Denied: guests go to login (302); authenticated-but-forbidden get a themed 403. */
+    /** Denied: locked -> lock card; guests -> login (302); authed-but-forbidden -> themed 403. */
     protected function _deny($role)
     {
+        $auth = new Tiger_Service_Authentication();
+        $path = (string) $this->getRequest()->getPathInfo();
+        $redirector = Zend_Controller_Action_HelperBroker::getStaticHelper('redirector');
+
+        // Remember where they were headed (in SESSION, not a URL param) so login /
+        // unlock can return them there. setReturnTo ignores non-local + auth paths.
+        $auth->setReturnTo($path);
+
+        // Authenticated but LOCKED: bounce to the lock card to re-verify. They're
+        // signed in (just suspended), so this is neither a login redirect nor a 403.
+        if ($auth->isLocked()) {
+            $redirector->gotoUrlAndExit('/auth/lock');
+            return;
+        }
+
         if ($role === self::ROLE_GUEST) {
-            Zend_Controller_Action_HelperBroker::getStaticHelper('redirector')
-                ->gotoUrlAndExit('/auth/login');
+            $redirector->gotoUrlAndExit('/auth/login');
         }
 
         // Authenticated but forbidden: re-dispatch to the themed 403 page instead of

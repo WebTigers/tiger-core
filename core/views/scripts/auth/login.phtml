@@ -1,0 +1,158 @@
+<?php
+/**
+ * Sign-in card. Renders in the 'auth' layout. Submits over AJAX to /auth/login
+ * (JSON), then redirects client-side to the server-chosen target (the intended
+ * destination is remembered server-side in the session, not a URL param). Auth is a
+ * reserved kernel service, so login is a thin controller endpoint returning JSON.
+ */
+?>
+<div class="tiger-auth-brand">
+    <span class="tiger-auth-mark"><i class="fa-solid fa-paw"></i></span>
+    <?php /* Heading stays "Tiger" on purpose — platform branding for CMS-admin installs;
+             app developers override this view anyway. The Return link below uses siteName. */ ?>
+    <h1 class="h4 mb-1">Sign in to Tiger</h1>
+    <p class="text-body-secondary small mb-0">Welcome back.</p>
+</div>
+
+<?php if (!empty($this->notice)): ?>
+<div class="alert alert-success py-2" role="alert"><?= $this->escape($this->notice) ?></div>
+<?php endif; ?>
+
+<div id="login-feedback"></div>
+
+<!-- Step 1: credentials -->
+<form id="login-form" novalidate>
+    <div class="mb-3">
+        <label class="form-label" for="login-identifier">Email</label>
+        <input type="email" class="form-control form-control-lg" id="login-identifier" name="identifier"
+               autocomplete="username" inputmode="email" autofocus required>
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="login-password">Password</label>
+        <input type="password" class="form-control form-control-lg" id="login-password" name="password"
+               autocomplete="current-password" required>
+    </div>
+    <div class="d-flex justify-content-end mb-3">
+        <a href="/auth/forgot" class="small text-decoration-none">Forgot your password?</a>
+    </div>
+    <?php $rc = $this->formRecaptcha(); if ($rc): ?>
+    <div class="mb-3 d-flex justify-content-center"><?= $rc ?></div>
+    <?php endif; ?>
+    <div class="d-grid">
+        <button type="submit" id="login-submit" class="btn btn-primary btn-lg">Sign in</button>
+    </div>
+</form>
+
+<!-- Step 2: two-factor code (revealed when the account has an authenticator app) -->
+<form id="twofa-form" novalidate style="display:none;">
+    <p class="small text-body-secondary mb-2">
+        <i class="fa-solid fa-shield-halved me-1"></i>Enter the 6-digit code from your authenticator app.
+    </p>
+    <div class="mb-3">
+        <label class="form-label" for="twofa-code">Verification code</label>
+        <input type="text" class="form-control form-control-lg text-center" id="twofa-code" name="code"
+               inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"
+               placeholder="000000" style="letter-spacing:.4em;">
+    </div>
+    <div class="d-grid mb-2">
+        <button type="submit" id="twofa-submit" class="btn btn-primary btn-lg">Verify</button>
+    </div>
+    <div class="text-center">
+        <a href="#" id="twofa-recovery-toggle" class="small text-decoration-none">Use a recovery code</a>
+    </div>
+</form>
+
+<div class="text-center mt-3" id="login-alt">
+    <a href="/auth/otp" class="small text-decoration-none">Sign in with a code instead</a>
+</div>
+
+<div class="tiger-auth-foot">
+    <a href="/" class="small text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Return to <?= $this->escape($this->siteName ?? 'Tiger') ?></a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form    = document.getElementById('login-form');
+    var twofa   = document.getElementById('twofa-form');
+    var alt     = document.getElementById('login-alt');
+    var fb      = document.getElementById('login-feedback');
+    var btn     = document.getElementById('login-submit');
+    var vbtn    = document.getElementById('twofa-submit');
+    var codeIn  = document.getElementById('twofa-code');
+
+    function fail(msg) {
+        fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">' + msg + '</div>';
+    }
+    function rcReset() { if (window.grecaptcha) { try { grecaptcha.reset(); } catch (e) {} } }
+    function post(body) {
+        return fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams(body)
+        }).then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+
+    // Step 1: credentials. On success either sign in, or reveal the 2FA step.
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in…';
+
+        post(new FormData(form)).then(function (res) {
+            if (res && res.result === 1 && res.twofa) {
+                form.style.display = 'none';
+                if (alt) { alt.style.display = 'none'; }
+                twofa.style.display = '';
+                codeIn.focus();
+                return;
+            }
+            if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
+            btn.disabled = false;
+            btn.textContent = 'Sign in';
+            rcReset();   // the reCAPTCHA token (if any) is spent — let the user re-solve
+            fail((res && res.recaptcha) ? 'Please complete the reCAPTCHA and try again.' : 'Invalid email or password.');
+            document.getElementById('login-password').value = '';
+        }).catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Sign in';
+            rcReset();
+            fail('Network error — please try again.');
+        });
+    });
+
+    // Step 2: the 2FA code (or a recovery code).
+    twofa.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        vbtn.disabled = true;
+        vbtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying…';
+
+        post({ code: codeIn.value }).then(function (res) {
+            if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
+            vbtn.disabled = false;
+            vbtn.textContent = 'Verify';
+            fail('That code is incorrect or has expired.');
+            codeIn.value = '';
+            codeIn.focus();
+        }).catch(function () {
+            vbtn.disabled = false;
+            vbtn.textContent = 'Verify';
+            fail('Network error — please try again.');
+        });
+    });
+
+    // Recovery-code mode: relax the numeric-only input constraints.
+    document.getElementById('twofa-recovery-toggle').addEventListener('click', function (e) {
+        e.preventDefault();
+        codeIn.removeAttribute('pattern');
+        codeIn.removeAttribute('inputmode');
+        codeIn.setAttribute('maxlength', '20');
+        codeIn.value = '';
+        codeIn.placeholder = 'xxxxx-xxxxx';
+        codeIn.style.letterSpacing = 'normal';
+        document.querySelector('#twofa-form .form-label').textContent = 'Recovery code';
+        codeIn.focus();
+    });
+});
+</script>

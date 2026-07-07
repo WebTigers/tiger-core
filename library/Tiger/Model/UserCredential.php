@@ -22,6 +22,8 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
     const TYPE_TOTP     = 'totp';
     const TYPE_WEBAUTHN = 'webauthn';
     const TYPE_OAUTH    = 'oauth';
+    /** Single-use backup codes for TOTP recovery — one row per code, hashed secret. */
+    const TYPE_RECOVERY = 'recovery';
 
     /** Login lockout: lock the password credential after this many consecutive failures. */
     const MAX_FAILURES = 5;
@@ -203,6 +205,118 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
         $this->update(
             ['failed_count' => 0, 'locked_until' => null, 'last_used_at' => $this->_now()],
             $this->getAdapter()->quoteInto('credential_id = ?', $credentialId)
+        );
+    }
+
+    // ----- TOTP (authenticator app) 2FA --------------------------------------
+    //
+    // The TOTP secret is REVERSIBLE (needed to compute the expected code), so it's
+    // stored encrypted (Tiger_Crypto), not hashed. Orchestration — enrollment, the
+    // login step-up — lives in Tiger_Service_Authentication; this model just persists
+    // and retrieves the factor rows. Lifecycle writes HARD-delete because the UNIQUE
+    // (user_id, type, identifier) key spans soft-deleted rows: a soft-deleted totp row
+    // would collide with a fresh enrollment. Auth factors carry no audit value that the
+    // login log doesn't already hold, so a hard delete is the right call here.
+
+    /** The user's active, confirmed TOTP factor row, or null. */
+    public function activeTotp($userId)
+    {
+        return $this->fetchRow(
+            $this->activeSelect()
+                ->where('user_id = ?', $userId)
+                ->where('type = ?', self::TYPE_TOTP)
+                ->where('identifier = ?', '')
+                ->where('status = ?', 'active')
+                ->where('verified_at IS NOT NULL')
+        ) ?: null;
+    }
+
+    /** Does the user have a confirmed authenticator-app factor? */
+    public function hasActiveTotp($userId)
+    {
+        return $this->activeTotp($userId) !== null;
+    }
+
+    /**
+     * Enable (or re-enroll) TOTP: replace any prior TOTP + recovery rows with a fresh
+     * confirmed secret and a new set of hashed backup codes, atomically-ish (one owner
+     * of these rows). Call only AFTER the enrollment code has been verified.
+     *
+     * @param string   $userId
+     * @param string   $encryptedSecret Tiger_Crypto::encrypt() of the base32 secret
+     * @param string[] $recoveryHashes  sha256 hashes of the plaintext backup codes
+     */
+    public function replaceTotp($userId, $encryptedSecret, array $recoveryHashes)
+    {
+        $this->_purgeTotp($userId);
+        $this->insert([
+            'user_id'     => $userId,
+            'type'        => self::TYPE_TOTP,
+            'identifier'  => '',
+            'secret'      => $encryptedSecret,
+            'verified_at' => $this->_now(),
+            'status'      => 'active',
+        ]);
+        $i = 0;
+        foreach ($recoveryHashes as $hash) {
+            $this->insert([
+                'user_id'     => $userId,
+                'type'        => self::TYPE_RECOVERY,
+                'identifier'  => sprintf('%02d', ++$i),   // distinct sub-key per code (UNIQUE)
+                'secret'      => $hash,
+                'verified_at' => $this->_now(),
+                'status'      => 'active',
+            ]);
+        }
+    }
+
+    /** Disable TOTP entirely: drop the secret and all remaining backup codes. */
+    public function removeTotp($userId)
+    {
+        $this->_purgeTotp($userId);
+    }
+
+    /**
+     * Redeem a single-use recovery code (constant-time match against remaining codes).
+     * On success the code is consumed (deleted) so it can't be reused. Returns true iff
+     * a code matched.
+     */
+    public function redeemRecoveryCode($userId, $plainCode)
+    {
+        $norm = strtolower(preg_replace('/[^a-z0-9]/i', '', (string) $plainCode));
+        if ($norm === '') {
+            return false;
+        }
+        $hash = hash('sha256', $norm);
+        $rows = $this->fetchAll(
+            $this->activeSelect()->where('user_id = ?', $userId)->where('type = ?', self::TYPE_RECOVERY)
+        );
+        foreach ($rows as $row) {
+            if (hash_equals((string) $row->secret, $hash)) {
+                $db = $this->getAdapter();
+                $db->delete($this->_name, $db->quoteInto('credential_id = ?', $row->credential_id));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** How many unused recovery codes the user has left (for the security screen). */
+    public function recoveryCount($userId)
+    {
+        return count($this->fetchAll(
+            $this->activeSelect()->where('user_id = ?', $userId)->where('type = ?', self::TYPE_RECOVERY)
+        ));
+    }
+
+    /** Hard-remove a user's TOTP secret and every recovery code. */
+    protected function _purgeTotp($userId)
+    {
+        $db = $this->getAdapter();
+        $db->delete(
+            $this->_name,
+            $db->quoteInto('user_id = ?', $userId)
+            . ' AND ' . $db->quoteInto('type IN (?)', [self::TYPE_TOTP, self::TYPE_RECOVERY])
         );
     }
 }

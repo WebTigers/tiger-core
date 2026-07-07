@@ -1,0 +1,79 @@
+<?php
+/**
+ * CMS Menus list — a DataTables grid whose rows load over AJAX from the /api service
+ * (Cms_Service_Menu::datatable). One row per menu (org + menu_key) with its item count.
+ * The server renders only this shell; authorization (edit/delete flags) is server-side.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Menus</h1>
+        <p class="text-body-secondary mb-0">Custom navigation menus — reusable by any theme via <code>&lt;?= $this-&gt;menu('key') ?&gt;</code>, the <code>[menu]</code> shortcode, or <code>Tiger_Menu::getHTML()</code>.</p>
+    </div>
+    <a href="/cms/menu/edit" class="btn btn-primary"><i class="fa-solid fa-plus me-2"></i>New Menu</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="cms-menus-table" class="table table-hover align-middle" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Menu</th>
+                        <th>Scope</th>
+                        <th>Items</th>
+                        <th>Updated</th>
+                        <th class="text-end" data-orderable="false">Actions</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tigerDataTable !== 'function') { return; }
+    var $   = jQuery;
+    var esc = tigerDataTable.esc;
+
+    var table = tigerDataTable('#cms-menus-table', {
+        service: { module: 'cms', service: 'menu', action: 'datatable' },
+        order: [[0, 'asc']],
+        language: { search: '', searchPlaceholder: 'Search menus…' },
+        columns: [
+            { data: 'menu_key', render: function (t, type, row) {
+                if (type !== 'display') { return t; }
+                return '<a href="/cms/menu/edit/key/' + encodeURIComponent(t) + '" class="fw-semibold text-decoration-none">'
+                    + '<i class="fa-solid fa-bars fa-fw text-body-secondary me-1"></i>' + esc(t) + '</a>';
+            } },
+            { data: 'scope', render: function (t, type) {
+                return type !== 'display' ? t
+                    : '<span class="badge text-bg-' + (t === 'Global' ? 'light' : 'info') + '">' + esc(t) + '</span>';
+            } },
+            { data: 'items', className: 'text-center' },
+            { data: 'updated' },
+            { data: null, orderable: false, searchable: false, className: 'text-end text-nowrap', render: function (t, type, row) {
+                var html = '';
+                if (row.can_edit) {
+                    html += '<a href="/cms/menu/edit/key/' + encodeURIComponent(row.menu_key) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a> ';
+                }
+                if (row.can_delete) {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" data-menu-delete="' + esc(row.menu_key) + '" data-org="' + esc(row.org_id) + '" title="Delete menu"><i class="fa-solid fa-trash"></i></button>';
+                }
+                return html || '<span class="text-body-secondary">—</span>';
+            } }
+        ]
+    });
+
+    $('#cms-menus-table tbody').on('click', '[data-menu-delete]', function () {
+        var key = this.getAttribute('data-menu-delete');
+        if (!confirm('Delete the entire "' + key + '" menu and all its items?')) { return; }
+        var body = new URLSearchParams({ module: 'cms', service: 'menu', method: 'deleteMenu', menu_key: key, org_id: this.getAttribute('data-org') || '' });
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+            .then(function (r) { return r.json(); })
+            .then(function () { table.ajax.reload(null, false); })
+            .catch(function () { table.ajax.reload(null, false); });
+    });
+});
+</script>

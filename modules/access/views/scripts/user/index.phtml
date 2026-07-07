@@ -1,0 +1,119 @@
+<?php
+/**
+ * Users list — a DataTables grid sourced from /api (Access_Service_User::datatable),
+ * per the client/server paradigm. Server-side search/sort/paginate; a Status filter
+ * toolbar via the tigerDataTable extraData hook. Action controls render off per-row
+ * ACL flags (can_edit / can_delete); you can't delete your own account.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Users</h1>
+        <p class="text-body-secondary mb-0">Identities — email, username, status, and membership.</p>
+    </div>
+    <a href="/access/user/edit" class="btn btn-primary"><i class="fa-solid fa-user-plus me-2"></i>New User</a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-transparent">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label small text-body-secondary mb-1" for="access-user-status">Status</label>
+                <select id="access-user-status" class="form-select form-select-sm">
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" id="access-user-clear" class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                    <i class="fa-solid fa-filter-circle-xmark me-1"></i>Clear
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="access-user-table" class="table table-hover align-middle" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Username</th>
+                        <th data-orderable="false">Roles</th>
+                        <th>Orgs</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end" data-orderable="false">Actions</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tigerDataTable !== 'function') { return; }
+    var $   = jQuery;
+    var esc = tigerDataTable.esc;
+    var BADGE = { active: 'success', suspended: 'warning' };
+    function cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    var fStatus = document.getElementById('access-user-status');
+
+    var table = tigerDataTable('#access-user-table', {
+        service: { module: 'access', service: 'user', action: 'datatable' },
+        order: [[5, 'desc']],
+        language: { search: '', searchPlaceholder: 'Search email / username…' },
+        extraData: function () { return { status: fStatus.value }; },
+        columns: [
+            { data: 'email', render: function (t, type, row) {
+                return type !== 'display' ? t :
+                    '<a href="/access/user/edit/id/' + encodeURIComponent(row.user_id) + '" class="fw-semibold text-decoration-none">' + esc(t) + '</a>';
+            } },
+            { data: 'username', render: function (t, type) {
+                if (type !== 'display') { return t; }
+                return t ? '<code class="text-body-secondary">' + esc(t) + '</code>' : '<span class="text-body-secondary">—</span>';
+            } },
+            { data: 'roles', orderable: false, render: function (t, type) {
+                if (type !== 'display') { return t; }
+                if (!t) { return '<span class="text-body-secondary">—</span>'; }
+                return String(t).split(',').map(function (r) {
+                    return '<span class="badge text-bg-light border me-1">' + esc(r.trim()) + '</span>';
+                }).join('');
+            } },
+            { data: 'org_count', render: function (t, type) {
+                return type !== 'display' ? t : '<span class="badge rounded-pill text-bg-secondary">' + (parseInt(t, 10) || 0) + '</span>';
+            } },
+            { data: 'status', render: function (t, type) {
+                return type !== 'display' ? t : '<span class="badge text-bg-' + (BADGE[t] || 'secondary') + '">' + esc(cap(t)) + '</span>';
+            } },
+            { data: 'created' },
+            { data: null, orderable: false, searchable: false, className: 'text-end text-nowrap', render: function (t, type, row) {
+                var html = '';
+                if (row.can_edit) {
+                    html += '<a href="/access/user/edit/id/' + encodeURIComponent(row.user_id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a> ';
+                }
+                if (row.can_delete) {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" data-user-delete="' + esc(row.user_id) + '" title="Delete"><i class="fa-solid fa-trash"></i></button>';
+                } else {
+                    html += '<button type="button" class="btn btn-sm btn-outline-danger" disabled title="' + (row.is_self ? 'You cannot delete yourself' : 'Not permitted') + '"><i class="fa-solid fa-trash"></i></button>';
+                }
+                return html || '<span class="text-body-secondary">—</span>';
+            } }
+        ]
+    });
+
+    $('#access-user-status').on('change', function () { table.ajax.reload(); });
+    $('#access-user-clear').on('click', function () { fStatus.value = ''; table.ajax.reload(); });
+
+    $('#access-user-table tbody').on('click', '[data-user-delete]', function () {
+        if (!confirm('Delete this user? They are soft-deleted and can be recovered.')) { return; }
+        var body = new URLSearchParams({ module: 'access', service: 'user', method: 'delete', user_id: this.getAttribute('data-user-delete') });
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+            .then(function (r) { return r.json(); })
+            .then(function () { table.ajax.reload(null, false); })
+            .catch(function () { table.ajax.reload(null, false); });
+    });
+});
+</script>

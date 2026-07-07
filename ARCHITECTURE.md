@@ -107,6 +107,51 @@ nobody can accidentally treat Core as just-another-module. AskLevi's `core` modu
 You *can* drop a default-namespace controller into `application/` if you insist (it wins via a
 cascade) — not recommended, never prevented, and safe from updates because it's app-owned.
 
+### 3a. What tiger-core *is* — a framework distribution, not a module
+
+tiger-core looks unusual at first: one Composer package that ships a **library** (`Tiger_*`
+classes, **including models**), a **default-namespace MVC surface** (`core/controllers`,
+`core/views`), **first-party modules** (`modules/*`), a **theme**, **config**, **migrations**,
+and a **CLI**. That multi-role shape can read as esoteric — even a "hack" — on ZF1, which
+predates Composer-as-culture and has no first-class "a package contributes MVC" concept. It
+isn't a hack; it's the mainstream **framework-package / bundle** pattern, retrofitted onto ZF1:
+
+- **The right mental model is `laravel/framework` or a Symfony bundle**, *not* "a big module."
+  A module plugs *into* an app; tiger-core is the layer the app and its modules *sit on*.
+  Laravel's framework package and every Symfony bundle ship exactly this mix — base
+  controllers, views, config, commands, migrations, assets — in one installable unit.
+- **One directory per ZF1 resolution mechanism.** The layout is *more* ZF1-native than it looks:
+
+  | ZF1 locates it by… | tiger-core dir | Holds |
+  |---|---|---|
+  | **Autoload** (class → file) | `library/Tiger/*` | anything addressed by class name: bases, services, ACL, forms, the CMS engine, **and models** |
+  | **Controller dispatch** (default ns) | `core/controllers`, `core/views` | the module-less MVC face |
+  | **Module scan** | `modules/*` | first-party routed features (e.g. `cms`) |
+  | **View path / config merge** | `themes/*`, `configs/` | theme + the config cascade |
+
+- **Why models live in `library/`, not `application/models/`.** The ZF1 habit of models in
+  `application/models` is a convention for **app-owned, module-scoped** models. tiger-core's
+  models are neither — they're **platform substrate** (`@api`), autoloaded and consumed from
+  `vendor/`, peers of `Tiger_Service_Service` and `Tiger_Acl_Acl`. `Zend_Db_Table_Abstract`
+  lives in a library; `Tiger_Model_Org` is the same *kind* of thing. Putting them beside the
+  rest of `Tiger_*` is the **consistent** choice — the split-brain would be scattering them
+  into a `core/models/` while the services sit in the library.
+  - **The rule to police:** a class in `library/Tiger/Model` must be true platform substrate —
+    reusable by any app or module, depending on nothing app-specific. A model tied to one
+    feature belongs in that module's `models/`. (The CMS is the edge case: the content *store*
+    — `Tiger_Model_Page`/`PageVersion`/`PageRedirect` — is substrate like `user`/`org`, so it's
+    library; the CMS *admin* is a feature, so it's `modules/cms`. Engine in the library, feature
+    in a module — the same split, applied honestly.)
+
+- **The one deliberate novelty: the package ships *updatable* MVC.** Handing controllers/views
+  to a Composer package (dispatch-resolved, hand-wired in `Tiger_Application_Bootstrap::
+  _initTigerPaths` via `addControllerDirectory`) is the part with no ZF1 precedent. The
+  "cleaner" alternative — tiger-core as pure library, with the MVC/theme/modules shipped in the
+  **skeleton** — was rejected on purpose: skeleton files are copied *once* and can never be
+  `composer update`d, which is exactly the copy-in trap §1 and §12 reject. Shipping the default
+  MVC in the updatable package is the *reason* for the unusual shape, not an accident of it.
+  Don't "simplify" it back into the skeleton without re-reading this.
+
 ---
 
 ## 4. Entry & bootstrap
@@ -381,6 +426,8 @@ registered dirs; assets = symlink.**
 | Full theme→theme inheritance / swap resolver | speculative machinery, rarely needed | theme-as-a-path + core-view fallback |
 | Tailwind as the default theme | needs a build toolchain | Bootstrap (runtime CSS-var theming) |
 | Role on the User (global) | single-tenant thinking | role on `org_user` (membership) |
+| tiger-core as pure library (MVC/theme/modules in the skeleton) | skeleton files copy once → default MVC can't be `composer update`d | package ships *updatable* MVC (see §3a) |
+| Models in `application/models`-style dirs | they're platform substrate, not app models | `library/Tiger/Model/*`, peers of the services (§3a) |
 
 ---
 

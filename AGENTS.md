@@ -31,6 +31,34 @@ change app behavior** — you'll lose it on the next update. Extend instead:
 - **Docblock every class and non-trivial method**, explaining intent, not mechanics. Comment
   density here is higher than typical — keep it.
 - Constants for magic values; guard clauses over deep nesting; `Throwable` in catches.
+- **No URL query params for navigation.** Use ZF1 path-style params — `/auth/login/out/1`, not
+  `?out=1` (the `:controller/:action/*` route folds trailing pairs into `getParam()`); tokenized
+  links are path-style too. A return/intended-destination path lives in the **session**, never the
+  URL (see `Tiger_Service_Authentication::setReturnTo`/`takeReturnTo`) — avoids `%2F` path 404s and
+  history leakage.
+
+## Client/server: the UI calls `/api`, it does not post to pages
+
+Tiger apps are **client/server**. The server renders the initial HTML — the page *shell* and
+public CMS page bodies — and from there **the browser is a client that exchanges data with
+`/api` over AJAX**. It does **not** submit `<form>` page-POSTs to a controller and re-render the
+whole page. Every dynamic interaction is a Tiger Webservice call:
+
+- **Auth & session** — login, logout, lock-screen unlock, signup, password reset are AJAX. (Auth
+  is a *reserved* kernel service, so these post to a thin controller that returns JSON — e.g.
+  `/auth/login` — rather than literal `/api`; it's the same AJAX-JSON contract. See
+  WEBSERVICES.md §8.)
+- **Data in** — every insert / update / delete is an `/api` service call (validate → transaction);
+  the JSON response drives the client (redirect, inline field errors, toast).
+- **Data out** — list / table data (DataTables, Select2, autocompletes) is **fetched from `/api`**,
+  not server-rendered into rows. DataTables loads its rows over AJAX and the service returns the
+  DataTables shape (`{data:[…]}` for an ajax source, or `{draw, recordsTotal, recordsFiltered,
+  data}` for server-side processing). See WEBSERVICES.md §5.
+
+**SSR is for the shell, not the data.** A controller action renders the initial screen and then
+gets out of the way; the logic and the data live in services. The payoff is the front-end-agnostic
+contract (FEATURES.md): the same `/api` feeds the PUMA SSR theme, a future SPA theme, or a mobile
+client, because the UI is always just a client.
 
 ## Services (`/api`) — the canonical flow
 
@@ -89,6 +117,10 @@ class Billing_Form_Invoice extends Tiger_Form
 - Extend `Tiger_Model_Table`. It mints the UUID PK on insert (v7 default; set
   `$_uuidVersion = 4` for opaque tokens), stamps timestamps + `created_by`/`updated_by`, and
   soft-deletes. Domain finders build on `activeSelect()` (excludes deleted).
+- **Build every query with the query builder — never a raw SQL string.** `activeSelect()` /
+  `$db->select()->from(...)` + bound `where('col = ?', $v)`, and `new Zend_Db_Expr('COUNT(*)')` for
+  aggregates. Parameterized, portable, injection-safe. No `$db->query("SELECT …")` /
+  string-concatenated SQL in models or services.
 - Every domain table gets the **standard columns**: `status`, `deleted`, `created_by`,
   `updated_by`, `created_at`, `updated_at`. UUIDs are `CHAR(36)`; unique text is `VARCHAR(191)`.
 - Migrations are **additive-only** PHP files (`NNNN_name.php` returning `['up'=>[], 'down'=>[]]`)
@@ -132,3 +164,5 @@ a bootstrap `_init*`. See `Tiger_Model_Config` / `Tiger_Model_Translation`.
 - Don't hardcode user-facing strings, roles, or config — use keys, ACL data, and config.
 - Don't put logic in controllers, or run mutations without a form-validate + transaction.
 - Don't build REST-by-URL endpoints — use the `/api` message pattern.
+- Don't page-POST forms to controllers or server-render list/table data — the UI is a client
+  that calls `/api`; controllers render the initial shell only (see the client/server section).

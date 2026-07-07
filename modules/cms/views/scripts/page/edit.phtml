@@ -1,0 +1,173 @@
+<?php
+/**
+ * CMS page editor — create/edit a page, layout, or partial. The form elements are
+ * ViewHelper-only (Tiger_Form strips chrome), so this view owns all markup. Saving
+ * is an /api call to Cms_Service_Page (no controller post-back); the response
+ * drives the redirect / inline errors. Version history (edit mode) restores via
+ * the same service.
+ */
+$form     = $this->form;
+$page     = $this->page;
+$versions = $this->versions ?? [];
+$isEdit   = (bool) $page;
+$el = function ($name) use ($form) { return $form->getElement($name); };
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1"><?= $isEdit ? 'Edit Page' : 'New Page' ?></h1>
+        <p class="text-body-secondary mb-0"><a href="/cms/page" class="text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to content</a></p>
+    </div>
+    <div class="text-nowrap">
+        <a href="/cms/page" class="btn btn-outline-secondary">Cancel</a>
+        <button type="button" id="cms-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="cms-feedback"></div>
+
+<form id="cms-page-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <?= $el('page_id') ?>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('title')->getId()) ?>">Title</label>
+                        <?= $el('title') ?>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('body')->getId()) ?>">Body</label>
+                        <?= $el('body') ?>
+                        <div class="form-text">Rendered per the selected format. <code>[shortcodes]</code> work in HTML/Markdown; PHTML runs view code (trusted authors only).</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header fw-semibold">Publish</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('status')->getId()) ?>">Status</label>
+                        <?= $el('status') ?>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('published_at')->getId()) ?>">Publish at</label>
+                        <?= $el('published_at') ?>
+                        <div class="form-text">Blank = live immediately. A future time schedules it.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('locale')->getId()) ?>">Language</label>
+                        <?= $el('locale') ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header fw-semibold">Settings</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('type')->getId()) ?>">Type</label>
+                        <?= $el('type') ?>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('format')->getId()) ?>">Format</label>
+                        <?= $el('format') ?>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('slug')->getId()) ?>">Slug</label>
+                        <?= $el('slug') ?>
+                        <div class="form-text">URL path for pages. Blank for layouts/partials.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('page_key')->getId()) ?>">Key</label>
+                        <?= $el('page_key') ?>
+                        <div class="form-text">Stable handle (layouts/partials fetch by this). Auto-derived if blank.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('layout_key')->getId()) ?>">Layout</label>
+                        <?= $el('layout_key') ?>
+                        <div class="form-text">Key of a layout to wrap this page. Blank = theme layout.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<?php if ($isEdit && count($versions)): ?>
+<div class="card mt-4">
+    <div class="card-header fw-semibold"><i class="fa-solid fa-clock-rotate-left me-2"></i>Version history</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Version</th><th>Title</th><th>Status</th><th>Saved</th><th class="text-end">&nbsp;</th></tr></thead>
+            <tbody>
+            <?php foreach ($versions as $v): ?>
+                <tr>
+                    <td class="fw-semibold">#<?= $this->escape($v->version) ?></td>
+                    <td><?= $this->escape($v->title ?: '(untitled)') ?></td>
+                    <td><span class="badge text-bg-light"><?= $this->escape(ucfirst($v->status)) ?></span></td>
+                    <td class="text-body-secondary"><?= $this->escape(substr((string) $v->created_at, 0, 16)) ?></td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-cms-restore="<?= $this->escape($v->version) ?>">Restore</button>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('cms-page-form');
+    var fb   = document.getElementById('cms-feedback');
+
+    function alertHtml(msg, cls) {
+        var ctx = (cls === 'error') ? 'danger' : (cls || 'info');
+        return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert">' +
+               String(msg) + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
+    }
+    function clearErrors() {
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+    }
+    function post(extra, onOk) {
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'cms'); fd.set('service', 'page');
+        Object.keys(extra).forEach(function (k) { fd.set(k, extra[k]); });
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.result === 1) { onOk(res); return; }
+                clearErrors();
+                if (res.form) {
+                    Object.keys(res.form).forEach(function (field) {
+                        var input = form.querySelector('[name="' + field + '"]');
+                        if (input) { input.classList.add('is-invalid'); }
+                    });
+                }
+                (res.messages || []).forEach(function (m) { fb.innerHTML += alertHtml(m.message, m.class); });
+                if (!res.messages || !res.messages.length) { fb.innerHTML = alertHtml('Please fix the highlighted fields and try again.', 'error'); }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .catch(function () { fb.innerHTML = alertHtml('Network error — please try again.', 'error'); });
+    }
+
+    document.getElementById('cms-save').addEventListener('click', function () {
+        clearErrors();
+        post({ method: 'save' }, function (res) { window.location = res.redirect || '/cms/page'; });
+    });
+
+    document.querySelectorAll('[data-cms-restore]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var ver = btn.getAttribute('data-cms-restore');
+            if (!confirm('Restore version #' + ver + '? The current content is saved as a new version first.')) { return; }
+            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
+        });
+    });
+});
+</script>

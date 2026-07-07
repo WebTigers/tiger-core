@@ -105,6 +105,19 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $this->bootstrap('frontController');
         $this->getResource('frontController')
              ->registerPlugin(new Tiger_Controller_Plugin_PageDispatch());
+
+        // [menu name="primary"] in html/markdown page bodies -> the rendered menu.
+        // Same output as the {menu} view helper and Tiger_Menu::getHTML (auth-filtered).
+        Tiger_Cms_Renderer::registerShortcode('menu', static function ($attrs) {
+            $key = (string) ($attrs['name'] ?? ($attrs['key'] ?? ''));
+            if ($key === '') {
+                return '';
+            }
+            $options = [];
+            if (!empty($attrs['class'])) { $options['class'] = $attrs['class']; }
+            if (!empty($attrs['id']))    { $options['id']    = $attrs['id']; }
+            return Tiger_Menu::getHTML($key, $options);
+        });
     }
 
     /**
@@ -220,6 +233,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         // View script paths cascade (last added wins): Core -> theme -> app.
         $view = new Zend_View();
         $view->doctype('HTML5');
+        $view->addHelperPath(TIGER_CORE_PATH . '/library/Tiger/View/Helper', 'Tiger_View_Helper');
         $view->addScriptPath(TIGER_CORE_PATH . '/core/views/scripts');
         if (is_dir($themeDir . '/views/scripts')) {
             $view->addScriptPath($themeDir . '/views/scripts');
@@ -232,6 +246,11 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $view->skin        = $skin;
         $view->skins       = $availableSkins;   // for the skin switcher
         $view->themeAssets = '/_theme';
+
+        // Site name (config, per-org-aware) available to every view/layout.
+        $cfg  = Zend_Registry::isRegistered('Zend_Config') ? Zend_Registry::get('Zend_Config') : null;
+        $site = ($cfg && $cfg->get('tiger')) ? $cfg->tiger->get('site') : null;
+        $view->siteName = ($site && (string) $site->get('name') !== '') ? (string) $site->name : 'Tiger';
 
         Zend_Controller_Action_HelperBroker::getStaticHelper('viewRenderer')->setView($view);
 

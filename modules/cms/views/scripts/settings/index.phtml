@@ -1,0 +1,77 @@
+<?php
+/**
+ * Site / CMS Settings. ViewHelper-only form (the view owns markup). Saving is an
+ * /api call to Cms_Service_Settings; the JSON response drives the redirect / errors.
+ */
+$form = $this->form;
+$el = function ($name) use ($form) { return $form->getElement($name); };
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Settings</h1>
+        <p class="text-body-secondary mb-0">Your site's name and home page.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="cms-settings-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="cms-settings-feedback"></div>
+
+<form id="cms-settings-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('site_name')->getId()) ?>">Site name</label>
+                        <?= $el('site_name') ?>
+                        <div class="form-text">Shown in the site header and browser tab, and used as the default page title.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('home_page')->getId()) ?>">Home page</label>
+                        <?= $el('home_page') ?>
+                        <div class="form-text">Which page to serve at <code>/</code>. “Built-in landing page” keeps the default marketing page.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('cms-settings-form');
+    var fb   = document.getElementById('cms-settings-feedback');
+
+    function alertHtml(msg, cls) {
+        var ctx = (cls === 'error') ? 'danger' : (cls || 'info');
+        return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert">' + String(msg) +
+               '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
+    }
+    document.getElementById('cms-settings-save').addEventListener('click', function () {
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'cms'); fd.set('service', 'settings'); fd.set('method', 'save');
+        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json().catch(function () { return {}; }); })
+            .then(function (res) {
+                if (res && res.result === 1) {
+                    fb.innerHTML = alertHtml('Settings saved.', 'success');
+                    return;
+                }
+                if (res && res.form) {
+                    Object.keys(res.form).forEach(function (field) {
+                        var input = form.querySelector('[name="' + field + '"]');
+                        if (input) { input.classList.add('is-invalid'); }
+                    });
+                }
+                (res && res.messages || []).forEach(function (m) { fb.innerHTML += alertHtml(m.message, m.class); });
+                if (!res || !res.messages || !res.messages.length) { fb.innerHTML = alertHtml('Please fix the highlighted fields.', 'error'); }
+            })
+            .catch(function () { fb.innerHTML = alertHtml('Network error — please try again.', 'error'); });
+    });
+});
+</script>

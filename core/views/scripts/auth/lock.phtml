@@ -1,0 +1,136 @@
+<?php
+/**
+ * Lock card. The session stays signed in; re-verify to unlock — by password OR, for
+ * passwordless (OTP) users, by a one-time code emailed to the (known) address.
+ * Renders in the 'auth' layout; POSTs over AJAX to /auth/lock (JSON). Unlocking keeps
+ * the same session (a re-verify, not a re-login), then returns to where the user was.
+ */
+$identity = $this->identity;
+$email    = $this->escape($identity->email ?? '');
+$who      = $this->escape(($identity && $identity->username) ? $identity->username : ($identity->email ?? ''));
+?>
+<div class="tiger-auth-brand">
+    <span class="tiger-auth-mark"><i class="fa-solid fa-lock"></i></span>
+    <h1 class="h4 mb-1">Screen locked</h1>
+    <p class="text-body-secondary small mb-0">Re-verify to continue.</p>
+</div>
+
+<div class="text-center mb-3">
+    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle mb-2" style="width:56px;height:56px;">
+        <i class="fa-solid fa-user fa-lg text-secondary"></i>
+    </span>
+    <div class="fw-semibold"><?= $who ?></div>
+    <?php if ($email && $email !== $who): ?><div class="text-body-secondary small"><?= $email ?></div><?php endif; ?>
+</div>
+
+<div id="lock-feedback"></div>
+
+<!-- Password unlock (default) -->
+<div id="lock-pw-mode">
+    <form id="lock-pw-form" novalidate>
+        <div class="mb-3">
+            <label class="form-label" for="lock-password">Password</label>
+            <input type="password" class="form-control form-control-lg" id="lock-password" name="password"
+                   autocomplete="current-password" autofocus required>
+        </div>
+        <div class="d-grid mb-2">
+            <button type="submit" id="lock-pw-submit" class="btn btn-primary btn-lg">Unlock</button>
+        </div>
+    </form>
+    <div class="text-center">
+        <a href="#" id="lock-use-code" class="small text-decoration-none">Unlock with a code instead</a>
+    </div>
+</div>
+
+<!-- Code unlock (revealed on request) -->
+<div id="lock-code-mode" style="display:none;">
+    <form id="lock-send-form" novalidate>
+        <p class="small text-body-secondary text-center mb-3">We'll email a one-time code to <strong><?= $email ?></strong>.</p>
+        <div class="d-grid mb-2">
+            <button type="submit" id="lock-send-submit" class="btn btn-primary btn-lg">Email me a code</button>
+        </div>
+    </form>
+    <form id="lock-code-form" novalidate style="display:none;">
+        <p class="small text-body-secondary" id="lock-code-note"></p>
+        <div class="mb-3">
+            <label class="form-label" for="lock-code">Verification code</label>
+            <input type="text" class="form-control form-control-lg text-center" id="lock-code" name="code"
+                   inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"
+                   placeholder="000000" style="letter-spacing:.4em;" required>
+        </div>
+        <div class="d-grid mb-2">
+            <button type="submit" id="lock-code-submit" class="btn btn-primary btn-lg">Unlock</button>
+        </div>
+    </form>
+    <div class="text-center">
+        <a href="#" id="lock-use-pw" class="small text-decoration-none">Use password instead</a>
+    </div>
+</div>
+
+<div class="tiger-auth-foot">
+    <a href="/auth/logout" class="small text-decoration-none">Not <?= $who ?>? Sign out</a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb      = document.getElementById('lock-feedback');
+    var pwMode  = document.getElementById('lock-pw-mode');
+    var codeMode= document.getElementById('lock-code-mode');
+    var sendForm= document.getElementById('lock-send-form');
+    var codeForm= document.getElementById('lock-code-form');
+
+    function fail(msg) { fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">' + msg + '</div>'; }
+    function busy(btn, label) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + label; }
+    function reset(btn, label) { btn.disabled = false; btn.textContent = label; }
+    function post(body) {
+        return fetch('/auth/lock', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: new URLSearchParams(body) })
+            .then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+    function unlocked(res) { window.location = (res && res.redirect) || '/admin'; }
+
+    // --- password unlock ---
+    document.getElementById('lock-pw-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        var btn = document.getElementById('lock-pw-submit');
+        busy(btn, 'Unlocking…');
+        post({ password: document.getElementById('lock-password').value }).then(function (res) {
+            if (res && res.result === 1) { unlocked(res); return; }
+            reset(btn, 'Unlock'); fail('Incorrect password.'); document.getElementById('lock-password').value = '';
+        }).catch(function () { reset(btn, 'Unlock'); fail('Network error — please try again.'); });
+    });
+
+    // --- mode toggles ---
+    document.getElementById('lock-use-code').addEventListener('click', function (e) {
+        e.preventDefault(); fb.innerHTML = ''; pwMode.style.display = 'none'; codeMode.style.display = '';
+    });
+    document.getElementById('lock-use-pw').addEventListener('click', function (e) {
+        e.preventDefault(); fb.innerHTML = ''; codeMode.style.display = 'none'; sendForm.style.display = '';
+        codeForm.style.display = 'none'; pwMode.style.display = ''; document.getElementById('lock-password').focus();
+    });
+
+    // --- code unlock: send ---
+    sendForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        var btn = document.getElementById('lock-send-submit');
+        busy(btn, 'Sending…');
+        post({ send_code: 1 }).then(function () {
+            document.getElementById('lock-code-note').textContent = 'We sent a 6-digit code to <?= $email ?>. Enter it below.';
+            sendForm.style.display = 'none'; codeForm.style.display = ''; document.getElementById('lock-code').focus();
+        }).catch(function () { reset(btn, 'Email me a code'); fail('Network error — please try again.'); });
+    });
+
+    // --- code unlock: verify ---
+    codeForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        var btn = document.getElementById('lock-code-submit');
+        busy(btn, 'Unlocking…');
+        post({ code: document.getElementById('lock-code').value }).then(function (res) {
+            if (res && res.result === 1) { unlocked(res); return; }
+            reset(btn, 'Unlock'); fail('That code is invalid or has expired.'); document.getElementById('lock-code').value = '';
+        }).catch(function () { reset(btn, 'Unlock'); fail('Network error — please try again.'); });
+    });
+});
+</script>

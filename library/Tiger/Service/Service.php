@@ -212,6 +212,65 @@ abstract class Tiger_Service_Service
         }
     }
 
+    // ----- DataTables (server-side processing) -------------------------------
+
+    /**
+     * Normalize a DataTables server-side-processing request into a tidy shape:
+     * `draw`, `start`, `length` (clamped to [1, $maxLength]), a single `search`
+     * string, and `order` as [ ['column'=>int, 'dir'=>'ASC'|'DESC'], … ]. A grid's
+     * `datatable` action reads these, runs its count + page queries, and answers
+     * with _dtResponse(). Part of the client/server paradigm: data grids fetch rows
+     * from /api, they are never server-rendered (see AGENTS.md, WEBSERVICES.md §5).
+     *
+     * @return array{draw:int,start:int,length:int,search:string,order:array}
+     */
+    protected function _dtParams(array $params, int $maxLength = 100): array
+    {
+        $length = (int) ($params['length'] ?? 25);
+        $length = $length === -1 ? $maxLength : max(1, min($maxLength, $length));
+
+        $search = '';
+        if (isset($params['search'])) {
+            $search = is_array($params['search'])
+                ? (string) ($params['search']['value'] ?? '')
+                : (string) $params['search'];
+        }
+
+        $order = [];
+        foreach ((array) ($params['order'] ?? []) as $o) {
+            if (!is_array($o) || !isset($o['column'])) { continue; }
+            $order[] = [
+                'column' => (int) $o['column'],
+                'dir'    => (strtolower((string) ($o['dir'] ?? 'asc')) === 'desc') ? 'DESC' : 'ASC',
+            ];
+        }
+
+        return [
+            'draw'   => max(0, (int) ($params['draw'] ?? 0)),
+            'start'  => max(0, (int) ($params['start'] ?? 0)),
+            'length' => $length,
+            'search' => trim($search),
+            'order'  => $order,
+        ];
+    }
+
+    /**
+     * Emit the DataTables response envelope ({draw, recordsTotal, recordsFiltered,
+     * data}) via the standard success response. The shared client helper
+     * (tiger.datatable.js) unwraps the Tiger envelope into what DataTables consumes.
+     * `$data` is structured rows only — never HTML; the client renders cells (and
+     * gates controls off per-row permission flags the service puts on each row).
+     */
+    protected function _dtResponse(int $draw, int $recordsTotal, int $recordsFiltered, array $data, string $message = 'core.api.success'): void
+    {
+        $this->_success([
+            'draw'            => $draw,
+            'recordsTotal'    => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data'            => $data,
+        ], $message);
+    }
+
     // -------------------------------------------------------------------------
 
     public function getResponse()

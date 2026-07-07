@@ -5,7 +5,7 @@
  * CSS load order (cascade, last wins): bootstrap → default → active skin.
  * Asset base `$this->themeAssets` (default: /_theme) is the docroot symlink to this
  * theme's assets/ dir. Theme + skin are chosen by the app Bootstrap (config now,
- * per-org later).
+ * per-org later). Asset URLs go through $this->asset() for cache-busting.
  *
  * Theme mode: honors the `tiger_theme` cookie (browser|light|dark) server-side so
  * the first paint is correct; theme-init.js finishes 'browser' via matchMedia
@@ -20,19 +20,19 @@ $_lang = defined('LANG') ? LANG : 'en';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= $this->escape($this->title ?? 'Tiger') ?></title>
+    <title><?= $this->escape($this->title ?? ($this->siteName ?? 'Tiger')) ?></title>
 
     <!-- No-FOUC theme resolver: MUST run before the stylesheets below paint. -->
-    <script src="<?= $this->themeAssets ?>/js/theme-init.js"></script>
+    <script src="<?= $this->asset($this->themeAssets . '/js/theme-init.js') ?>"></script>
 
     <!-- Vendored fonts + icons (no CDN): Inter + Font Awesome Free. -->
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/vendor/fonts/inter/inter.css">
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/fonts/inter/inter.css') ?>">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/fontawesome/css/all.min.css') ?>">
 
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/css/bootstrap.min.css">
-    <link rel="stylesheet" href="<?= $this->themeAssets ?>/default.css">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/css/bootstrap.min.css') ?>">
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/default.css') ?>">
 <?php if (!empty($this->skin)): ?>
-    <link id="tiger-skin" rel="stylesheet" href="<?= $this->themeAssets ?>/skins/<?= $this->escape($this->skin) ?>.css">
+    <link id="tiger-skin" rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/skins/' . $this->skin . '.css') ?>">
 <?php endif; ?>
 </head>
 <body>
@@ -44,7 +44,7 @@ $_lang = defined('LANG') ? LANG : 'en';
 
 <?= $this->render('_partials/public-footer.phtml') ?>
 
-<script src="<?= $this->themeAssets ?>/js/bootstrap.bundle.min.js"></script>
-<script src="<?= $this->themeAssets ?>/js/tiger.prefs.js"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/bootstrap.bundle.min.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
 </body>
 </html>

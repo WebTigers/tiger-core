@@ -147,6 +147,59 @@ class Tiger_Model_Page extends Tiger_Model_Table
         ], $pageId);
     }
 
+    /**
+     * DataTables data for the CMS content admin: pages/layouts/partials with search,
+     * status/type filters, sort, and paging. Owns the query; the service handles
+     * presentation + ACL. Returns total (scoped), filtered (scoped + search), and rows.
+     *
+     * @param array{search?:string,status?:string,type?:string,orderCol?:int,orderDir?:string,offset?:int,limit?:int} $opts
+     * @return array{total:int,filtered:int,rows:array}
+     */
+    public function datatable(array $opts)
+    {
+        $db     = $this->getAdapter();
+        $search = (string) ($opts['search'] ?? '');
+        $status = (string) ($opts['status'] ?? '');
+        $type   = (string) ($opts['type'] ?? '');
+        $limit  = max(1, (int) ($opts['limit'] ?? 25));
+        $offset = max(0, (int) ($opts['offset'] ?? 0));
+
+        // Sortable columns (index -> SQL); Slug/Key sorts on whichever is set.
+        $orderCols = [0 => 'title', 1 => 'type', 2 => 'COALESCE(slug, page_key)', 3 => 'locale', 4 => 'status', 5 => 'updated_at'];
+        $col = (int) ($opts['orderCol'] ?? -1);
+        $dir = (strtoupper((string) ($opts['orderDir'] ?? '')) === 'ASC') ? 'ASC' : 'DESC';
+        $orderSql = isset($orderCols[$col]) ? ($orderCols[$col] . ' ' . $dir) : 'updated_at DESC';
+
+        $scope = function ($sel) use ($status, $type) {
+            $sel->where('deleted = 0');
+            if ($status !== '') { $sel->where('status = ?', $status); }
+            if ($type   !== '') { $sel->where('type = ?', $type); }
+        };
+        $searchFn = function ($sel) use ($db, $search) {
+            if ($search === '') { return; }
+            $like  = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
+            $parts = [];
+            foreach (['title', 'slug', 'page_key', 'type', 'locale', 'status'] as $c) { $parts[] = $db->quoteInto("$c LIKE ?", $like); }
+            $sel->where('(' . implode(' OR ', $parts) . ')');
+        };
+
+        $totalSel = $db->select()->from($this->_name, ['c' => new Zend_Db_Expr('COUNT(*)')]);
+        $scope($totalSel);
+        $total = (int) $db->fetchOne($totalSel);
+
+        $filteredSel = $db->select()->from($this->_name, ['c' => new Zend_Db_Expr('COUNT(*)')]);
+        $scope($filteredSel); $searchFn($filteredSel);
+        $filtered = (int) $db->fetchOne($filteredSel);
+
+        $pageSel = $db->select()
+            ->from($this->_name, ['page_id', 'title', 'type', 'slug', 'page_key', 'locale', 'status', 'published_at', 'updated_at', 'created_at'])
+            ->order(new Zend_Db_Expr($orderSql))
+            ->limit($limit, $offset);
+        $scope($pageSel); $searchFn($pageSel);
+
+        return ['total' => $total, 'filtered' => $filtered, 'rows' => $db->fetchAll($pageSel)];
+    }
+
     /** The org scope for a cascade lookup: [<org>, ''] (deduped; '' = global). */
     protected function _orgScope($orgId)
     {

@@ -51,6 +51,20 @@ framework.
   constant-time verification (no user enumeration); password history retained on change.
 - **One-time challenges.** `auth_challenge` backs OTP / password-reset / magic-link flows —
   hashed codes, single-use, TTL, attempt-limited.
+- **Self-service password reset.** A themed forgot/reset flow: an emailed tokenized link
+  (`Tiger_Mail` + `auth_challenge`, no account enumeration) → a policy-checked, history-aware
+  reset screen. The token is single-use and a weak password never burns it.
+- **Passwordless code login.** "Email me a code" — a 6-digit one-time code (`auth_challenge`:
+  attempt-limited, 10-min expiry, hourly send-cap, no enumeration) signs a user in without a
+  password. The verify/session path is channel-agnostic, so an SMS channel is a small future add.
+- **Two-factor authentication (TOTP).** RFC 6238 authenticator-app 2FA (Google Authenticator,
+  1Password, Authy, …), hand-rolled and dependency-free (`Tiger_Auth_Totp`, verified against the
+  RFC test vectors). A confirmed factor turns login into password → code; enrollment is a
+  self-service wizard (QR + manual setup key + single-use recovery codes) that only persists once
+  a live code confirms it. The shared secret is **encrypted at rest** (`Tiger_Crypto`, libsodium
+  secretbox; key in `local.ini`, never the DB); recovery codes are hashed and single-use. The
+  pending challenge is session-bound, TTL- and attempt-limited. Managing 2FA re-verifies through a
+  screen lock. An SMS/`sms_otp` factor is a small future add on the same seam.
 - **Sessions.** Database-backed shared store (required behind a multi-instance load balancer),
   with tiered TTLs by privilege and a file-handler fallback for single-box/fresh installs.
 - **Login audit log.** Append-only record of every sign-in attempt (success/failure/locked,
@@ -96,6 +110,13 @@ framework.
   stripped to ViewHelper-only so the view owns all markup (forms are AJAX-submitted).
   Subclasses declare a declarative `elements()` schema; CSRF and a translate helper are
   baked in. Validate with `isValid()` / `isValidPartial()`.
+- **Google reCAPTCHA control.** A drop-in `['recaptcha', 'recaptcha', []]` form element
+  (`Tiger_Form_Element_Recaptcha`) that renders the widget and self-attaches a server-side
+  validator (`Tiger_Validate_Recaptcha`, verified against Google's `siteverify`). Supports v2
+  (checkbox) and v3 (invisible score + action), config-driven (`tiger.recaptcha.*`): the site
+  key is public, the secret lives in `local.ini`, disabled installs pass through (keyless dev),
+  and a `fail_open` policy governs behavior during a reCAPTCHA outage. Also usable directly in a
+  hand-written view via `$this->formRecaptcha()`.
 
 ## Configuration
 
@@ -128,10 +149,60 @@ framework.
   and no-flash resolution.
 - **Admin shell** — fixed header (search, notifications, language/theme/skin switchers, user
   menu), collapsible sidebar with ACL-aware nav, and an optional right aside.
+- **Admin back office** — first-party management screens rendered in the shell: **Content**
+  (CMS pages/layouts/partials), **Users**, and **Organizations** — each a server-side DataTables
+  grid (search across all columns, per-column sort, a filter toolbar) plus a validated editor,
+  all driven over the `/api` message pattern. Row controls are gated by server-computed ACL
+  permission flags.
 - **Public site chrome** — a responsive header/nav + footer and a starter landing page ship in
   the PUMA theme, ready to customize (the switchers restyle the page live).
 - **Theme vs skin split** — theme = structure/layout; skin = CSS-only look; both resolve
   per request and can vary per org.
+- **Cache-busted, root-relative assets** — a view helper (`$this->asset()`) appends
+  `?v=<filemtime>` to asset URLs, so a deploy's changed CSS/JS is picked up without a hard
+  refresh: zero-build (no manifest/hash), per-file precise, and feature-flagged
+  (`tiger.assets.cache_bust`, config, default on). All asset URLs are **root-relative**
+  (`/_theme/…`), never a hardcoded FQDN — the site is domain- and protocol-agnostic (clean
+  staging→prod moves, ALB/proxy-safe, no HTTP/HTTPS mismatches).
+
+## Content (CMS)
+
+- **Database-driven pages, layouts, and partials.** One `page` store renders three primitives
+  by `type`; editing content is a row update, not a deploy (the live-override philosophy).
+  Bodies render as **HTML** or **Markdown** (safe) or **PHTML** (trusted code), with a
+  `[shortcode]` registry modules can extend.
+- **Tenant-aware + localized.** Pages cascade by org (a tenant row overrides the global one) and
+  carry one row per language; a front-controller dispatcher resolves a slug to the live page and
+  301-redirects retired slugs.
+- **Versioning + scheduling.** Every save snapshots a version (restore any prior one); a future
+  `published_at` schedules go-live with no separate workflow.
+- **Admin authoring.** A first-party `cms` module in the admin shell: a DataTables content list
+  and a page editor (create/edit, publish/schedule, format, layout, version history + restore,
+  soft-delete), writing through the `/api` message pattern (validate-then-transaction).
+- **Site settings.** An admin Settings screen sets the **site name** and the **home page** (which
+  CMS page is served at `/`, else a built-in landing). Values live in the `config` table
+  (live-override, per-org-capable) — stored config + a form abstraction, never a separate settings
+  table.
+- **Custom menus.** Admin-authored navigation menus (`menu` table — one flat, self-referential,
+  tenant-cascading tree; a menu is the rows sharing a `menu_key`). Properties are stored 1-to-1
+  (label, page-link *or* url, icon, css class, dom id, target, ACL resource/privilege). Themes reuse
+  them three ways — `<?= $this->menu('primary') ?>`, the `[menu name="primary"]` shortcode, or
+  `Tiger_Menu::getHTML('primary')` — all auth-filtered (items hide by ACL) with labels translated,
+  hrefs resolved (a `page_key` → the page's current slug), and the active item marked; rendering
+  compiles the tree to `Zend_Navigation`. `Tiger_Menu::getData()` returns the raw tree (no ACL) for
+  custom rendering. The admin **Menus** screen manages them: a DataTables list, plus a two-pane
+  **drag-drop builder** — a tabbed, filterable source palette (Pages / Custom) whose chips drag
+  into the structure, which is a **flat SortableJS list with WordPress-style indent-by-drag**
+  (drag right/left to nest/outdent, capped one level below the row above; parent/child is derived
+  from order + depth). Each chip opens a scrollable properties modal; everything persists over
+  `/api` (insert on drop, reorder on move, update on save, with a success toast).
+
+## Mail
+
+- **`Tiger_Mail`** — a fluent `Zend_Mail` wrapper. The transport is config-driven: boring PHP
+  `mail()` (sendmail) by default, or **SMTP with TLS + auth** per deploy (`mail.transport`,
+  `mail.smtp.*`, `mail.from.*`), with SMTP credentials in `local.ini` (never committed). Every
+  message is multipart — a plain-text alternative is auto-derived from the HTML for deliverability.
 
 ## Logging
 

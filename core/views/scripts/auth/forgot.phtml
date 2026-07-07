@@ -1,0 +1,79 @@
+<?php
+/**
+ * Request-a-reset form. AJAX POST to /auth/forgot; the server always answers the
+ * same way, so this view always shows the same confirmation (no account enumeration).
+ */
+?>
+<div class="tiger-auth-brand">
+    <span class="tiger-auth-mark"><i class="fa-solid fa-key"></i></span>
+    <h1 class="h4 mb-1">Reset your password</h1>
+    <p class="text-body-secondary small mb-0">We'll email you a link to choose a new one.</p>
+</div>
+
+<div id="forgot-panel">
+    <div id="forgot-feedback"></div>
+    <form id="forgot-form" novalidate>
+        <div class="mb-3">
+            <label class="form-label" for="forgot-email">Email</label>
+            <input type="email" class="form-control form-control-lg" id="forgot-email" name="email"
+                   autocomplete="username" inputmode="email" autofocus required>
+        </div>
+        <?php $rc = $this->formRecaptcha(); if ($rc): ?>
+        <div class="mb-3 d-flex justify-content-center"><?= $rc ?></div>
+        <?php endif; ?>
+        <div class="d-grid mb-2">
+            <button type="submit" id="forgot-submit" class="btn btn-primary btn-lg">Send reset link</button>
+        </div>
+    </form>
+</div>
+
+<div class="tiger-auth-foot">
+    <a href="/auth/login" class="small text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to sign in</a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form  = document.getElementById('forgot-form');
+    var panel = document.getElementById('forgot-panel');
+    var fb    = document.getElementById('forgot-feedback');
+    var btn   = document.getElementById('forgot-submit');
+
+    function rcReset() { if (window.grecaptcha) { try { grecaptcha.reset(); } catch (e) {} } }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        fb.innerHTML = '';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending…';
+        var email = document.getElementById('forgot-email').value;
+
+        fetch('/auth/forgot', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams(new FormData(form))
+        })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (res) {
+            // A reCAPTCHA block is a real error (not account enumeration) — surface it.
+            if (res && res.result === 0 && res.recaptcha) {
+                btn.disabled = false;
+                btn.textContent = 'Send reset link';
+                rcReset();
+                fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">Please complete the reCAPTCHA and try again.</div>';
+                return;
+            }
+            var a = document.createElement('div');
+            a.className = 'alert alert-success mb-0';
+            a.setAttribute('role', 'alert');
+            a.textContent = 'If an account exists for ' + email + ', a reset link is on its way. Check your inbox.';
+            panel.innerHTML = '';
+            panel.appendChild(a);
+        })
+        .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Send reset link';
+            rcReset();
+        });
+    });
+});
+</script>
