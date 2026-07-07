@@ -100,10 +100,11 @@ scanners in per deploy).
 ## 5. UI — the Media Library + picker
 
 - **Two views over the same `/api` data:** a **DataTables** list (thumbnail + filename +
-  kind + size + scan badge) and an **Isotope portfolio grid** (filter by type / filename /
-  caption; a size selector: thumbnail / small / medium / large; image click → **fullsize
-  modal**; PDFs render a pdf.js first-page preview, showing a **file-type icon until the
-  preview paints**).
+  kind + size + scan badge) and a **vanilla CSS-grid Portfolio** (no Isotope — its
+  GPL/commercial license clashes with Tiger's permissive stance; plain CSS Grid does the job
+  zero-dep) with a shared search + type filter, a size selector (thumbnail / small / medium /
+  large) that swaps tile size + variant, image click → **TigerLightbox** gallery, and (P3
+  remaining) PDFs rendering a pdf.js first-page preview — a **file-type icon until it paints**.
 - **Reusable picker:** the same grid embeds in a modal so any module (CMS page editor, a
   gallery field) can select existing media or upload new — returning `media_id`(s).
 - **Drag-drop uploader** with a per-file progress list, then the new tiles stream into the grid.
