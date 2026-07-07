@@ -88,13 +88,13 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
         </div>
 
         <input type="text" name="kicker" class="ed-field ed-kicker" value="<?= $val('kicker') ?>"
-               placeholder="<?= $this->escape($this->translate('blog.ph.kicker')) ?>" maxlength="120" autocomplete="off">
+               placeholder="Kicker — a short label above the title" maxlength="120" autocomplete="off">
         <input type="text" name="title" class="ed-field ed-title" value="<?= $val('title') ?>"
-               placeholder="<?= $this->escape($this->translate('blog.ph.title')) ?>" maxlength="255" autocomplete="off">
+               placeholder="Title" maxlength="255" autocomplete="off">
         <input type="text" name="subtitle" class="ed-field ed-subtitle" value="<?= $val('subtitle') ?>"
-               placeholder="<?= $this->escape($this->translate('blog.ph.subtitle')) ?>" maxlength="255" autocomplete="off">
+               placeholder="Add a subtitle…" maxlength="255" autocomplete="off">
         <textarea name="preamble" class="ed-field ed-preamble" rows="2"
-               placeholder="<?= $this->escape($this->translate('blog.ph.preamble')) ?>"><?= $val('preamble') ?></textarea>
+               placeholder="A larger-font opening that draws the reader in…"><?= $val('preamble') ?></textarea>
 
         <hr class="ed-hr">
 
@@ -114,7 +114,7 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
         </div>
 
         <div id="ed-body" class="ed-body" contenteditable="true"
-             data-placeholder="<?= $this->escape($this->translate('blog.ph.body')) ?>"><?= $body ?></div>
+             data-placeholder="Tell your story…"><?= $body ?></div>
         <textarea name="body" id="ed-body-src" class="d-none"><?= $this->escape($body) ?></textarea>
     </div>
 </form>
