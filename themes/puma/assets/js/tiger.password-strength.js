@@ -90,7 +90,10 @@
         var reveal = input.type === 'password';
         input.type = reveal ? 'text' : 'password';
         var icon = btn.querySelector('i');
-        if (icon) { icon.className = reveal ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'; }
+        if (icon) {   // swap only the eye token — preserve size/color classes
+            icon.classList.toggle('fa-eye', !reveal);
+            icon.classList.toggle('fa-eye-slash', reveal);
+        }
         btn.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
     });
 
