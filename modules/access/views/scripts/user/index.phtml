@@ -109,9 +109,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     $('#access-user-table tbody').on('click', '[data-user-delete]', function () {
         if (!confirm('Delete this user? They are soft-deleted and can be recovered.')) { return; }
-        var body = new URLSearchParams({ module: 'access', service: 'user', method: 'delete', user_id: this.getAttribute('data-user-delete') });
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function (r) { return r.json(); })
+        var btn  = this;
+        var body = new URLSearchParams({ module: 'access', service: 'user', method: 'delete', user_id: btn.getAttribute('data-user-delete') });
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); });
+        })
             .then(function () { table.ajax.reload(null, false); })
             .catch(function () { table.ajax.reload(null, false); });
     });

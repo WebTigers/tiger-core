@@ -351,11 +351,12 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         errBox.innerHTML = '';
-        var btn = document.getElementById('mi-save'); btn.disabled = true;
+        var btn = document.getElementById('mi-save');
         var params = {}; new FormData(form).forEach(function (v, k) { params[k] = v; });
         params.menu_key = currentKey();
-        api('save', params).then(function (res) {
-            btn.disabled = false;
+        TigerButton.run(btn, function () {
+            return api('save', params);
+        }).then(function (res) {
             if (!res || res.result !== 1) {
                 var msg = 'Could not save.';
                 if (res && res.form) { var f0 = Object.values(res.form)[0]; if (f0) { msg = Object.values(f0)[0] || msg; } }
@@ -369,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (li) { var chip = li.querySelector(':scope > .menu-chip'); if (chip) { chip.outerHTML = chipHTML(d); } }
             modal().hide();
             toast((d.label || 'Item') + ' saved');
-        }).catch(function () { btn.disabled = false; errBox.innerHTML = '<div class="alert alert-danger py-2">Network error.</div>'; });
+        }).catch(function () { errBox.innerHTML = '<div class="alert alert-danger py-2">Network error.</div>'; });
     });
 
     // Delegated open / delete (delete removes the row + its deeper-depth descendants).

@@ -236,8 +236,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var b = e.target.closest('[data-media-delete]');
         if (!b) { return; }
         if (!confirm('Delete this file? The stored bytes are removed.')) { return; }
-        fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:new URLSearchParams({ module:'media', service:'media', method:'delete', media_id:b.getAttribute('data-media-delete') }) })
-            .then(function(){ refresh(); }).catch(function(){ refresh(); });
+        TigerButton.run(b, function(){
+            return fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:new URLSearchParams({ module:'media', service:'media', method:'delete', media_id:b.getAttribute('data-media-delete') }) });
+        }).then(function(){ refresh(); }).catch(function(){ refresh(); });
     });
 
     // ---------- drag-drop upload (one XHR per file, real progress) ----------

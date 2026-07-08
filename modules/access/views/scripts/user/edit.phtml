@@ -64,11 +64,14 @@ document.addEventListener('DOMContentLoaded', function () {
         form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
     }
     document.getElementById('access-save').addEventListener('click', function () {
+        var btn = this;
         clearErrors();
         var fd = new URLSearchParams(new FormData(form));
         fd.set('module', 'access'); fd.set('service', 'user'); fd.set('method', 'save');
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-            .then(function (r) { return r.json(); })
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json(); });
+        })
             .then(function (res) {
                 if (res.result === 1) { window.location = res.redirect || '/access/user'; return; }
                 if (res.form) {

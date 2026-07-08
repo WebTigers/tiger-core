@@ -164,13 +164,15 @@ document.addEventListener('DOMContentLoaded', function () {
         fb.innerHTML = '';
         form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
     }
-    function post(extra, onOk) {
+    function post(btn, extra, onOk) {
         if (window.TigerCodeEditor) { TigerCodeEditor.syncAll(); }   // flush CodeMirror -> textarea
         var fd = new URLSearchParams(new FormData(form));
         fd.set('module', 'cms'); fd.set('service', 'page');
         Object.keys(extra).forEach(function (k) { fd.set(k, extra[k]); });
-        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-            .then(function (r) { return r.json(); })
+        return TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json(); });
+        })
             .then(function (res) {
                 if (res.result === 1) { onOk(res); return; }
                 clearErrors();
@@ -189,14 +191,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('cms-save').addEventListener('click', function () {
         clearErrors();
-        post({ method: 'save' }, function (res) { window.location = res.redirect || '/cms/page'; });
+        post(this, { method: 'save' }, function (res) { window.location = res.redirect || '/cms/page'; });
     });
 
     document.querySelectorAll('[data-cms-restore]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var ver = btn.getAttribute('data-cms-restore');
             if (!confirm('Restore version #' + ver + '? The current content is saved as a new version first.')) { return; }
-            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
+            post(btn, { method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
         });
     });
 });

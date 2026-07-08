@@ -43,21 +43,19 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         fb.innerHTML = '';
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending…';
         var email = document.getElementById('forgot-email').value;
 
-        fetch('/auth/forgot', {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: new URLSearchParams(new FormData(form))
+        TigerButton.run(btn, function () {
+            return fetch('/auth/forgot', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(new FormData(form))
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }); });
         })
-        .then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (res) {
             // A reCAPTCHA block is a real error (not account enumeration) — surface it.
             if (res && res.result === 0 && res.recaptcha) {
-                btn.disabled = false;
-                btn.textContent = 'Send reset link';
                 rcReset();
                 fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">Please complete the reCAPTCHA and try again.</div>';
                 return;
@@ -70,8 +68,6 @@ document.addEventListener('DOMContentLoaded', function () {
             panel.appendChild(a);
         })
         .catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Send reset link';
             rcReset();
         });
     });

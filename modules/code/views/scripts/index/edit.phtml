@@ -152,13 +152,16 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert"><pre class="mb-0" style="white-space:pre-wrap;font-family:inherit;">' +
                String(msg) + '</pre><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
     }
-    function post(extra, onOk) {
-        if (window.TigerCodeEditor) { TigerCodeEditor.syncAll(); }
+    function post(extra, onOk, btn) {
+        if (window.TigerCodeEditor) { TigerCodeEditor.syncAll(); }   // flush CodeMirror — synchronous setup, before the busy-state
         var fd = new URLSearchParams(new FormData(form));
         fd.set('module', 'code'); fd.set('service', 'code');
         Object.keys(extra).forEach(function (k) { fd.set(k, extra[k]); });
-        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-            .then(function (r) { return r.json(); })
+        var task = function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json(); });
+        };
+        return (btn ? TigerButton.run(btn, task) : task())
             .then(function (res) {
                 if (res.result === 1) { onOk(res); return; }
                 fb.innerHTML = '';
@@ -170,14 +173,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.getElementById('code-save').addEventListener('click', function () {
+        var btn = this;
         fb.innerHTML = '';
-        post({ method: 'save' }, function (res) { window.location = res.redirect || '/code'; });
+        post({ method: 'save' }, function (res) { window.location = res.redirect || '/code'; }, btn);
     });
     document.querySelectorAll('[data-code-restore]').forEach(function (btn) {
         btn.addEventListener('click', function () {
+            var el = this;
             var ver = btn.getAttribute('data-code-restore');
             if (!confirm('Restore version #' + ver + '? Current content is saved as a new version first.')) { return; }
-            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
+            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; }, el);
         });
     });
 });

@@ -316,13 +316,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function post(extra, onOk) {
-        syncBody();   // mirror the active surface (visual or code) into the form field
+    function post(extra, onOk, btn) {
+        syncBody();   // mirror the active surface (visual or code) into the form field — synchronous setup, before the busy-state
         var fd = new URLSearchParams(new FormData(form));
         fd.set('module', 'blog'); fd.set('service', 'post');
         Object.keys(extra).forEach(function (k) { fd.set(k, extra[k]); });
-        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-            .then(function (r) { return r.json(); })
+        var task = function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json(); });
+        };
+        return (btn ? TigerButton.run(btn, task) : task())
             .then(function (res) {
                 if (res.result === 1) { onOk(res); return; }
                 clearErrors();
@@ -337,16 +340,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.getElementById('ed-save').addEventListener('click', function () {
+        var btn = this;
         clearErrors();
         document.getElementById('ed-savestate').textContent = 'Saving…';
-        post({ method: 'save' }, function (res) { window.location = res.redirect || '/blog/post'; });
+        post({ method: 'save' }, function (res) { window.location = res.redirect || '/blog/post'; }, btn);
     });
 
     document.querySelectorAll('[data-ed-restore]').forEach(function (btn) {
         btn.addEventListener('click', function () {
+            var el = this;
             var ver = btn.getAttribute('data-ed-restore');
             if (!confirm('Restore version #' + ver + '? Current content is saved as a new version first.')) { return; }
-            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
+            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; }, el);
         });
     });
 });

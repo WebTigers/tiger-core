@@ -63,25 +63,20 @@ document.addEventListener('DOMContentLoaded', function () {
         var cf = document.getElementById('reset-confirm').value;
         if (pw !== cf) { fail('The passwords do not match.'); return; }
 
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
-
-        fetch('/auth/reset', {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: new URLSearchParams(new FormData(form))
+        TigerButton.run(btn, function () {
+            return fetch('/auth/reset', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(new FormData(form))
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }); });
         })
-        .then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (res) {
             if (res && res.result === 1) { window.location = res.redirect || '/auth/login/reset/1'; return; }
-            btn.disabled = false;
-            btn.textContent = 'Set new password';
             if (res && res.recaptcha) { rcReset(); fail('Please complete the reCAPTCHA and try again.'); return; }
             fail((res && res.message) ? res.message : 'Could not reset your password — the link may have expired.');
         })
         .catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Set new password';
             rcReset();
             fail('Network error — please try again.');
         });

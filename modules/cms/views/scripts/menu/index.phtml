@@ -69,9 +69,12 @@ document.addEventListener('DOMContentLoaded', function () {
     $('#cms-menus-table tbody').on('click', '[data-menu-delete]', function () {
         var key = this.getAttribute('data-menu-delete');
         if (!confirm('Delete the entire "' + key + '" menu and all its items?')) { return; }
+        var btn  = this;
         var body = new URLSearchParams({ module: 'cms', service: 'menu', method: 'deleteMenu', menu_key: key, org_id: this.getAttribute('data-org') || '' });
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function (r) { return r.json(); })
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); });
+        })
             .then(function () { table.ajax.reload(null, false); })
             .catch(function () { table.ajax.reload(null, false); });
     });

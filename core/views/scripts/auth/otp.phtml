@@ -80,13 +80,11 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         fb.innerHTML = '';
         var email = document.getElementById('otp-email').value;
-        reqBtn.disabled = true;
-        reqBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending…';
         // FormData carries the reCAPTCHA token (g-recaptcha-response) when the widget is on.
-        post(new FormData(reqForm)).then(function (res) {
+        TigerButton.run(reqBtn, function () {
+            return post(new FormData(reqForm));
+        }).then(function (res) {
             if (res && res.result === 0 && res.recaptcha) {
-                reqBtn.disabled = false;
-                reqBtn.textContent = 'Email me a code';
                 rcReset();
                 fail('Please complete the reCAPTCHA and try again.');
                 return;
@@ -98,8 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
             verForm.style.display = '';
             document.getElementById('otp-code').focus();
         }).catch(function () {
-            reqBtn.disabled = false;
-            reqBtn.textContent = 'Email me a code';
             fail('Network error — please try again.');
         });
     });
@@ -108,18 +104,14 @@ document.addEventListener('DOMContentLoaded', function () {
     verForm.addEventListener('submit', function (e) {
         e.preventDefault();
         fb.innerHTML = '';
-        verBtn.disabled = true;
-        verBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in…';
-        post({ email: document.getElementById('otp-email-hidden').value, code: document.getElementById('otp-code').value })
+        TigerButton.run(verBtn, function () {
+            return post({ email: document.getElementById('otp-email-hidden').value, code: document.getElementById('otp-code').value });
+        })
         .then(function (res) {
             if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
-            verBtn.disabled = false;
-            verBtn.textContent = 'Sign in';
             fail('That code is invalid or has expired.');
             document.getElementById('otp-code').value = '';
         }).catch(function () {
-            verBtn.disabled = false;
-            verBtn.textContent = 'Sign in';
             fail('Network error — please try again.');
         });
     });

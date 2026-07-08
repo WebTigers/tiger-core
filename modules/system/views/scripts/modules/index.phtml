@@ -70,19 +70,19 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function () {
             var method = btn.getAttribute('data-mod-toggle'), slug = btn.getAttribute('data-slug');
             if (method === 'deactivate' && !confirm('Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.')) { return; }
-            btn.disabled = true;
             var body = new URLSearchParams({ module: 'system', service: 'modules', method: method, slug: slug });
-            fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-                .then(function (r) { return r.json(); })
+            TigerButton.run(btn, function () {
+                return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                    .then(function (r) { return r.json(); });
+            })
                 .then(function (res) {
                     if (res.result !== 1) {
                         (res.messages || []).forEach(function (msg) { alert(msg.message); });
-                        btn.disabled = false;
                         return;
                     }
                     window.location.reload();
                 })
-                .catch(function () { btn.disabled = false; });
+                .catch(function () {});
         });
     });
 });

@@ -96,10 +96,10 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         fb.innerHTML = '';
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in…';
 
-        post(new FormData(form)).then(function (res) {
+        TigerButton.run(btn, function () {
+            return post(new FormData(form));
+        }).then(function (res) {
             if (res && res.result === 1 && res.twofa) {
                 form.style.display = 'none';
                 if (alt) { alt.style.display = 'none'; }
@@ -108,14 +108,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
-            btn.disabled = false;
-            btn.textContent = 'Sign in';
             rcReset();   // the reCAPTCHA token (if any) is spent — let the user re-solve
             fail((res && res.recaptcha) ? 'Please complete the reCAPTCHA and try again.' : 'Invalid login or password.');
             document.getElementById('login-password').value = '';
         }).catch(function () {
-            btn.disabled = false;
-            btn.textContent = 'Sign in';
             rcReset();
             fail('Network error — please try again.');
         });
@@ -125,19 +121,15 @@ document.addEventListener('DOMContentLoaded', function () {
     twofa.addEventListener('submit', function (e) {
         e.preventDefault();
         fb.innerHTML = '';
-        vbtn.disabled = true;
-        vbtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying…';
 
-        post({ code: codeIn.value }).then(function (res) {
+        TigerButton.run(vbtn, function () {
+            return post({ code: codeIn.value });
+        }).then(function (res) {
             if (res && res.result === 1) { window.location = res.redirect || '/'; return; }
-            vbtn.disabled = false;
-            vbtn.textContent = 'Verify';
             fail('That code is incorrect or has expired.');
             codeIn.value = '';
             codeIn.focus();
         }).catch(function () {
-            vbtn.disabled = false;
-            vbtn.textContent = 'Verify';
             fail('Network error — please try again.');
         });
     });

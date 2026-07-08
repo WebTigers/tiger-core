@@ -137,9 +137,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Soft-delete via /api, then reload just the table data (no page reload).
     $('#cms-pages-table tbody').on('click', '[data-cms-delete]', function () {
         if (!confirm('Delete this page? It is soft-deleted and can be recovered.')) { return; }
+        var btn  = this;
         var body = new URLSearchParams({ module: 'cms', service: 'page', method: 'delete', page_id: this.getAttribute('data-cms-delete') });
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function (r) { return r.json(); })
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); });
+        })
             .then(function () { table.ajax.reload(null, false); })
             .catch(function () { table.ajax.reload(null, false); });
     });

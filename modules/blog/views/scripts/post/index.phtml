@@ -109,10 +109,13 @@ document.addEventListener('DOMContentLoaded', function () {
     $('#blog-filter-clear').on('click', function () { fStatus.value = ''; table.ajax.reload(); });
 
     $('#blog-posts-table tbody').on('click', '[data-blog-delete]', function () {
+        var btn = this;
         if (!confirm('Delete this article? It is soft-deleted and can be recovered.')) { return; }
-        var body = new URLSearchParams({ module: 'blog', service: 'post', method: 'delete', post_id: this.getAttribute('data-blog-delete') });
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function (r) { return r.json(); })
+        var body = new URLSearchParams({ module: 'blog', service: 'post', method: 'delete', post_id: btn.getAttribute('data-blog-delete') });
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); });
+        })
             .then(function () { table.ajax.reload(null, false); })
             .catch(function () { table.ajax.reload(null, false); });
     });

@@ -81,15 +81,17 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     $('#code-table tbody').on('click', '[data-code-toggle]', function () {
-        var m = this.getAttribute('data-code-toggle'), id = this.getAttribute('data-id');
-        api(m, id).then(function (res) {
+        var btn = this;
+        var m = btn.getAttribute('data-code-toggle'), id = btn.getAttribute('data-id');
+        TigerButton.run(btn, function () { return api(m, id); }).then(function (res) {
             (res.messages || []).forEach(function (msg) { if (msg.class === 'error') { alert(msg.message); } });
             table.ajax.reload(null, false);
         });
     });
     $('#code-table tbody').on('click', '[data-code-delete]', function () {
+        var btn = this;
         if (!confirm('Delete this snippet? It is soft-deleted and can be recovered.')) { return; }
-        api('delete', this.getAttribute('data-code-delete')).then(function () { table.ajax.reload(null, false); });
+        TigerButton.run(btn, function () { return api('delete', btn.getAttribute('data-code-delete')); }).then(function () { table.ajax.reload(null, false); });
     });
 });
 </script>

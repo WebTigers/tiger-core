@@ -98,14 +98,16 @@ document.addEventListener('DOMContentLoaded', function () {
     function api(method,data){ var b=new URLSearchParams(Object.assign({module:'system',service:'modules',method:method},data)); return fetch('/api',{method:'POST',headers:{'X-Requested-With':'XMLHttpRequest'},body:b}).then(function(r){return r.json();}); }
     var imgErr = "this.style.display='none'";
 
-    // Open the detail modal for a repo (extra = registry listing fields: logo/hero/vendor/pricing…)
-    function openDetail(repo, ref, extra){
+    // Open the detail modal for a repo (extra = registry listing fields: logo/hero/vendor/pricing…).
+    // btn (optional) = the clicked trigger button, given a busy state while inspect runs.
+    function openDetail(repo, ref, extra, btn){
         extra = extra || {};
         head.innerHTML = '<h5 class="modal-title mb-0">Loading…</h5>';
         body.innerHTML = '<div class="text-center py-5"><span class="spinner-border"></span></div>';
         foot.innerHTML = '';
         modal.show();
-        api('inspect', { url: repo, ref: ref || '' }).then(function(res){
+        var task = function(){ return api('inspect', { url: repo, ref: ref || '' }); };
+        (btn ? TigerButton.run(btn, task) : task()).then(function(res){
             if (res.result !== 1){ body.innerHTML = ''; (res.messages||[]).forEach(function(m){ body.innerHTML += alertHtml(m.message,m.class); }); return; }
             renderDetail(Object.assign({}, res.data, { _extra: extra }));
         }).catch(function(){ body.innerHTML = alertHtml('Network error.','error'); });
@@ -140,14 +142,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function doInstall(repo, ref, isUpdate){
         if (!confirm((isUpdate?'Update':'Install')+' this module? Its code will run in your app once active.')) return;
-        var b=document.getElementById('mod-do'); b.disabled=true; b.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Installing…';
-        api('install',{url:repo,ref:ref,force:isUpdate?1:0}).then(function(res){
+        var b=document.getElementById('mod-do');
+        TigerButton.run(b, function(){
+            return api('install',{url:repo,ref:ref,force:isUpdate?1:0});
+        }).then(function(res){
             if (res.result===1){ window.location=res.redirect||'/system/modules'; return; }
             modal.hide(); fb.innerHTML=''; (res.messages||[]).forEach(function(m){ fb.innerHTML+=alertHtml(m.message,m.class); }); window.scrollTo({top:0,behavior:'smooth'});
-        }).catch(function(){ b.disabled=false; b.innerHTML='Install'; });
+        }).catch(function(){});
     }
 
-    document.getElementById('mod-check').addEventListener('click', function(){ var u=urlEl.value.trim(); if(u){ openDetail(u, refEl.value.trim(), {}); } });
+    document.getElementById('mod-check').addEventListener('click', function(){ var u=urlEl.value.trim(); if(u){ openDetail(u, refEl.value.trim(), {}, this); } });
     urlEl.addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('mod-check').click(); } });
 
     // Registry search
@@ -170,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     '</div></div></div></div>';
             }).join('');
             results.querySelectorAll('[data-i]').forEach(function(b){
-                b.addEventListener('click', function(){ var m=list[+b.getAttribute('data-i')]; openDetail(m.repository, m.ref, m); });
+                b.addEventListener('click', function(){ var m=list[+b.getAttribute('data-i')]; openDetail(m.repository, m.ref, m, this); });
             });
         });
     }

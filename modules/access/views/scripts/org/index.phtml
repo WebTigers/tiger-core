@@ -104,9 +104,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     $('#access-org-table tbody').on('click', '[data-org-delete]', function () {
         if (!confirm('Delete this organization? It is soft-deleted and can be recovered.')) { return; }
-        var body = new URLSearchParams({ module: 'access', service: 'org', method: 'delete', org_id: this.getAttribute('data-org-delete') });
-        fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function (r) { return r.json(); })
+        var btn  = this;
+        var body = new URLSearchParams({ module: 'access', service: 'org', method: 'delete', org_id: btn.getAttribute('data-org-delete') });
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); });
+        })
             .then(function () { table.ajax.reload(null, false); })
             .catch(function () { table.ajax.reload(null, false); });
     });

@@ -80,8 +80,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var codeForm= document.getElementById('lock-code-form');
 
     function fail(msg) { fb.innerHTML = '<div class="alert alert-danger py-2 mb-3" role="alert">' + msg + '</div>'; }
-    function busy(btn, label) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + label; }
-    function reset(btn, label) { btn.disabled = false; btn.textContent = label; }
     function post(body) {
         return fetch('/auth/lock', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: new URLSearchParams(body) })
             .then(function (r) { return r.json().catch(function () { return {}; }); });
@@ -93,11 +91,12 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         fb.innerHTML = '';
         var btn = document.getElementById('lock-pw-submit');
-        busy(btn, 'Unlocking…');
-        post({ password: document.getElementById('lock-password').value }).then(function (res) {
+        TigerButton.run(btn, function () {
+            return post({ password: document.getElementById('lock-password').value });
+        }).then(function (res) {
             if (res && res.result === 1) { unlocked(res); return; }
-            reset(btn, 'Unlock'); fail('Incorrect password.'); document.getElementById('lock-password').value = '';
-        }).catch(function () { reset(btn, 'Unlock'); fail('Network error — please try again.'); });
+            fail('Incorrect password.'); document.getElementById('lock-password').value = '';
+        }).catch(function () { fail('Network error — please try again.'); });
     });
 
     // --- mode toggles ---
@@ -114,11 +113,12 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         fb.innerHTML = '';
         var btn = document.getElementById('lock-send-submit');
-        busy(btn, 'Sending…');
-        post({ send_code: 1 }).then(function () {
+        TigerButton.run(btn, function () {
+            return post({ send_code: 1 });
+        }).then(function () {
             document.getElementById('lock-code-note').textContent = 'We sent a 6-digit code to <?= $email ?>. Enter it below.';
             sendForm.style.display = 'none'; codeForm.style.display = ''; document.getElementById('lock-code').focus();
-        }).catch(function () { reset(btn, 'Email me a code'); fail('Network error — please try again.'); });
+        }).catch(function () { fail('Network error — please try again.'); });
     });
 
     // --- code unlock: verify ---
@@ -126,11 +126,12 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         fb.innerHTML = '';
         var btn = document.getElementById('lock-code-submit');
-        busy(btn, 'Unlocking…');
-        post({ code: document.getElementById('lock-code').value }).then(function (res) {
+        TigerButton.run(btn, function () {
+            return post({ code: document.getElementById('lock-code').value });
+        }).then(function (res) {
             if (res && res.result === 1) { unlocked(res); return; }
-            reset(btn, 'Unlock'); fail('That code is invalid or has expired.'); document.getElementById('lock-code').value = '';
-        }).catch(function () { reset(btn, 'Unlock'); fail('Network error — please try again.'); });
+            fail('That code is invalid or has expired.'); document.getElementById('lock-code').value = '';
+        }).catch(function () { fail('Network error — please try again.'); });
     });
 });
 </script>

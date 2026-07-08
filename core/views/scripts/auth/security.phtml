@@ -141,12 +141,12 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             fb.innerHTML = '';
             var btn = document.getElementById('disable-btn');
-            btn.disabled = true;
-            post('/auth/totp-disable', { code: document.getElementById('disable-code').value }).then(function (res) {
+            TigerButton.run(btn, function () {
+                return post('/auth/totp-disable', { code: document.getElementById('disable-code').value });
+            }).then(function (res) {
                 if (res && res.result === 1) { note('Two-factor authentication disabled.', 'success'); setTimeout(function(){ location.reload(); }, 800); return; }
-                btn.disabled = false;
                 note('That code is incorrect. Two-factor auth is still on.');
-            }).catch(function () { btn.disabled = false; note('Network error — please try again.'); });
+            }).catch(function () { note('Network error — please try again.'); });
         });
     }
 
@@ -166,10 +166,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     beginBtn.addEventListener('click', function () {
         fb.innerHTML = '';
-        beginBtn.disabled = true;
-        beginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Preparing…';
-        post('/auth/totp-setup').then(function (res) {
-            if (!res || res.result !== 1 || !res.data) { beginBtn.disabled = false; beginBtn.textContent = 'Enable two-factor authentication'; note('Could not start setup. Please try again.'); return; }
+        TigerButton.run(beginBtn, function () {
+            return post('/auth/totp-setup');
+        }).then(function (res) {
+            if (!res || res.result !== 1 || !res.data) { note('Could not start setup. Please try again.'); return; }
             var d = res.data;
             document.getElementById('totp-secret').textContent = d.secret;
             var link = document.getElementById('totp-uri-link');
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('twofa-intro').style.display = 'none';
             document.getElementById('twofa-setup').style.display = '';
             document.getElementById('confirm-code').focus();
-        }).catch(function () { beginBtn.disabled = false; beginBtn.textContent = 'Enable two-factor authentication'; note('Network error — please try again.'); });
+        }).catch(function () { note('Network error — please try again.'); });
     });
 
     document.getElementById('copy-recovery').addEventListener('click', function () {
@@ -197,14 +197,14 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         fb.innerHTML = '';
         var btn = document.getElementById('confirm-btn');
-        btn.disabled = true;
-        post('/auth/totp-activate', { code: document.getElementById('confirm-code').value }).then(function (res) {
+        TigerButton.run(btn, function () {
+            return post('/auth/totp-activate', { code: document.getElementById('confirm-code').value });
+        }).then(function (res) {
             if (res && res.result === 1) { note('Two-factor authentication is on. 🎉', 'success'); setTimeout(function(){ location.reload(); }, 900); return; }
-            btn.disabled = false;
             note('That code didn\'t match. Check your app\'s clock and try the current code.');
             document.getElementById('confirm-code').value = '';
             document.getElementById('confirm-code').focus();
-        }).catch(function () { btn.disabled = false; note('Network error — please try again.'); });
+        }).catch(function () { note('Network error — please try again.'); });
     });
 });
 </script>

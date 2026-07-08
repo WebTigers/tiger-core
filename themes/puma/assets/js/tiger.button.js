@@ -43,8 +43,15 @@
         btn.setAttribute('aria-busy', 'true');
         var ic = iconEl(btn);
         if (ic) {
+            // Button has an icon — swap it to the working icon (default: spinner).
             if (ic.dataset.default == null) { ic.dataset.default = ic.className; }
             ic.className = faSwap(ic.dataset.default, ic.dataset.ajax || SPINNER);
+        } else {
+            // Text-only button — inject a temporary spinner so there's still visible feedback.
+            var spin = document.createElement('i');
+            spin.className = SPINNER + (btn.textContent.trim() ? ' me-2' : '');
+            spin.setAttribute('data-tg-injected', '1');
+            btn.insertBefore(spin, btn.firstChild);
         }
     }
 
@@ -53,6 +60,8 @@
         btn.__tgBusy = false;
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
+        var injected = btn.querySelector('[data-tg-injected]');
+        if (injected) { injected.remove(); return; }   // remove our injected spinner first
         var ic = iconEl(btn);
         if (ic && ic.dataset.default != null) { ic.className = ic.dataset.default; }
     }
