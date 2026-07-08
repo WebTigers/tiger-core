@@ -9,12 +9,10 @@ $form = $this->form;
 $el = function ($name) use ($form) { return $form->getElement($name); };
 ?>
 <style>
-    /* Password sits in an input-group with the eye button; suppress Bootstrap's stock
-       validation background-icon, and keep the input flush (squared right, seamless with
-       the eye button) even in the red/green state. */
+    /* Password sits in an input-group with the eye addon: keep Bootstrap's in-field
+       validation icon (consistent with every other field), just keep the input flush
+       (squared right, seamless with the eye) in the red/green state. */
     #su-password.is-invalid, #su-password.is-valid {
-        background-image: none;
-        padding-right: .75rem;
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
     }

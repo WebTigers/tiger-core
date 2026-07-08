@@ -69,7 +69,7 @@
             if (w) {
                 input.classList.add('is-invalid'); input.classList.remove('is-valid');
                 track.style.opacity = '0';                       // bar fades out…
-                msg.innerHTML = '<i class="fa-solid fa-circle-exclamation me-1"></i>' + w;   // …message fades in
+                msg.textContent = w;                             // …plain message (the field shows the state icon)
                 msg.style.height = 'auto'; msg.style.opacity = '1';
             } else {
                 input.classList.add('is-valid'); input.classList.remove('is-invalid');
