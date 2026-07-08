@@ -36,6 +36,29 @@ class Cms_Form_Settings extends Tiger_Form
                 'multiOptions' => $home,
                 'attribs'      => array_merge($select, ['id' => 'set-home-page']),
             ]],
+
+            // --- Session & security ---
+            ['text', 'session_ttl', [
+                'required'   => true,
+                'filters'    => ['StringTrim'],
+                'validators' => [['Digits'], ['GreaterThan', false, ['min' => 59]]],
+                'attribs'    => array_merge($control, ['id' => 'set-session-ttl', 'inputmode' => 'numeric', 'data-duration' => 'set-session-ttl-h']),
+            ]],
+            ['checkbox', 'autologout_enabled', [
+                'attribs' => ['id' => 'set-autologout-enabled', 'class' => 'form-check-input'],
+            ]],
+            ['text', 'autologout_seconds', [
+                'required'   => true,
+                'filters'    => ['StringTrim'],
+                'validators' => [['Digits'], ['GreaterThan', false, ['min' => 29]]],
+                'attribs'    => array_merge($control, ['id' => 'set-autologout-seconds', 'inputmode' => 'numeric', 'data-duration' => 'set-autologout-seconds-h']),
+            ]],
+            ['radio', 'autologout_action', [
+                'multiOptions' => ['logout' => 'Full logout (end the session)', 'lock' => 'Lock screen (re-enter password)'],
+                'value'        => 'logout',
+                'separator'    => '',
+                'attribs'      => ['class' => 'form-check-input'],
+            ]],
         ];
     }
 }

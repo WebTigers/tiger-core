@@ -792,6 +792,84 @@ class Tiger_Service_Authentication
         return new Zend_Session_Namespace('Tiger_Lock');
     }
 
+    // ----- auto-logout: server-authoritative inactivity clock ----------------
+    //
+    // The browser polls sessionStatus() ~every minute for time-left. The whole trick: a
+    // poll must CHECK the inactivity clock without RESETTING it — otherwise polling would
+    // keep the session alive forever. So `Tiger_Activity.last` is refreshed ONLY when the
+    // client reports genuine user interaction ($active); an idle poll just reads it. This
+    // clock is independent of the DbTable session's own idle TTL (the hard max-timeout).
+
+    /** The live auto-logout config (from the config cascade). */
+    public function autologoutConfig()
+    {
+        $node = null;
+        if (Zend_Registry::isRegistered('Zend_Config')) {
+            $c = Zend_Registry::get('Zend_Config');
+            if ($c->get('tiger') && $c->tiger->get('session')) {
+                $node = $c->tiger->session->get('autologout');
+            }
+        }
+        $get = function ($k, $d) use ($node) {
+            $v = $node ? $node->get($k) : null;
+            return $v !== null ? $v : $d;
+        };
+        return [
+            'enabled' => (int) $get('enabled', 0) === 1,
+            'seconds' => max(30, (int) $get('seconds', 900)),
+            'action'  => $get('action', 'logout') === 'lock' ? 'lock' : 'logout',
+            'warn'    => max(0, (int) $get('warn', 60)),
+        ];
+    }
+
+    /**
+     * Session status for the auto-logout poller: authentication + inactivity time-left.
+     * $active is the client reporting REAL user interaction since the last poll — only
+     * then is the clock refreshed. An idle poll reads the clock WITHOUT touching it, so
+     * polling never props a session up.
+     *
+     * @param  bool $active client saw genuine user activity since the last poll
+     * @return array{authenticated:bool,locked:bool,enabled:bool,seconds:int,remaining:int,action:string,warn:int}
+     */
+    public function sessionStatus($active = false)
+    {
+        $cfg = $this->autologoutConfig();
+
+        if (!$this->isAuthenticated()) {
+            return ['authenticated' => false, 'locked' => false, 'remaining' => 0] + $cfg;
+        }
+
+        $ns  = $this->_activityNs();
+        $now = time();
+        if (empty($ns->last)) {
+            $ns->last = $now;   // first sighting — start the clock
+        }
+        if ($active) {
+            $ns->last = $now;   // genuine interaction resets the inactivity clock
+        }
+
+        $idle = max(0, $now - (int) $ns->last);
+
+        return [
+            'authenticated' => true,
+            'locked'        => $this->isLocked(),
+            'enabled'       => $cfg['enabled'],
+            'seconds'       => $cfg['seconds'],
+            'remaining'     => max(0, $cfg['seconds'] - $idle),
+            'action'        => $cfg['action'],
+            'warn'          => $cfg['warn'],
+        ];
+    }
+
+    /** The session namespace carrying the auto-logout inactivity clock (`last` = unix ts). */
+    protected function _activityNs()
+    {
+        if (!Zend_Session::isStarted()) {
+            Zend_Session::start();
+        }
+        return new Zend_Session_Namespace('Tiger_Activity');
+    }
+
     // ----- post-auth return target -------------------------------------------
     //
     // Where to send the user after they authenticate — kept in the SESSION, never a

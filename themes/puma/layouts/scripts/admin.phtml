@@ -88,6 +88,21 @@ $_hasAside = !empty($this->rightAside);
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
 <!-- Reusable "choose media" modal (TigerMediaPicker + the mediaField() helper). -->
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.media-picker.js') ?>" defer></script>
+<?php
+// Auto-logout: only ship the poller when the feature is on (so a disabled install never
+// polls). The browser is server-authoritative — it learns time-left from /auth/session.
+$autologout = (new Tiger_Service_Authentication())->autologoutConfig();
+if (!empty($autologout['enabled'])):
+?>
+<script>window.TIGER_SESSION = <?= json_encode([
+    'enabled' => true,
+    'seconds' => $autologout['seconds'],
+    'warn'    => $autologout['warn'],
+    'action'  => $autologout['action'],
+    'pollMs'  => 60000,
+], JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.autologout.js') ?>"></script>
+<?php endif; ?>
 <?= $this->codeInject('footer') ?>
 </body>
 </html>

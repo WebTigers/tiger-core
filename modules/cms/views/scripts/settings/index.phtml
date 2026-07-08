@@ -38,6 +38,58 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
             </div>
         </div>
     </div>
+    <?php
+    $alEnabled = !empty($el('autologout_enabled')->getValue());
+    $alAction  = (string) $el('autologout_action')->getValue() ?: 'logout';
+    ?>
+    <div class="row g-4 mt-0">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header fw-semibold"><i class="fa-solid fa-shield-halved me-2"></i>Session &amp; security</div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <label class="form-label" for="set-session-ttl">Maximum session timeout <span class="text-body-secondary fw-normal">(seconds)</span></label>
+                        <div class="input-group" style="max-width:24rem;">
+                            <?= $el('session_ttl') ?>
+                            <span class="input-group-text">sec</span>
+                        </div>
+                        <div class="form-text mt-1"><i class="fa-regular fa-clock me-1"></i><span id="set-session-ttl-h" class="fw-semibold text-body">—</span></div>
+                        <div class="form-text">How long a standard user's session stays valid while idle — the hard backstop, enforced even with the tab closed. Admin roles use a separate, shorter tier.</div>
+                    </div>
+
+                    <hr>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="set-autologout-enabled" name="autologout_enabled" value="1" <?= $alEnabled ? 'checked' : '' ?>>
+                        <label class="form-check-label fw-semibold" for="set-autologout-enabled">Auto-logout on inactivity</label>
+                        <div class="form-text">Proactively sign the user out (or lock the screen) after a period of no interaction. Server-authoritative: the browser polls for time-left every minute, and the clock only resets on genuine activity.</div>
+                    </div>
+
+                    <fieldset id="set-autologout-opts" class="ps-1 <?= $alEnabled ? '' : 'opacity-50' ?>">
+                        <div class="mb-3">
+                            <label class="form-label" for="set-autologout-seconds">Log out after <span class="text-body-secondary fw-normal">(seconds of inactivity)</span></label>
+                            <div class="input-group" style="max-width:24rem;">
+                                <?= $el('autologout_seconds') ?>
+                                <span class="input-group-text">sec</span>
+                            </div>
+                            <div class="form-text mt-1"><i class="fa-regular fa-hourglass-half me-1"></i><span id="set-autologout-seconds-h" class="fw-semibold text-body">—</span></div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label d-block">When it fires</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="autologout_action" id="al-act-logout" value="logout" <?= $alAction !== 'lock' ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="al-act-logout">Full logout <span class="text-body-secondary">— end the session, return to sign-in</span></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="autologout_action" id="al-act-lock" value="lock" <?= $alAction === 'lock' ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="al-act-lock">Lock screen <span class="text-body-secondary">— keep the session, re-enter password to resume</span></label>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </div>
 </form>
 
 <script>
@@ -73,5 +125,36 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(function () { fb.innerHTML = alertHtml('Network error — please try again.', 'error'); });
     });
+
+    // --- Session & security: live human-readable durations + dim the options when off ---
+    function humanize(total) {
+        total = Math.max(0, parseInt(total, 10) || 0);
+        if (!total) { return '0 seconds'; }
+        var units = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]];
+        var parts = [], rem = total;
+        units.forEach(function (u) {
+            var n = Math.floor(rem / u[1]);
+            if (n > 0) { parts.push(n + ' ' + u[0] + (n > 1 ? 's' : '')); rem -= n * u[1]; }
+        });
+        if (rem > 0 && parts.length < 2) { parts.push(rem + ' second' + (rem > 1 ? 's' : '')); }
+        return parts.join(', ');
+    }
+    function bindDuration(inputId, outId) {
+        var i = document.getElementById(inputId), o = document.getElementById(outId);
+        if (!i || !o) { return; }
+        var upd = function () { o.textContent = '≈ ' + humanize(i.value); };
+        i.addEventListener('input', upd); upd();
+    }
+    bindDuration('set-session-ttl', 'set-session-ttl-h');
+    bindDuration('set-autologout-seconds', 'set-autologout-seconds-h');
+
+    var alToggle = document.getElementById('set-autologout-enabled');
+    var alOpts   = document.getElementById('set-autologout-opts');
+    if (alToggle && alOpts) {
+        // Dim only — the fields must still submit (they're required server-side), so we
+        // don't disable them.
+        var sync = function () { alOpts.classList.toggle('opacity-50', !alToggle.checked); };
+        alToggle.addEventListener('change', sync); sync();
+    }
 });
 </script>

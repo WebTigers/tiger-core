@@ -80,7 +80,28 @@ framework.
   pending challenge is session-bound, TTL- and attempt-limited. Managing 2FA re-verifies through a
   screen lock. An SMS/`sms_otp` factor is a small future add on the same seam.
 - **Sessions.** Database-backed shared store (required behind a multi-instance load balancer),
-  with tiered TTLs by privilege and a file-handler fallback for single-box/fresh installs.
+  with tiered idle TTLs by privilege (admin/superadmin/developer get the short, sensitive tier)
+  and a file-handler fallback for single-box/fresh installs. The **maximum session timeout** is
+  overridable live from the admin Settings screen (with a human-readable duration readout — years/
+  months/days/hours/minutes) — no deploy.
+- **Auto-logout on inactivity — the enterprise, gold-standard kind.** The control every
+  security review and SOC 2 / HIPAA / PCI conversation asks for, done right rather than as a
+  cosmetic timer:
+  - **Server-authoritative, not a JS countdown.** The browser polls `/auth/session` about once a
+    minute for the *server's* remaining inactivity time, so a paused tab, a throttled timer, or a
+    tampered client can't extend a session. It also fires **immediately** when a poll finds the
+    session already gone server-side — logged out in another tab, revoked by an admin, or reaped
+    by TTL — something a pure client timer can never detect.
+  - **The poll checks the clock without resetting it.** The inactivity clock advances only on
+    *genuine* user interaction (the client reports `active=1`); an idle heartbeat reads time-left
+    without touching it — so the very act of polling can't keep a session alive forever (the trap
+    that makes naïve implementations useless).
+  - **Configurable, live, per install.** A master toggle, the inactivity window in seconds (with
+    the same human-readable readout), and the action when it fires — **full logout** (end the
+    session) or **lock screen** (keep identity, re-enter password to resume) — all in Settings,
+    stored in the `config` table, effective with no deploy.
+  - **Humane.** A warning modal with a live countdown offers a one-click "stay signed in" reprieve
+    before anything happens; real interaction quietly resets the clock.
 - **Login audit log.** Append-only record of every sign-in attempt (success/failure/locked,
   IP, user agent) — the substrate for rate-limiting and anomaly detection.
 

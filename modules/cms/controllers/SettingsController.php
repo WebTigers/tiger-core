@@ -15,13 +15,25 @@ class Cms_SettingsController extends Tiger_Controller_Action
 
     public function indexAction()
     {
-        $cfg  = Zend_Registry::get('Zend_Config');
-        $site = $cfg->get('tiger') ? $cfg->tiger->get('site') : null;
+        $cfg     = Zend_Registry::get('Zend_Config');
+        $tiger   = $cfg->get('tiger');
+        $site    = $tiger ? $tiger->get('site') : null;
+        $session = $tiger ? $tiger->get('session') : null;
+
+        $ttlAuthed = 604800;   // 7d default (matches Tiger_Session_SaveHandler_DbTable)
+        if ($session && $session->get('ttl') && (int) $session->ttl->get('authed') > 0) {
+            $ttlAuthed = (int) $session->ttl->authed;
+        }
+        $al = (new Tiger_Service_Authentication())->autologoutConfig();
 
         $form = new Cms_Form_Settings();
         $form->populate([
-            'site_name' => ($site && (string) $site->get('name') !== '') ? (string) $site->name : 'Tiger',
-            'home_page' => $site ? (string) $site->get('home_page') : '',
+            'site_name'          => ($site && (string) $site->get('name') !== '') ? (string) $site->name : 'Tiger',
+            'home_page'          => $site ? (string) $site->get('home_page') : '',
+            'session_ttl'        => $ttlAuthed,
+            'autologout_enabled' => $al['enabled'] ? 1 : 0,
+            'autologout_seconds' => $al['seconds'],
+            'autologout_action'  => $al['action'],
         ]);
 
         $this->view->title = 'Settings — Tiger Admin';

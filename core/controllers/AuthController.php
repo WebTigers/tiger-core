@@ -93,6 +93,19 @@ class AuthController extends Tiger_Controller_Action
     }
 
     /**
+     * GET/POST /auth/session — the auto-logout heartbeat. Returns the session's inactivity
+     * time-left (JSON) so the client is server-authoritative, not a bare JS timer. Pass
+     * `active=1` to report GENUINE user interaction since the last poll (refreshes the
+     * clock); an idle poll (`active=0`, the default) reads time-left WITHOUT resetting it.
+     * Reachable while locked so the poller keeps working on the lock card.
+     */
+    public function sessionAction()
+    {
+        $active = (string) $this->getRequest()->getParam('active') === '1';
+        $this->_json((new Tiger_Service_Authentication())->sessionStatus($active));
+    }
+
+    /**
      * GET  /auth/lock  -> arm the screen lock + render the lock card.
      * POST /auth/lock  -> unlock by re-verifying the password (JSON {result,redirect}).
      *
