@@ -10,8 +10,14 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
 ?>
 <style>
     /* Password sits in an input-group with the eye button; suppress Bootstrap's stock
-       validation background-icon so the red/green border + eye button stay clean. */
-    #su-password.is-invalid, #su-password.is-valid { background-image: none; padding-right: .75rem; }
+       validation background-icon, and keep the input flush (squared right, seamless with
+       the eye button) even in the red/green state. */
+    #su-password.is-invalid, #su-password.is-valid {
+        background-image: none;
+        padding-right: .75rem;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
 </style>
 <div class="tiger-auth-brand">
     <span class="tiger-auth-mark"><i class="fa-solid fa-paw"></i></span>
@@ -48,9 +54,9 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
     </div>
     <div class="mt-3" data-field>
         <label class="form-label" for="su-password">Password</label>
-        <div class="input-group has-validation">
+        <div class="input-group">
             <?= $el('password') ?>
-            <button class="btn btn-outline-secondary" type="button" data-tiger-pw-toggle tabindex="-1" aria-label="Show password"><i class="fa-solid fa-eye"></i></button>
+            <button class="btn btn-outline-secondary px-3" type="button" data-tiger-pw-toggle tabindex="-1" aria-label="Show password"><i class="fa-solid fa-eye" style="font-size:.8rem;"></i></button>
         </div>
     </div>
     <div class="mt-3" data-field>
