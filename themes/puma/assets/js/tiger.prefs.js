@@ -110,12 +110,23 @@
         if (aside) { e.preventDefault(); root.classList.toggle('aside-open'); return; }
 
         // Sidebar submenu (e.g. Settings): a parent toggles its children open/closed and
-        // never navigates.
+        // never navigates. Height is animated by TigerDOM; the .open class drives the caret
+        // (and the initial server-rendered open state).
         var submenu = e.target.closest('[data-tiger-toggle="submenu"]');
         if (submenu) {
             e.preventDefault();
             var li = submenu.closest('.has-children');
-            if (li) { li.classList.toggle('open'); }
+            var ul = li && li.querySelector(':scope > .tiger-nav-children');
+            if (!li) { return; }
+            if (li.classList.contains('open')) {
+                // Keep .open (caret + visibility) through the close animation, then drop it.
+                if (ul && window.TigerDOM) {
+                    TigerDOM.collapse(ul).then(function () { li.classList.remove('open'); });
+                } else { li.classList.remove('open'); }
+            } else {
+                li.classList.add('open');
+                if (ul && window.TigerDOM) { TigerDOM.expand(ul); }
+            }
         }
     });
 
