@@ -83,11 +83,32 @@ class Code_Service_Code extends Tiger_Service_Service
         ];
 
         try {
-            $id = $model->save($data, !empty($params['code_id']) ? (string) $params['code_id'] : null);
-            Tiger_Code_Runtime::rebuild();   // bump version + recompile the global bundle
+            $id  = $model->save($data, !empty($params['code_id']) ? (string) $params['code_id'] : null);
+            $err = $this->_safeRebuild($model, $id);
+            if ($err !== null) {
+                $this->_error('Saved, but not activated — it conflicts with the running set: ' . $err);
+                return;
+            }
             $this->_success(['code_id' => $id], 'code.saved', '/code');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
+        }
+    }
+
+    /**
+     * Rebuild the bundle; if the new active set won't compile (e.g. a redeclare with another
+     * active snippet), deactivate the offending row + rebuild again so the site stays healthy,
+     * and return the compiler error. Returns null on success.
+     */
+    protected function _safeRebuild(Tiger_Model_Code $model, $id): ?string
+    {
+        try {
+            Tiger_Code_Runtime::rebuild();
+            return null;
+        } catch (Throwable $e) {
+            $model->markError($id, $e->getMessage());
+            try { Tiger_Code_Runtime::rebuild(); } catch (Throwable $e2) { /* last-good stays live */ }
+            return $e->getMessage();
         }
     }
 
@@ -113,7 +134,11 @@ class Code_Service_Code extends Tiger_Service_Service
         }
         try {
             $model->setActive($id, $on);
-            Tiger_Code_Runtime::rebuild();
+            $err = $this->_safeRebuild($model, $id);
+            if ($on && $err !== null) {
+                $this->_error('Cannot activate — it conflicts with the running set: ' . $err);
+                return;
+            }
             $this->_success(['code_id' => $id], $on ? 'code.activated' : 'code.deactivated', '/code');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
@@ -143,8 +168,9 @@ class Code_Service_Code extends Tiger_Service_Service
         $version = isset($params['version']) ? (int) $params['version'] : 0;
         if ($id === '' || $version < 1) { $this->_error('core.api.error.general'); return; }
         try {
-            (new Tiger_Model_Code())->restoreVersion($id, $version);
-            Tiger_Code_Runtime::rebuild();
+            $model = new Tiger_Model_Code();
+            $model->restoreVersion($id, $version);
+            $this->_safeRebuild($model, $id);
             $this->_success(['code_id' => $id], 'code.restored', '/code/index/edit/id/' . $id);
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');

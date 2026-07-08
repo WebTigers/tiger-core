@@ -57,14 +57,20 @@ class Tiger_Code_Runtime
         $GLOBALS[self::MARKER] = null;   // include finished cleanly
     }
 
-    /** Bump the version token + recompile a location's bundle. Returns the new version. */
+    /**
+     * Recompile a location's bundle, then (only if it's valid) bump the version token to
+     * promote it. Returns the new version. THROWS if the assembled bundle doesn't compile
+     * (a cross-snippet redeclare, or a parse error) — the version stays put, the last-good
+     * bundle keeps serving, and the caller surfaces the error. This is what makes bricking
+     * impossible: a bad set never becomes live.
+     */
     public static function rebuild($location = self::LOC_GLOBAL)
     {
         $cfg = new Tiger_Model_Config();
         $cur = (int) $cfg->get(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.code.version');
         $new = $cur + 1;
+        self::compile($location, $new);   // validates + writes; throws if the bundle is invalid
         $cfg->set(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.code.version', (string) $new);
-        self::compile($location, $new);
         return $new;
     }
 
@@ -95,12 +101,37 @@ class Tiger_Code_Runtime
         $file = self::bundlePath($location, $version);
         $tmp  = $file . '.' . getmypid() . '.tmp';
         file_put_contents($tmp, $buf, LOCK_EX);
+
+        // Validate the WHOLE assembled bundle out-of-process — `php -l` catches parse errors
+        // AND cross-snippet redeclarations (which the per-snippet lint can't see). Only a
+        // valid bundle is promoted; an invalid one never goes live.
+        $lint = self::_lintFile($tmp);
+        if (!$lint['ok']) {
+            @unlink($tmp);
+            throw new RuntimeException($lint['error']);
+        }
+
         @rename($tmp, $file);   // atomic swap
         if (function_exists('opcache_invalidate')) {
             @opcache_invalidate($file, true);
         }
         self::_gc($location, $file);
         return $file;
+    }
+
+    /** `php -l` a file (never executed). Returns {ok, error}. */
+    protected static function _lintFile($file)
+    {
+        $bin = (defined('PHP_BINDIR') && @is_executable(PHP_BINDIR . '/php')) ? PHP_BINDIR . '/php' : 'php';
+        $out = [];
+        $rc  = 1;
+        exec(escapeshellarg($bin) . ' -l ' . escapeshellarg($file) . ' 2>&1', $out, $rc);
+        if ($rc === 0) {
+            return ['ok' => true, 'error' => null];
+        }
+        $msg = trim(implode("\n", $out));
+        $msg = str_replace($file, 'the compiled bundle', $msg);
+        return ['ok' => false, 'error' => $msg !== '' ? $msg : 'the compiled bundle failed to compile'];
     }
 
     /** Kill-switch: a DISABLED file (fastest recovery) or config `tiger.code.enabled = 0`. */
