@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Media_FileController — streams PRIVATE media (and any object whose adapter can't mint a
  * direct URL) through an ACL check. Public files are served directly by the web server

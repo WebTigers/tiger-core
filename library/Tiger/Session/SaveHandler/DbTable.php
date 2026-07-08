@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Tiger_Session_SaveHandler_DbTable — DB-backed PHP session handler.
  *

@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Migration 0019 — create `taxonomy` (categories, tags, and future vocabularies).
  *

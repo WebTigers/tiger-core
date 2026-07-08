@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Media_Service_Media — the /api service for the Media Library (upload / list / update /
  * delete). Thin + ACL-gated (admin+); the storage and metadata live in the engine

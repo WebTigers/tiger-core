@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Media_IndexController — the Media Library screen (admin shell). Thin: renders the
  * shell (a drag-drop uploader + a DataTables grid); all data + mutations go through the

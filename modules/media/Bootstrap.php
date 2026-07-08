@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Media module bootstrap. First-party module — the admin Media Library on top of the
  * platform media engine (Tiger_Model_Media, Tiger_Media_Storage). The resource

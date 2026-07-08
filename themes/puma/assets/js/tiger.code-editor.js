@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /**
  * TigerCodeEditor — a drop-in code editor for Tiger admin surfaces.
  *

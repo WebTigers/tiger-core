@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * System module — English strings (system.*). Loaded on top of core/app strings by the
  * translate cascade; API response messages resolve these in the caller's locale.

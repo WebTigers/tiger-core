@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /**
  * tiger.page-builder.js — boots the GrapesJS visual builder for one CMS page and saves
  * through the Tiger /api (Cms_Service_Page::saveDesign). Zero build step: GrapesJS + the

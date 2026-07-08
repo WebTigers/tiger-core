@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /**
  * tiger.password-strength.js — password meter, show/hide toggle, and valid/invalid state.
  *

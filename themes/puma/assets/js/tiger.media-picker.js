@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /**
  * TigerMediaPicker — a reusable "choose media" modal for any Tiger module.
  *

@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * AclRule — runtime allow/deny rules (DB layer, loaded LAST so DB wins). Read by
  * Tiger_Acl_Acl. See migration 0008.

@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /**
  * tiger.datatable.js — the one wiring for every Tiger data grid (MIT, Tiger-original).
  *

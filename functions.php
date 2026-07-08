@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Tiger global helper functions, autoloaded via composer "files". Apps add
  * their own helpers in custom.php. Guarded so an app may redefine if needed.

@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * Code_Form_Code — create/edit a snippet. Declarative Tiger_Form schema (the view owns
  * markup; the base adds CSRF). Only `name` is required; `code` is validated by an actual

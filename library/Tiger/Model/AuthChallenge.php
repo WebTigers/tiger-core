@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
  * AuthChallenge — transient, single-use auth proofs (OTP codes, reset/verify/magic
  * tokens). See migration 0005 for the security rationale.

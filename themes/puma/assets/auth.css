@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: BSD-3-Clause · © 2026 WebTigers · Tiger™/WebTigers™ are trademarks */
 /* PUMA — auth layout (MIT, Tiger-original). A centered card for sign-in / lock /
    password flows. Bootstrap variables drive the colors so skins + dark mode apply. */
 .tiger-auth-body {
