@@ -209,7 +209,7 @@ class Tiger_Code_Runtime
             return;   // bundle finished cleanly, or no snippet was mid-execution
         }
         $e = error_get_last();
-        $fatal = [E_ERROR, E_PARSE, E_COMPILE, E_CORE_ERROR, E_RECOVERABLE_ERROR];
+        $fatal = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR];
         if (!$e || !in_array($e['type'], $fatal, true)) {
             return;
         }
