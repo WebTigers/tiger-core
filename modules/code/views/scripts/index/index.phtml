@@ -1,0 +1,95 @@
+<?php
+/**
+ * Code list — a DataTables grid whose DATA loads from Code_Service_Code::datatable. Server
+ * renders the shell; the browser fetches rows. Activate / deactivate / delete are /api calls.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Code</h1>
+        <p class="text-body-secondary mb-0">PHP snippets that run across the platform — stored in the DB, compiled + cached, executed on every request. <span class="badge text-bg-warning-subtle text-warning-emphasis border border-warning-subtle">superadmin</span></p>
+    </div>
+    <a href="/code/index/edit" class="btn btn-primary"><i class="fa-solid fa-code me-2"></i>New Snippet</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="code-table" class="table table-hover align-middle" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Lang</th>
+                        <th>Runs</th>
+                        <th>Priority</th>
+                        <th>State</th>
+                        <th>Updated</th>
+                        <th class="text-end" data-orderable="false">Actions</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tigerDataTable !== 'function') { return; }
+    var $ = jQuery, esc = tigerDataTable.esc;
+
+    function api(method, id) {
+        var body = new URLSearchParams({ module: 'code', service: 'code', method: method, code_id: id });
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body }).then(function (r) { return r.json(); });
+    }
+
+    var table = tigerDataTable('#code-table', {
+        service: { module: 'code', service: 'code', action: 'datatable' },
+        order: [[5, 'desc']],
+        language: { search: '', searchPlaceholder: 'Search snippets…' },
+        columns: [
+            { data: 'name', render: function (t, type, row) {
+                if (type !== 'display') { return t; }
+                var h = '<a href="/code/index/edit/id/' + encodeURIComponent(row.code_id) + '" class="fw-semibold text-decoration-none">' + esc(t) + '</a>';
+                if (row.errored && row.last_error) { h += ' <i class="fa-solid fa-triangle-exclamation text-danger ms-1" title="' + esc(row.last_error) + '"></i>'; }
+                return h;
+            } },
+            { data: 'language', render: function (t, type) { return type !== 'display' ? t : '<code class="text-uppercase">' + esc(t) + '</code>'; } },
+            { data: 'location', render: function (t, type) { return type !== 'display' ? t : '<span class="badge text-bg-light">' + esc(t) + '</span>'; } },
+            { data: 'priority', className: 'text-body-secondary' },
+            { data: 'active', render: function (t, type, row) {
+                if (type !== 'display') { return t ? 1 : 0; }
+                if (row.errored) { return '<span class="badge text-bg-danger">Error</span>'; }
+                return t ? '<span class="badge text-bg-success">Active</span>' : '<span class="badge text-bg-secondary">Inactive</span>';
+            } },
+            { data: 'updated' },
+            { data: null, orderable: false, searchable: false, className: 'text-end text-nowrap', render: function (t, type, row) {
+                var h = '';
+                if (row.can_edit) {
+                    h += '<a href="/code/index/edit/id/' + encodeURIComponent(row.code_id) + '" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fa-solid fa-pen"></i></a> ';
+                    if (row.active) {
+                        h += '<button type="button" class="btn btn-sm btn-outline-warning" data-code-toggle="deactivate" data-id="' + esc(row.code_id) + '" title="Deactivate"><i class="fa-solid fa-pause"></i></button> ';
+                    } else {
+                        h += '<button type="button" class="btn btn-sm btn-outline-success" data-code-toggle="activate" data-id="' + esc(row.code_id) + '" title="Activate"><i class="fa-solid fa-play"></i></button> ';
+                    }
+                }
+                if (row.can_delete) {
+                    h += '<button type="button" class="btn btn-sm btn-outline-danger" data-code-delete="' + esc(row.code_id) + '" title="Delete"><i class="fa-solid fa-trash"></i></button>';
+                }
+                return h || '<span class="text-body-secondary">—</span>';
+            } }
+        ]
+    });
+
+    $('#code-table tbody').on('click', '[data-code-toggle]', function () {
+        var m = this.getAttribute('data-code-toggle'), id = this.getAttribute('data-id');
+        api(m, id).then(function (res) {
+            (res.messages || []).forEach(function (msg) { if (msg.class === 'error') { alert(msg.message); } });
+            table.ajax.reload(null, false);
+        });
+    });
+    $('#code-table tbody').on('click', '[data-code-delete]', function () {
+        if (!confirm('Delete this snippet? It is soft-deleted and can be recovered.')) { return; }
+        api('delete', this.getAttribute('data-code-delete')).then(function () { table.ajax.reload(null, false); });
+    });
+});
+</script>

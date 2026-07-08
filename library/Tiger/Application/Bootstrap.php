@@ -121,6 +121,23 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Tiger Code — load active GLOBAL PHP snippets so their functions/hooks are defined
+     * before dispatch. Runs a single OPcache-warm include of a compiled bundle (no per-request
+     * query — cache invalidation rides the config token loaded in _initConfigs). Fully guarded:
+     * a compile/boot failure can never break bootstrap, and a snippet that fatals on load
+     * auto-deactivates (Tiger_Code_Runtime). PHP is platform-scope only.
+     */
+    protected function _initCode()
+    {
+        $this->bootstrap('configs');   // config token + DB adapter must be up first
+        try {
+            Tiger_Code_Runtime::boot(Tiger_Code_Runtime::LOC_GLOBAL);
+        } catch (Throwable $e) {
+            // never let snippet loading break the request
+        }
+    }
+
+    /**
      * I18N (translations): build the shared Zend_Translate (AN_ARRAY — human-readable
      * PHP array files of owner-prefixed semantic keys: core.*, app.*, <module>.*).
      * Message files CASCADE (last wins): core (package) -> package modules -> app

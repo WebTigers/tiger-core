@@ -1,0 +1,150 @@
+<?php
+/**
+ * Snippet editor — a CodeMirror PHP editor + metadata, saving over /api to Code_Service_Code.
+ * The service lints the PHP (`php -l`) before storing; a parse error is refused with the
+ * message shown inline. Version history restores through the same service.
+ */
+$form     = $this->form;
+$row      = $this->row;
+$versions = $this->versions ?? [];
+$isEdit   = (bool) $row;
+$el = function ($name) use ($form) { return $form->getElement($name); };
+?>
+<link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/codemirror/codemirror.bundle.css') ?>">
+<link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/codemirror/theme-dark.css') ?>">
+<script src="<?= $this->asset($this->themeAssets . '/vendor/codemirror/codemirror.bundle.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.code-editor.js') ?>"></script>
+<style>
+  .CodeMirror{border:1px solid var(--bs-border-color);border-radius:.375rem;height:auto;min-height:460px;font-size:.9rem;}
+  .CodeMirror-focused{border-color:var(--bs-primary);box-shadow:0 0 0 .2rem rgba(var(--bs-primary-rgb),.15);}
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h1 class="h3 mb-1"><?= $isEdit ? 'Edit Snippet' : 'New Snippet' ?></h1>
+        <p class="text-body-secondary mb-0"><a href="/code" class="text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to code</a></p>
+    </div>
+    <div class="text-nowrap">
+        <a href="/code" class="btn btn-outline-secondary">Cancel</a>
+        <button type="button" id="code-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div class="alert alert-warning d-flex align-items-center gap-2 py-2" role="alert">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div class="small">This PHP runs on <strong>every request</strong> once active. It's linted on save, and auto-deactivates if it fatals on load — but you're editing live platform code.</div>
+</div>
+
+<div id="code-feedback"></div>
+
+<form id="code-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <?= $el('code_id') ?>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="code-name">Name</label>
+                        <?= $el('name') ?>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="code-code">PHP <span class="text-body-secondary fw-normal">— no <code>&lt;?php</code> tag needed</span></label>
+                        <?= $el('code') ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header fw-semibold">Activation</div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <?= $el('active') ?>
+                        <label class="form-check-label" for="code-active">Active — run this snippet</label>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="code-priority">Priority</label>
+                        <?= $el('priority') ?>
+                        <div class="form-text">Lower loads first. Runs globally (every request).</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header fw-semibold">Notes</div>
+                <div class="card-body">
+                    <label class="form-label" for="code-description">Description</label>
+                    <?= $el('description') ?>
+                    <div class="form-text">What this snippet does (for the list).</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<?php if ($isEdit && count($versions)): ?>
+<div class="card mt-4">
+    <div class="card-header fw-semibold"><i class="fa-solid fa-clock-rotate-left me-2"></i>Version history</div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+            <thead><tr><th>Version</th><th>Name</th><th>State</th><th>Saved</th><th class="text-end">&nbsp;</th></tr></thead>
+            <tbody>
+            <?php foreach ($versions as $v): ?>
+                <tr>
+                    <td class="fw-semibold">#<?= $this->escape($v->version) ?></td>
+                    <td><?= $this->escape($v->name ?: '(untitled)') ?></td>
+                    <td><span class="badge text-bg-light"><?= ((int) $v->active === 1) ? 'Active' : 'Inactive' ?></span></td>
+                    <td class="text-body-secondary"><?= $this->escape(substr((string) $v->created_at, 0, 16)) ?></td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-code-restore="<?= $this->escape($v->version) ?>">Restore</button></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('code-form');
+    var fb   = document.getElementById('code-feedback');
+
+    if (window.TigerCodeEditor && document.getElementById('code-code')) {
+        TigerCodeEditor.from(document.getElementById('code-code'), { mode: 'php' });
+    }
+
+    function alertHtml(msg, cls) {
+        var ctx = (cls === 'error') ? 'danger' : (cls || 'info');
+        return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert"><pre class="mb-0" style="white-space:pre-wrap;font-family:inherit;">' +
+               String(msg) + '</pre><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+    function post(extra, onOk) {
+        if (window.TigerCodeEditor) { TigerCodeEditor.syncAll(); }
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'code'); fd.set('service', 'code');
+        Object.keys(extra).forEach(function (k) { fd.set(k, extra[k]); });
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.result === 1) { onOk(res); return; }
+                fb.innerHTML = '';
+                (res.messages || []).forEach(function (m) { fb.innerHTML += alertHtml(m.message, m.class); });
+                if (!res.messages || !res.messages.length) { fb.innerHTML = alertHtml('Please check the form and try again.', 'error'); }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .catch(function () { fb.innerHTML = alertHtml('Network error — please try again.', 'error'); });
+    }
+
+    document.getElementById('code-save').addEventListener('click', function () {
+        fb.innerHTML = '';
+        post({ method: 'save' }, function (res) { window.location = res.redirect || '/code'; });
+    });
+    document.querySelectorAll('[data-code-restore]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var ver = btn.getAttribute('data-code-restore');
+            if (!confirm('Restore version #' + ver + '? Current content is saved as a new version first.')) { return; }
+            post({ method: 'restore', version: ver }, function (res) { window.location = res.redirect || window.location.href; });
+        });
+    });
+});
+</script>
