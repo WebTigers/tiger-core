@@ -1,0 +1,89 @@
+<?php
+/**
+ * Modules admin — the installed-modules list (the WordPress "Plugins" screen for Tiger).
+ * Server-rendered from Tiger_Module_Discovery + installed_module state; activate/deactivate
+ * post to System_Service_Modules over /api, then reload. "Add New" lands the Module Installer.
+ */
+$modules = $this->modules ?? [];
+$badge = ['bundled' => 'secondary', 'custom' => 'info', 'registry' => 'primary', 'url' => 'primary', 'discovered' => 'secondary'];
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Modules</h1>
+        <p class="text-body-secondary mb-0">Platform features + installed plugins. Deactivating a module removes its routes and stops it loading — nothing is deleted.</p>
+    </div>
+    <button type="button" class="btn btn-primary" disabled title="Module Installer — coming soon"><i class="fa-solid fa-plus me-2"></i>Add New</button>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width:45%;">Module</th>
+                    <th>Version</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($modules as $m): ?>
+                <tr>
+                    <td>
+                        <div class="fw-semibold"><?= $this->escape($m['name']) ?>
+                            <code class="text-body-secondary fw-normal ms-1">/<?= $this->escape($m['slug']) ?></code>
+                            <?php if ($m['protected']): ?><i class="fa-solid fa-lock text-body-secondary ms-1" title="Protected — always active"></i><?php endif; ?>
+                        </div>
+                        <?php if (!empty($m['description'])): ?><div class="small text-body-secondary"><?= $this->escape($m['description']) ?></div><?php endif; ?>
+                        <div class="small text-body-secondary">
+                            <?php if (!empty($m['author'])): ?><span><?= $this->escape($m['author']) ?></span><?php endif; ?>
+                            <?php if (!empty($m['license'])): ?><span class="ms-2 badge text-bg-light"><?= $this->escape($m['license']) ?></span><?php endif; ?>
+                            <?php if (!empty($m['pricing']) && $m['pricing'] !== 'paid'): ?><span class="ms-1 badge text-bg-success-subtle text-success-emphasis border border-success-subtle">free tier</span><?php endif; ?>
+                        </div>
+                    </td>
+                    <td class="text-body-secondary"><?= $m['version'] ? $this->escape($m['version']) : '—' ?></td>
+                    <td><span class="badge text-bg-<?= $badge[$m['source']] ?? 'secondary' ?>"><?= $this->escape($m['source']) ?></span></td>
+                    <td>
+                        <?php if ($m['active']): ?><span class="badge text-bg-success">Active</span>
+                        <?php else: ?><span class="badge text-bg-secondary">Inactive</span><?php endif; ?>
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <?php if ($m['protected']): ?>
+                            <span class="text-body-secondary small">always on</span>
+                        <?php elseif ($m['active']): ?>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-mod-toggle="deactivate" data-slug="<?= $this->escape($m['slug']) ?>"><i class="fa-solid fa-pause me-1"></i>Deactivate</button>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-sm btn-outline-success" data-mod-toggle="activate" data-slug="<?= $this->escape($m['slug']) ?>"><i class="fa-solid fa-play me-1"></i>Activate</button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-mod-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var method = btn.getAttribute('data-mod-toggle'), slug = btn.getAttribute('data-slug');
+            if (method === 'deactivate' && !confirm('Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.')) { return; }
+            btn.disabled = true;
+            var body = new URLSearchParams({ module: 'system', service: 'modules', method: method, slug: slug });
+            fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res.result !== 1) {
+                        (res.messages || []).forEach(function (msg) { alert(msg.message); });
+                        btn.disabled = false;
+                        return;
+                    }
+                    window.location.reload();
+                })
+                .catch(function () { btn.disabled = false; });
+        });
+    });
+});
+</script>
