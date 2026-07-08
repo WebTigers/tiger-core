@@ -120,6 +120,11 @@ class Tiger_Service_Authentication
     {
         $identity = $this->_buildIdentity($user);
         $this->_establish($identity, $user->user_id);
+        // A fresh, fully-verified login supersedes any prior screen lock on this session,
+        // so clear the flag — otherwise the authorization plugin would bounce the just-
+        // signed-in user straight to the lock card. (Cleared after _establish so it sticks
+        // through the session-fixation regeneration.)
+        unset($this->_lockNs()->locked);
         $this->_recordLogin(Tiger_Model_Login::RESULT_SUCCESS, $identifier, $user->user_id, $identity->org_id, $method);
         return $identity;
     }
