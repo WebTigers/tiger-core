@@ -62,4 +62,31 @@ class Tiger_Model_Module extends Tiger_Model_Table
         $data['version'] = $meta['version'] ?? null;
         return $this->insert($data);
     }
+
+    /** Record an installed (or updated) module with full provenance + active. Returns the id. */
+    public function install($slug, array $meta)
+    {
+        $data = [
+            'name'       => $meta['name']       ?? null,
+            'version'    => $meta['version']    ?? null,
+            'repository' => $meta['repository'] ?? null,
+            'ref'        => $meta['ref']        ?? null,
+            'source'     => $meta['source']     ?? self::SOURCE_URL,
+            'active'     => 1,
+            'status'     => 'active',
+        ];
+        $row = $this->bySlug($slug);
+        if ($row) {
+            $this->update($data, $this->getAdapter()->quoteInto('slug = ?', (string) $slug));
+            return $row->module_id;
+        }
+        $data['slug'] = (string) $slug;
+        return $this->insert($data);
+    }
+
+    /** Drop a module's registry row (uninstall). */
+    public function uninstall($slug)
+    {
+        return $this->delete($this->getAdapter()->quoteInto('slug = ?', (string) $slug));
+    }
 }

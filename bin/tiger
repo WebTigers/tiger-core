@@ -171,6 +171,56 @@ switch ($cmd) {
         }
         break;
 
+    case 'module:install':
+        // Install a module from a PUBLIC GitHub repo. Usage: module:install <url> [ref]
+        tiger_db();
+        $url = isset($argv[2]) ? $argv[2] : '';
+        $ref = isset($argv[3]) ? $argv[3] : null;
+        if ($url === '') { fwrite(STDERR, "  usage: module:install <github-url> [ref]\n"); exit(1); }
+        try {
+            $r = Tiger_Module_Installer::installFromUrl($url, $ref);
+            echo "  \xE2\x9C\x93 Installed {$r['slug']}" . (!empty($r['version']) ? " v{$r['version']}" : '')
+                . (!empty($r['ref']) ? " ({$r['ref']})" : '') . " — active.\n";
+        } catch (Throwable $e) {
+            fwrite(STDERR, "  module:install failed: " . $e->getMessage() . "\n"); exit(1);
+        }
+        break;
+
+    case 'module:remove':
+        // Remove an installer-managed module (files + assets + registry row). Usage: module:remove <slug>
+        tiger_db();
+        $slug = isset($argv[2]) ? $argv[2] : '';
+        if ($slug === '') { fwrite(STDERR, "  usage: module:remove <slug>\n"); exit(1); }
+        try {
+            Tiger_Module_Installer::remove($slug);
+            echo "  \xE2\x9C\x93 Removed {$slug}.\n";
+        } catch (Throwable $e) {
+            fwrite(STDERR, "  module:remove failed: " . $e->getMessage() . "\n"); exit(1);
+        }
+        break;
+
+    case 'module:list':
+        tiger_db();
+        $state = (new Tiger_Model_Module())->bySlugMap();
+        foreach (Tiger_Module_Discovery::all() as $slug => $m) {
+            $row    = isset($state[$slug]) ? $state[$slug] : null;
+            $active = $row ? ((int) $row->active === 1) : true;
+            $src    = $row ? $row->source : ($m['area'] === 'core' ? 'bundled' : 'custom');
+            printf("  [%s] %-18s %-11s %s\n", $active ? 'x' : ' ', $slug, $src, $m['version'] ?: '');
+        }
+        break;
+
+    case 'module:activate':
+    case 'module:deactivate':
+        tiger_db();
+        $slug = isset($argv[2]) ? $argv[2] : '';
+        $on   = ($cmd === 'module:activate');
+        if ($slug === '') { fwrite(STDERR, "  usage: {$cmd} <slug>\n"); exit(1); }
+        if (!$on && in_array($slug, ['default', 'system', 'access'], true)) { fwrite(STDERR, "  {$slug} is protected.\n"); exit(1); }
+        (new Tiger_Model_Module())->setActive($slug, $on);
+        echo "  \xE2\x9C\x93 {$slug} " . ($on ? 'activated' : 'deactivated') . ".\n";
+        break;
+
     case 'crypto:rotate-key':
         // New encryption key; the old one is retained (tiger.crypto.key_retired) so
         // existing ciphertext still decrypts until crypto:rekey re-encrypts it.

@@ -151,6 +151,7 @@ class Tiger_Install
             'storage/media',        // Media — private files (streamed, outside the docroot)
             'public/_media',         // Media — public files (served)
             'public/_code',          // Tiger Code — css/js assets (served, browser-cached)
+            'public/_modules',       // Module installer — published module assets (served)
         ];
         $made = [];
         foreach ($dirs as $rel) {
