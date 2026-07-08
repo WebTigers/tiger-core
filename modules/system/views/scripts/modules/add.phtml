@@ -1,0 +1,154 @@
+<?php
+/**
+ * Add Module — install from a public GitHub repo (with a preview step) + search the open
+ * Vendor Registry. Everything is /api (System_Service_Modules: inspect / install / search);
+ * this is the shell. Gated to superadmin (installing runs vendor code).
+ */
+$registryHasData = !empty($this->registryHasData);
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Add Module</h1>
+        <p class="text-body-secondary mb-0"><a href="/system/modules" class="text-decoration-none"><i class="fa-solid fa-angle-left me-1"></i>Back to modules</a></p>
+    </div>
+</div>
+
+<div id="mod-feedback"></div>
+
+<!-- Install from URL (the working path) -->
+<div class="card mb-4">
+    <div class="card-header fw-semibold"><i class="fa-brands fa-github me-2"></i>Install from a GitHub repository</div>
+    <div class="card-body">
+        <p class="text-body-secondary small">Paste a <strong>public</strong> GitHub repo URL. We pull its <code>module.json</code> + <code>TIGER.md</code> so you can review it before installing. Private repos aren't supported — module code must be open for review.</p>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-7">
+                <label class="form-label small" for="mod-url">Repository URL</label>
+                <input type="url" class="form-control" id="mod-url" placeholder="https://github.com/org/repo">
+            </div>
+            <div class="col-8 col-md-3">
+                <label class="form-label small" for="mod-ref">Version <span class="text-body-secondary">(optional)</span></label>
+                <input type="text" class="form-control" id="mod-ref" placeholder="latest release">
+            </div>
+            <div class="col-4 col-md-2">
+                <button type="button" id="mod-check" class="btn btn-outline-primary w-100"><i class="fa-solid fa-magnifying-glass me-1"></i>Check</button>
+            </div>
+        </div>
+        <div id="mod-preview" class="mt-4" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- Vendor Registry search -->
+<div class="card">
+    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+        <span><i class="fa-solid fa-store me-2"></i>Browse the directory</span>
+        <span class="small fw-normal <?= $registryHasData ? 'text-success' : 'text-body-secondary' ?>">
+            <?= $registryHasData ? 'community registry' : 'registry unavailable' ?>
+        </span>
+    </div>
+    <div class="card-body">
+        <?php if (!$registryHasData): ?>
+            <p class="text-body-secondary mb-0"><i class="fa-regular fa-circle-question me-1"></i>The Vendor Registry isn't reachable yet. Install directly from a repo URL above — that always works.</p>
+        <?php else: ?>
+            <div class="input-group mb-3">
+                <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" class="form-control" id="mod-search" placeholder="Search modules…">
+            </div>
+            <div id="mod-results" class="row row-cols-1 row-cols-md-2 g-3"></div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb = document.getElementById('mod-feedback');
+    function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function alertHtml(msg, cls){ var ctx = (cls === 'error') ? 'danger' : (cls || 'info');
+        return '<div class="alert alert-' + ctx + ' alert-dismissible" role="alert">' + esc(msg) + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'; }
+    function api(method, data){
+        var body = new URLSearchParams(Object.assign({ module: 'system', service: 'modules', method: method }, data));
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body }).then(function(r){ return r.json(); });
+    }
+
+    var urlEl = document.getElementById('mod-url'), refEl = document.getElementById('mod-ref'), preview = document.getElementById('mod-preview');
+
+    function badge(text, cls){ return '<span class="badge text-bg-' + cls + ' me-1">' + esc(text) + '</span>'; }
+
+    function renderPreview(d){
+        var m = d.manifest, req = m.requires || {};
+        var reqBits = [];
+        if (req.tiger) reqBits.push('Tiger ' + esc(req.tiger));
+        if (req.php)   reqBits.push('PHP ' + esc(req.php));
+        var action = d.installed
+            ? '<button type="button" class="btn btn-warning" id="mod-install"><i class="fa-solid fa-arrows-rotate me-1"></i>Update to ' + esc(m.version || d.ref) + '</button>' +
+              '<span class="ms-2 small text-body-secondary">Installed' + (d.installed_version ? ' (v' + esc(d.installed_version) + ')' : '') + '</span>'
+            : '<button type="button" class="btn btn-primary" id="mod-install"><i class="fa-solid fa-download me-1"></i>Install</button>';
+        preview.innerHTML =
+            '<div class="border rounded p-3">' +
+              '<div class="d-flex justify-content-between align-items-start">' +
+                '<div><h5 class="mb-1">' + esc(m.name) + ' ' + (m.version ? '<span class="text-body-secondary fs-6">v' + esc(m.version) + '</span>' : '') + '</h5>' +
+                  '<div class="small text-body-secondary mb-2">' +
+                    (m.author ? esc(m.author) + ' · ' : '') + '<code>/' + esc(m.slug) + '</code>' +
+                    (m.license ? ' · ' + esc(m.license) : '') + ' · <a href="' + esc(d.repo) + '" target="_blank" rel="noopener">' + esc(d.repo.replace('https://github.com/','')) + '@' + esc(d.ref) + '</a>' +
+                  '</div>' +
+                  (m.pricing && m.pricing !== 'paid' ? badge('free tier', 'success-subtle text-success-emphasis border border-success-subtle') : '') +
+                  (reqBits.length ? '<span class="small text-body-secondary ms-1">Requires ' + reqBits.join(', ') + '</span>' : '') +
+                '</div>' +
+                '<div class="text-nowrap ms-3">' + action + '</div>' +
+              '</div>' +
+              (m.description ? '<p class="mt-2 mb-0">' + esc(m.description) + '</p>' : '') +
+              (d.description_html ? '<hr><div class="mod-readme">' + d.description_html + '</div>' : '') +
+            '</div>';
+        preview.style.display = '';
+        var ib = document.getElementById('mod-install');
+        if (ib) { ib.addEventListener('click', function(){ doInstall(d.repo, d.ref, d.installed); }); }
+    }
+
+    function doCheck(){
+        var url = urlEl.value.trim();
+        if (!url) { return; }
+        fb.innerHTML = ''; preview.style.display = 'none';
+        var btn = document.getElementById('mod-check'); btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        api('inspect', { url: url, ref: refEl.value.trim() }).then(function(res){
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i>Check';
+            if (res.result !== 1) { (res.messages||[]).forEach(function(m){ fb.innerHTML += alertHtml(m.message, m.class); }); return; }
+            renderPreview(res.data);
+        }).catch(function(){ btn.disabled = false; btn.innerHTML = 'Check'; fb.innerHTML = alertHtml('Network error.', 'error'); });
+    }
+    function doInstall(repo, ref, isUpdate){
+        if (!confirm((isUpdate ? 'Update' : 'Install') + ' this module? Its code will run in your app once active.')) { return; }
+        var ib = document.getElementById('mod-install'); if (ib){ ib.disabled = true; ib.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Installing…'; }
+        api('install', { url: repo, ref: ref, force: isUpdate ? 1 : 0 }).then(function(res){
+            if (res.result === 1) { window.location = res.redirect || '/system/modules'; return; }
+            (res.messages||[]).forEach(function(m){ fb.innerHTML += alertHtml(m.message, m.class); });
+            if (ib){ ib.disabled = false; ib.innerHTML = 'Install'; }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }).catch(function(){ if (ib){ ib.disabled = false; ib.innerHTML = 'Install'; } fb.innerHTML = alertHtml('Network error.', 'error'); });
+    }
+    document.getElementById('mod-check').addEventListener('click', doCheck);
+    urlEl.addEventListener('keydown', function(e){ if (e.key === 'Enter') { doCheck(); } });
+
+    // Registry search
+    var searchEl = document.getElementById('mod-search'), results = document.getElementById('mod-results'), t;
+    if (searchEl) {
+        searchEl.addEventListener('input', function(){ clearTimeout(t); t = setTimeout(runSearch, 250); });
+        runSearch();
+    }
+    function runSearch(){
+        api('search', { q: searchEl.value.trim() }).then(function(res){
+            if (res.result !== 1) { return; }
+            var list = (res.data && res.data.results) || [];
+            if (!list.length) { results.innerHTML = '<div class="col text-body-secondary small">No modules match.</div>'; return; }
+            results.innerHTML = list.map(function(m){
+                return '<div class="col"><div class="card h-100"><div class="card-body">' +
+                    '<h6 class="mb-1">' + esc(m.name || m.slug) + (m.pricing && m.pricing !== 'paid' ? ' <span class="badge text-bg-success-subtle text-success-emphasis border border-success-subtle">free</span>' : '') + '</h6>' +
+                    '<p class="small text-body-secondary mb-2">' + esc(m.description || '') + '</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary" data-repo="' + esc(m.repository || '') + '">View</button>' +
+                    '</div></div></div>';
+            }).join('');
+            results.querySelectorAll('[data-repo]').forEach(function(b){
+                b.addEventListener('click', function(){ urlEl.value = b.getAttribute('data-repo'); refEl.value = ''; window.scrollTo({top:0,behavior:'smooth'}); doCheck(); });
+            });
+        });
+    }
+});
+</script>

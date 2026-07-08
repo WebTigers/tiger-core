@@ -6,6 +6,7 @@
 return [
     'system.module.activated'   => 'Module activated.',
     'system.module.deactivated' => 'Module deactivated.',
+    'system.module.installed'   => 'Module installed and activated.',
     'system.error.protected'    => 'That module is protected and can\'t be deactivated.',
     'system.error.unknown'      => 'No such module.',
 ];

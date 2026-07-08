@@ -34,4 +34,13 @@ class System_ModulesController extends Tiger_Controller_Action
         $this->view->title   = 'Modules — Tiger Admin';
         $this->view->modules = $modules;
     }
+
+    /** Add New — registry search + install-from-URL (with a preview step). The screen shell;
+     *  search/inspect/install are /api calls to System_Service_Modules. */
+    public function addAction()
+    {
+        $this->view->title           = 'Add Module — Tiger Admin';
+        $this->view->registryUrl     = Tiger_Module_Registry::indexUrl();
+        $this->view->registryHasData = Tiger_Module_Registry::available();
+    }
 }

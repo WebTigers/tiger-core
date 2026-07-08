@@ -60,6 +60,12 @@ class Tiger_Module_Github
         return (bool) self::_http($url, false, $destFile);
     }
 
+    /** GET any public URL (e.g. the Vendor Registry index). Body string, or null. */
+    public static function get($url)
+    {
+        return self::_http($url);
+    }
+
     /** HTTP GET via cURL (public, follows redirects, UA set). Body string / true(to file) / null. */
     protected static function _http($url, $api = false, $toFile = null)
     {
