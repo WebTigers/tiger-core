@@ -26,7 +26,7 @@ class Blog_IndexController extends Tiger_Controller_Action
     public function indexAction()
     {
         $rows = $this->_posts->published(['locale' => $this->_locale(), 'limit' => 20]);
-        $this->view->posts   = array_map([$this->_posts, 'present'], $rows);
+        $this->view->posts   = $this->_presentAll($rows);
         $this->view->heading = 'Latest';
         $this->view->title   = 'Blog';
     }
@@ -65,7 +65,7 @@ class Blog_IndexController extends Tiger_Controller_Action
     public function feedAction()
     {
         $rows = $this->_posts->published(['locale' => $this->_locale(), 'limit' => 20]);
-        $this->view->posts = array_map([$this->_posts, 'present'], $rows);
+        $this->view->posts = $this->_presentAll($rows);
         $this->view->site  = $this->_siteName();
         $this->getResponse()->setHeader('Content-Type', 'application/rss+xml; charset=utf-8', true);
         $this->_helper->layout()->disableLayout();
@@ -81,11 +81,19 @@ class Blog_IndexController extends Tiger_Controller_Action
         $pageIds = $this->_tax->pageIdsForTerm($term->taxonomy_id);
         $rows    = $pageIds ? $this->_posts->published(['locale' => $this->_locale(), 'limit' => 50, 'pageIds' => $pageIds]) : [];
 
-        $this->view->posts   = array_map([$this->_posts, 'present'], $rows);
+        $this->view->posts   = $this->_presentAll($rows);
         $this->view->term    = ['name' => $term->name, 'slug' => $term->slug, 'vocabulary' => $vocabulary, 'description' => (string) $term->description];
         $this->view->heading = $label . ': ' . $term->name;
         $this->view->title   = $term->name;
         $this->_helper->viewRenderer->setScriptAction('archive');   // both category+tag render archive.phtml
+    }
+
+    /** present() every row — accepts a Zend_Db_Table_Rowset (Traversable) or an array. */
+    protected function _presentAll($rows)
+    {
+        $out = [];
+        foreach ($rows as $r) { $out[] = $this->_posts->present($r); }
+        return $out;
     }
 
     protected function _locale()
