@@ -106,4 +106,34 @@ class Tiger_Form extends Zend_Form
     {
         return ($this->_translateFn)($key);
     }
+
+    /**
+     * Convenience validation: validate ONE field against $value, returning the first error.
+     * This is the server-side check TigerValidateJS runs on blur — the same validators that
+     * run at submit, applied per-field as you tab through the form, so a value is known-good
+     * before the user ever clicks the button. $context is the rest of the posted form, so
+     * cross-field validators (e.g. a password-confirm Identical, a NoRecordExists uniqueness
+     * check) have what they need. Unknown/CSRF field → valid (never block on those; the real
+     * isValid() at submit is still authoritative).
+     *
+     * @param  string $name
+     * @param  mixed  $value
+     * @param  array  $context the other submitted field values
+     * @return array{valid:bool,message:string}
+     */
+    public function convenienceValidate(string $name, $value, array $context = []): array
+    {
+        if ($name === '' || $name === '_csrf') {
+            return ['valid' => true, 'message' => ''];
+        }
+        $el = $this->getElement($name);
+        if (!$el) {
+            return ['valid' => true, 'message' => ''];
+        }
+        if ($el->isValid($value, $context)) {
+            return ['valid' => true, 'message' => ''];
+        }
+        $messages = $el->getMessages();   // keyed by failure; values already localized
+        return ['valid' => false, 'message' => (string) reset($messages)];
+    }
 }

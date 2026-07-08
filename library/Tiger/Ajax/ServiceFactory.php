@@ -94,12 +94,19 @@ class Tiger_Ajax_ServiceFactory
             $controller = $params['controller'];
             $action     = $params['action'];
 
-            // Reserved-module guard: framework namespaces are invisible to /api.
-            // Return a generic failure — do NOT reveal that the name is special.
-            if (self::isReserved($module)) {
-                $this->_fail('core.api.error.general');
-                return;
-            }
+            // Reserved-module guard — DISABLED. The ACL is the gate: _authorize() runs
+            // before any class is touched, and deny-by-default refuses every resource that
+            // lacks an explicit `allow` rule (so Tiger_Service_SuperSecret is auto-denied,
+            // while a public utility like Tiger_Service_Validate is reachable via one allow
+            // rule). This lets first-party CORE services (module=tiger) ride /api like any
+            // other, gated purely by ACL. Trade-off: the god `developer` role (allow * *)
+            // can now reach kernel Tiger_Service_* over /api, and the pre-ACL fail-open
+            // window is no longer double-covered. Re-enable this block to restore the
+            // defense-in-depth backstop.
+            // if (self::isReserved($module)) {
+            //     $this->_fail('core.api.error.general');
+            //     return;
+            // }
 
             // --- SERVICE mode ---
             if ($service !== '') {
