@@ -51,10 +51,32 @@ class Tiger_Code_Runtime
             return;
         }
 
-        self::_armGuard();
+        self::_armGuard();   // backstop for UNcatchable fatals (memory/timeout) — see _onShutdown
         $GLOBALS[self::MARKER] = null;
-        self::_include($file);
-        $GLOBALS[self::MARKER] = null;   // include finished cleanly
+        try {
+            self::_include($file);
+        } catch (Throwable $ex) {
+            // In PHP 8 most snippet errors (undefined function, TypeError, …) are CATCHABLE.
+            // The marker names the snippet that was loading — deactivate it + heal this request.
+            self::_deactivateRunning($ex->getMessage() . ' (line ' . $ex->getLine() . ')');
+        }
+        $GLOBALS[self::MARKER] = null;   // clear so the shutdown backstop doesn't re-fire
+    }
+
+    /** Deactivate the snippet named by the marker + rebuild (self-heal). Best-effort. */
+    protected static function _deactivateRunning($why)
+    {
+        $bad = isset($GLOBALS[self::MARKER]) ? $GLOBALS[self::MARKER] : null;
+        if (!$bad) {
+            return;
+        }
+        try {
+            (new Tiger_Model_Code())->markError($bad, $why);
+            self::rebuild();
+            self::_log("auto-deactivated code {$bad}: {$why}");
+        } catch (Throwable $t) {
+            // nothing more we can safely do
+        }
     }
 
     /**
