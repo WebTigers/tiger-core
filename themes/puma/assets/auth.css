@@ -26,3 +26,12 @@
     font-size: 1.4rem; margin-bottom: .75rem;
 }
 .tiger-auth-foot { text-align: center; margin-top: 1.25rem; }
+
+/* --- Signup password field — moved from modules/signup/views/scripts/index/index.phtml --- */
+/* Password sits in an input-group with the eye addon: keep Bootstrap's in-field
+   validation icon (consistent with every other field), just keep the input flush
+   (squared right, seamless with the eye) in the red/green state. */
+#su-password.is-invalid, #su-password.is-valid {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}

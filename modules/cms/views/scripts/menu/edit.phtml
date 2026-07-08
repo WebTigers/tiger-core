@@ -64,24 +64,6 @@ $collect = function ($nodes) use (&$collect, &$flat) {
 $collect($this->tree);
 ?>
 <script src="<?= $this->asset($this->themeAssets . '/js/vendor/Sortable.min.js') ?>"></script>
-<style>
-.menu-builder .menu-tree { list-style:none; margin:0; padding:0; }
-.menu-builder #menu-root { min-height:8rem; }
-.menu-chip { display:flex; align-items:center; gap:.5rem; border:1px solid var(--bs-border-color);
-    border-radius:.5rem; padding:.4rem .6rem; margin-bottom:.4rem; background:var(--bs-body-bg);
-    box-shadow:0 1px 1px rgba(0,0,0,.03); transition:margin-left .08s ease; }
-.menu-item > .menu-chip { margin-left:calc(var(--depth, 0) * 1.75rem); }         /* WP-style indent */
-.menu-item[data-depth]:not([data-depth="0"]) > .menu-chip { border-left:3px solid var(--bs-primary); }
-.menu-chip .menu-grip { cursor:grab; color:var(--bs-secondary-color); }
-.menu-chip-label { font-weight:600; }
-.menu-chip-hint { color:var(--bs-secondary-color); font-size:.8em; }
-.menu-source .menu-chip:hover { border-color:var(--bs-primary); }
-.menu-palette { list-style:none; margin:0; padding:0; max-height:60vh; overflow:auto; }
-.menu-ghost .menu-chip { border:1px dashed var(--bs-primary); opacity:.55; }
-.menu-chosen .menu-chip { box-shadow:0 0 0 .15rem var(--bs-primary-border-subtle); }
-.menu-fallback .menu-chip { opacity:.9; }
-.menu-builder .menu-source[hidden] { display:none; }
-</style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>

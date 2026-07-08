@@ -9,18 +9,6 @@
 ?>
 <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.css') ?>">
 <script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.js') ?>" defer></script>
-<style>
-#media-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--tile,168px), 1fr)); gap:.6rem; }
-.media-tile { position:relative; }
-.media-tile > a { display:block; aspect-ratio:1; border-radius:8px; overflow:hidden; background:var(--bs-secondary-bg); }
-.media-tile img { width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
-.media-tile-icon { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:.35rem; color:var(--bs-secondary-color); text-decoration:none; }
-.media-tile-icon i { font-size:1.7rem; }
-.media-tile-name { font-size:.74rem; margin-top:.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--bs-secondary-color); }
-.media-tile-del { position:absolute; top:.3rem; right:.3rem; width:22px; height:22px; line-height:20px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transition:opacity .1s; }
-.media-tile:hover .media-tile-del { opacity:1; }
-#media-list .dataTables_filter { display:none; }   /* the shared search drives it */
-</style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>

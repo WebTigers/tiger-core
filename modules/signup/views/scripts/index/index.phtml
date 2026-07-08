@@ -8,15 +8,6 @@
 $form = $this->form;
 $el = function ($name) use ($form) { return $form->getElement($name); };
 ?>
-<style>
-    /* Password sits in an input-group with the eye addon: keep Bootstrap's in-field
-       validation icon (consistent with every other field), just keep the input flush
-       (squared right, seamless with the eye) in the red/green state. */
-    #su-password.is-invalid, #su-password.is-valid {
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-    }
-</style>
 <div class="tiger-auth-brand">
     <span class="tiger-auth-mark"><i class="fa-solid fa-paw"></i></span>
     <h1 class="h4 mb-1">Create your account</h1>

@@ -26,27 +26,7 @@ $jf = JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JS
     <link rel="stylesheet" href="<?= $this->asset($va . '/skins/' . $this->skin . '.css') ?>">
 <?php endif; ?>
     <link rel="stylesheet" href="<?= $this->asset($va . '/vendor/grapesjs/grapes.min.css') ?>">
-
-    <style>
-        html, body { height: 100%; }
-        body { margin: 0; display: flex; flex-direction: column; overflow: hidden; }
-        .tb-bar {
-            flex: 0 0 auto; height: 52px; display: flex; align-items: center;
-            justify-content: space-between; gap: 1rem; padding: 0 .9rem;
-            background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color);
-        }
-        .tb-left  { display: flex; align-items: baseline; gap: .75rem; min-width: 0; }
-        .tb-right { display: flex; align-items: center; gap: .5rem; }
-        .tb-brand { font-weight: 600; white-space: nowrap; }
-        .tb-brand i { color: var(--bs-primary); }
-        .tb-title { color: var(--bs-secondary-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tb-status { font-size: .85rem; color: var(--bs-secondary-color); min-width: 9ch; text-align: right; }
-        .tb-status.ok     { color: var(--bs-success); }
-        .tb-status.err    { color: var(--bs-danger); }
-        .tb-status.saving { color: var(--bs-secondary-color); }
-        #gjs { flex: 1 1 auto; min-height: 0; }
-        .gjs-editor { height: 100%; }
-    </style>
+    <link rel="stylesheet" href="<?= $this->asset($va . '/builder.css') ?>">
 </head>
 <body>
     <header class="tb-bar">

@@ -14,10 +14,6 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
 <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/codemirror/theme-dark.css') ?>">
 <script src="<?= $this->asset($this->themeAssets . '/vendor/codemirror/codemirror.bundle.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.code-editor.js') ?>"></script>
-<style>
-  .CodeMirror{border:1px solid var(--bs-border-color);border-radius:.375rem;height:auto;min-height:460px;font-size:.9rem;}
-  .CodeMirror-focused{border-color:var(--bs-primary);box-shadow:0 0 0 .2rem rgba(var(--bs-primary-rgb),.15);}
-</style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
