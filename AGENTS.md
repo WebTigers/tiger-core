@@ -60,6 +60,41 @@ gets out of the way; the logic and the data live in services. The payoff is the 
 contract (FEATURES.md): the same `/api` feeds the PUMA SSR theme, a future SPA theme, or a mobile
 client, because the UI is always just a client.
 
+## UI/UX: polished by default (don't hand-roll it)
+
+The difference between a cheap-feeling UI and a polished one is almost entirely in the small
+moments — how a button behaves while it's working, how a message arrives and leaves. Tiger ships
+two tiny vanilla helpers (zero deps, in the PUMA theme) that make the *polished* path the *easy*
+path. **Use them; never hand-roll a spinner, a busy flag, or `innerHTML = '<div class="alert">'`
+again.**
+
+- **`TigerButton.run(btn, task)`** (`tiger.button.js`) — wrap the promise behind any AJAX action
+  button. It disables the button, swaps its icon to a spinner (injecting one if the button has
+  none), holds a **minimum visible time (~400ms)** so the state actually registers even on instant
+  calls, then restores + re-enables — **failure-safe** (`finally`) and `aria-busy`. The task must
+  *return* the fetch chain; chain your response handling onto `run()`'s return:
+  ```js
+  TigerButton.run(this, function () {
+      return fetch('/api', { method: 'POST', body: fd }).then(function (r) { return r.json(); });
+  }).then(function (res) { /* … */ }).catch(function () { /* … */ });
+  ```
+- **`TigerDOM.notify(container, msg, {type})`** / **`.toast(msg, {type})`** (`tiger.dom.js`) — the
+  message envelope. Builds the themed alert (icon + message + close) and **reveals** it
+  (container expands, then the content fades in — never slammed on), with smart defaults:
+  **success auto-dismisses (~5s), errors stick, pause-on-hover, ✕/click to dismiss.** `notify`
+  targets an inline feedback element; `toast` floats it top-right.
+  ```js
+  TigerDOM.notify(fb, 'Settings saved.', { type: 'success' });
+  TigerDOM.notify(fb, m.message, { type: m.class });   // res.messages[].class maps straight through
+  ```
+- **`TigerDOM.expand/collapse/toggle`** — the underlying reveal primitives (Web Animations API,
+  interruptible, `prefers-reduced-motion`-aware). Reach for these for any show/hide (submenus,
+  accordions, panels) instead of a jQuery slide or a raw `display` flip.
+
+The rule of thumb: **a control should always say what it's doing.** A save button that just sits
+there, or a message that blinks into existence and never leaves, is the tell of a cheap UI. These
+helpers are the house style — every admin + auth screen already uses them; match that.
+
 ## Services (`/api`) — the canonical flow
 
 Services extend `Tiger_Service_Service`; the message's `method` names the action, which
@@ -166,3 +201,5 @@ a bootstrap `_init*`. See `Tiger_Model_Config` / `Tiger_Model_Translation`.
 - Don't build REST-by-URL endpoints — use the `/api` message pattern.
 - Don't page-POST forms to controllers or server-render list/table data — the UI is a client
   that calls `/api`; controllers render the initial shell only (see the client/server section).
+- Don't hand-roll a button spinner/busy flag or `innerHTML = '<div class="alert">'` — use
+  `TigerButton.run` and `TigerDOM.notify`/`toast` (see "UI/UX: polished by default").
