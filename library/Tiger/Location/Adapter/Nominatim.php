@@ -24,12 +24,12 @@ class Tiger_Location_Adapter_Nominatim extends Tiger_Location_Adapter_Abstract
 
     public function suggest(string $query, array $opts = []): array
     {
-        return $this->_search($query, (int) ($opts['limit'] ?? 5));
+        return $this->_search($query, (int) ($opts['limit'] ?? 5), $opts);
     }
 
     public function geocode(string $query, array $opts = []): array
     {
-        return $this->_search($query, (int) ($opts['limit'] ?? 5));
+        return $this->_search($query, (int) ($opts['limit'] ?? 5), $opts);
     }
 
     public function reverse(float $lat, float $lng, array $opts = []): ?Tiger_Location_Place
@@ -43,10 +43,12 @@ class Tiger_Location_Adapter_Nominatim extends Tiger_Location_Adapter_Abstract
     }
 
     /** @return Tiger_Location_Place[] */
-    protected function _search(string $query, int $limit): array
+    protected function _search(string $query, int $limit, array $opts = []): array
     {
         $url = $this->_base() . '/search?' . http_build_query(array_filter([
             'q' => $query, 'format' => 'jsonv2', 'addressdetails' => 1, 'limit' => max(1, min(10, $limit)),
+            // Country bias: restrict suggestions to the chosen country (faster + relevant).
+            'countrycodes' => !empty($opts['country']) ? strtolower((string) $opts['country']) : null,
             'email' => $this->_cfg('email'),
         ]));
         $rows = $this->_getJson($url) ?: [];

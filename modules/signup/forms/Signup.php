@@ -17,14 +17,6 @@
  */
 class Signup_Form_Signup extends Tiger_Form
 {
-    /** A small ISO-3166-1 alpha-2 set for the demo country picker. */
-    private static $_countries = [
-        '' => '— Select —', 'US' => 'United States', 'CA' => 'Canada', 'GB' => 'United Kingdom',
-        'IE' => 'Ireland', 'AU' => 'Australia', 'NZ' => 'New Zealand', 'DE' => 'Germany',
-        'FR' => 'France', 'ES' => 'Spain', 'IT' => 'Italy', 'NL' => 'Netherlands',
-        'SE' => 'Sweden', 'NO' => 'Norway', 'JP' => 'Japan', 'MX' => 'Mexico', 'BR' => 'Brazil',
-    ];
-
     private static $_phoneTypes = [
         'mobile' => 'Mobile', 'work' => 'Work', 'home' => 'Home', 'main' => 'Main', 'fax' => 'Fax',
     ];
@@ -40,7 +32,7 @@ class Signup_Form_Signup extends Tiger_Form
         $uniqueEmail = new Zend_Validate_Db_NoRecordExists(['table' => 'user', 'field' => 'email']);
         $uniqueEmail->setMessage('An account with that email already exists.', Zend_Validate_Db_NoRecordExists::ERROR_RECORD_FOUND);
 
-        $countryCodes = array_values(array_filter(array_keys(self::$_countries)));   // no '' placeholder
+        $countryCodes = Tiger_I18n_Country::codes();   // full ISO-3166 alpha-2 set
 
         return [
             ['text', 'first_name', [
@@ -110,7 +102,7 @@ class Signup_Form_Signup extends Tiger_Form
                 'attribs' => array_merge($control, ['id' => 'su-postal', 'autocomplete' => 'postal-code']),
             ]],
             ['select', 'country', [
-                'required' => true, 'multiOptions' => self::$_countries,
+                'required' => true, 'multiOptions' => Tiger_I18n_Country::options(),
                 'validators' => [['InArray', true, ['haystack' => $countryCodes, 'messages' => [Zend_Validate_InArray::NOT_IN_ARRAY => 'Please choose a country.']]]],
                 // data-tiger-ip-country -> tiger.address.js pre-selects it from the visitor's IP on load.
                 'attribs' => array_merge($select, ['id' => 'su-country', 'autocomplete' => 'country', 'data-tiger-ip-country' => '1']),

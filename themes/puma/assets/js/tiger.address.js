@@ -64,6 +64,10 @@
             if (q.length < 3) { results = []; hide(); return; }
             var body = new URLSearchParams();
             body.set('module', 'tiger'); body.set('service', 'location'); body.set('method', 'suggest'); body.set('q', q);
+            // Bias suggestions to the chosen country (faster + more relevant).
+            var ccId = input.getAttribute('data-fill-country');
+            var ccEl = ccId && document.getElementById(ccId);
+            if (ccEl && ccEl.value) { body.set('country', ccEl.value); }
             fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body: body.toString(), credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (res) { results = ((res && res.data) || {}).results || []; render(); })

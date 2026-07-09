@@ -18,7 +18,10 @@ class Tiger_Service_Location extends Tiger_Service_Service
 {
     public function suggest(array $params): void
     {
-        $places = (new Tiger_Location())->suggest((string) ($params['q'] ?? ''));
+        $opts = [];
+        $cc = preg_replace('/[^A-Za-z]/', '', (string) ($params['country'] ?? ''));
+        if ($cc !== '') { $opts['country'] = strtoupper($cc); }   // bias to the chosen country
+        $places = (new Tiger_Location())->suggest((string) ($params['q'] ?? ''), $opts);
         $this->_success(['results' => array_map(static function ($p) { return $p->toArray(); }, $places)]);
     }
 

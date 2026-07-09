@@ -60,7 +60,7 @@ class Tiger_Location_Adapter_Aws extends Tiger_Location_Adapter_Abstract
         if (trim($query) === '') {
             return [];
         }
-        $data = $this->_call('search/suggestions', ['Text' => $query, 'MaxResults' => self::MAX_RESULTS]);
+        $data = $this->_call('search/suggestions', $this->_textBody($query, $opts));
         if (!is_array($data) || empty($data['Results'])) {
             return [];
         }
@@ -91,7 +91,7 @@ class Tiger_Location_Adapter_Aws extends Tiger_Location_Adapter_Abstract
         if (trim($query) === '') {
             return [];
         }
-        $data = $this->_call('search/text', ['Text' => $query, 'MaxResults' => self::MAX_RESULTS]);
+        $data = $this->_call('search/text', $this->_textBody($query, $opts));
         if (!is_array($data) || empty($data['Results'])) {
             return [];
         }
@@ -124,6 +124,17 @@ class Tiger_Location_Adapter_Aws extends Tiger_Location_Adapter_Abstract
      * JSON array, or null on any missing config / network / non-2xx error (callers turn that into
      * [] or null — never a thrown exception to the UI).
      */
+    /** Text search body, biased to a country (FilterCountries wants ISO alpha-3) when given. */
+    protected function _textBody(string $query, array $opts): array
+    {
+        $body = ['Text' => $query, 'MaxResults' => self::MAX_RESULTS];
+        if (!empty($opts['country'])) {
+            $iso3 = Tiger_I18n_Country::iso3((string) $opts['country']);
+            if ($iso3) { $body['FilterCountries'] = [$iso3]; }
+        }
+        return $body;
+    }
+
     protected function _call(string $op, array $body): ?array
     {
         $region = (string) $this->_cfg('region', '');
