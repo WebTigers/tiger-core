@@ -4,6 +4,15 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [Unreleased]
+
+### Added
+- **`bin/tiger link:assets`** + **`Tiger_Install::linkPublicAssets()`** — (re)create the webroot's
+  `_theme`/`_tiger` symlinks with absolute targets computed from the app root. The failsafe way to
+  wire assets on any host (recreate links, never copy); `--webroot` handles the cPanel split layout
+  (`~/public_html` above the app). Idempotent; refuses to clobber a real directory. Reusable by the
+  web installer.
+
 ## [0.1.0-beta.1] — 2026-07-09
 
 First public **beta** of the Tiger platform Core — the kernel + multi-tenant substrate on

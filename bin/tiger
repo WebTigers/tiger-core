@@ -139,6 +139,24 @@ switch ($cmd) {
         }
         break;
 
+    case 'link:assets':
+        // (Re)create the webroot's _theme/_tiger symlinks — the failsafe way to wire assets on
+        // any host (recreate links, never copy). --webroot for the split layout (cPanel:
+        // ~/public_html); defaults to <app root>/public (co-located). --theme (default puma).
+        $flags   = tiger_flags($argv);
+        $webroot = isset($flags['webroot']) ? $flags['webroot'] : (APPLICATION_ROOT . '/public');
+        $theme   = isset($flags['theme']) ? $flags['theme'] : 'puma';
+        try {
+            $made = Tiger_Install::linkPublicAssets($webroot, APPLICATION_ROOT, $theme);
+            foreach ($made as $name => $target) {
+                echo "  \xE2\x9C\x93 {$webroot}/{$name} -> {$target}\n";
+            }
+        } catch (Throwable $e) {
+            fwrite(STDERR, "  link:assets failed: " . $e->getMessage() . "\n");
+            exit(1);
+        }
+        break;
+
     case 'install:admin':
         // Create the founding org + owner. Non-interactive via flags
         // (--email= --password= --org= [--username=] [--slug=] [--role=]); prompts for anything missing.
@@ -315,6 +333,8 @@ switch ($cmd) {
         echo "                         password/code pepper) into local.ini if missing (idempotent)\n";
         echo "  install:storage        Create the writable runtime dirs (storage/cache, media, public\n";
         echo "                         asset dirs) — idempotent; chown to the web user after if needed\n";
+        echo "  link:assets            (Re)create the webroot's _theme/_tiger symlinks (failsafe asset\n";
+        echo "                         wiring) — [--webroot=DIR (cPanel: ~/public_html)] [--theme=puma]\n";
         echo "  install:admin          Create the founding org + owner (also provisions secrets;\n";
         echo "                         --email= --password= --org= [--username=] [--slug=] [--role=developer])\n";
         echo "  crypto:rotate-key      Rotate the app encryption key (old kept as retired)\n";

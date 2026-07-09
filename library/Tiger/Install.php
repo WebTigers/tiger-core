@@ -170,6 +170,57 @@ class Tiger_Install
     }
 
     /**
+     * (Re)create the webroot's default asset symlinks — `_tiger` (shared core public assets) and
+     * `_theme` (the active theme's assets). This is the failsafe way to wire assets on ANY host:
+     * recreate the links, never copy — so a framework/theme update is picked up with no re-publish.
+     *
+     * Works for both layouts because the target is computed from $root (absolute):
+     *   - co-located (dev / VPS):  webroot = <root>/public
+     *   - split (cPanel / shared): webroot = ~/public_html, app in <root> above the docroot
+     * Idempotent: an existing symlink/file at the link path is replaced; a REAL directory there
+     * is never clobbered (throws). Callable from `bin/tiger link:assets` and the web installer.
+     *
+     * @param string $webroot docroot dir where the links live (e.g. <root>/public or ~/public_html)
+     * @param string $root     application root (holds vendor/)
+     * @param string $theme    active theme whose assets `_theme` points at
+     * @return array<string,string> link name => absolute target, for each (re)created link
+     */
+    public static function linkPublicAssets($webroot, $root, $theme = 'puma')
+    {
+        $webroot = rtrim((string) $webroot, '/');
+        $root    = rtrim((string) $root, '/');
+        if ($webroot === '' || !is_dir($webroot)) {
+            throw new RuntimeException('linkPublicAssets: webroot not found: ' . $webroot);
+        }
+        $core = $root . '/vendor/webtigers/tiger-core';
+
+        $links = [
+            '_tiger' => $core . '/public',
+            '_theme' => $core . '/themes/' . preg_replace('/[^a-z0-9_-]/i', '', (string) $theme) . '/assets',
+        ];
+
+        $made = [];
+        foreach ($links as $name => $target) {
+            if (!is_dir($target)) {
+                throw new RuntimeException("linkPublicAssets: asset target not found: {$target}");
+            }
+            $link = $webroot . '/' . $name;
+            if (is_link($link)) {
+                @unlink($link);                       // replace an old/stale link
+            } elseif (is_dir($link)) {
+                throw new RuntimeException("linkPublicAssets: refusing to replace a real directory: {$link}");
+            } elseif (file_exists($link)) {
+                @unlink($link);
+            }
+            if (!@symlink($target, $link)) {
+                throw new RuntimeException("linkPublicAssets: could not create symlink {$link} -> {$target}");
+            }
+            $made[$name] = $target;
+        }
+        return $made;
+    }
+
+    /**
      * Rotate a local.ini secret: move the CURRENT value into the retired list (deduped,
      * newest first) and set the current key to $newValue. Nothing is destroyed — the old
      * value stays available (retired) so in-flight verification/decryption keeps working
