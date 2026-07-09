@@ -87,7 +87,14 @@ class Signup_Form_Signup extends Tiger_Form
             ['text', 'street', [
                 'required' => true, 'filters' => ['StringTrim'],
                 'validators' => [['StringLength', true, ['min' => 3, 'max' => 191]]],
-                'attribs' => array_merge($control, ['id' => 'su-street', 'autocomplete' => 'address-line1', 'placeholder' => '123 Main St']),
+                // Address autocomplete (Tiger Location Service): picking a suggestion fills
+                // the street + the mapped city/region/postal/country fields.
+                'attribs' => array_merge($control, [
+                    'id' => 'su-street', 'autocomplete' => 'address-line1', 'placeholder' => '123 Main St',
+                    'data-tiger-address' => '1',
+                    'data-fill-city' => 'su-city', 'data-fill-region' => 'su-region',
+                    'data-fill-postal' => 'su-postal', 'data-fill-country' => 'su-country',
+                ]),
             ]],
             ['text', 'city', [
                 'required' => true, 'filters' => ['StringTrim'],
