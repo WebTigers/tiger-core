@@ -30,10 +30,20 @@ class System_Service_Modules extends Tiger_Service_Service
         if (!isset($discovered[$slug])) { $this->_error('system.error.unknown'); return; }
 
         try {
-            $d = $discovered[$slug];
-            (new Tiger_Model_Module())->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
+            $d     = $discovered[$slug];
+            $model = new Tiger_Model_Module();
+            if ($on) {
+                $model->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
+                Tiger_Module_Installer::publishAssets($slug);   // symlink assets/ into public/_modules/<slug> if present
+                // Convenience alert (non-blocking): required modules that aren't active.
+                $data = ['slug' => $slug, 'active' => $on, 'requires_missing' => Tiger_Module_Dependency::missing($slug)];
+            } else {
+                $data = ['slug' => $slug, 'active' => $on, 'dependents' => Tiger_Module_Dependency::dependents($slug)];
+                $model->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
+                Tiger_Module_Installer::unpublishAssets($slug);
+            }
             $this->_success(
-                ['slug' => $slug, 'active' => $on],
+                $data,
                 $on ? 'system.module.activated' : 'system.module.deactivated',
                 '/system/modules'
             );

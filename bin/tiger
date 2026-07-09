@@ -235,7 +235,18 @@ switch ($cmd) {
         $on   = ($cmd === 'module:activate');
         if ($slug === '') { fwrite(STDERR, "  usage: {$cmd} <slug>\n"); exit(1); }
         if (!$on && in_array($slug, ['default', 'system', 'access'], true)) { fwrite(STDERR, "  {$slug} is protected.\n"); exit(1); }
-        (new Tiger_Model_Module())->setActive($slug, $on);
+        if ($on) {
+            // Convenience alert (never a block): required modules that aren't active.
+            $missing = Tiger_Module_Dependency::missing($slug);
+            if ($missing) { echo "  \xE2\x9A\xA0 {$slug} requires: " . implode(', ', $missing) . " (activate them too)\n"; }
+            (new Tiger_Model_Module())->setActive($slug, $on);
+            Tiger_Module_Installer::publishAssets($slug);   // symlink public/_modules/<slug> if it has assets/
+        } else {
+            $dependents = Tiger_Module_Dependency::dependents($slug);
+            if ($dependents) { echo "  \xE2\x9A\xA0 still required by: " . implode(', ', $dependents) . " (deactivating anyway)\n"; }
+            (new Tiger_Model_Module())->setActive($slug, $on);
+            Tiger_Module_Installer::unpublishAssets($slug);
+        }
         echo "  \xE2\x9C\x93 {$slug} " . ($on ? 'activated' : 'deactivated') . ".\n";
         break;
 

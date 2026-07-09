@@ -7,6 +7,14 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 ## [Unreleased]
 
 ### Added
+- **Module assets + deps in the scaffold + lifecycle.** `make:module` now emits optional
+  `layouts/`, `assets/`, and `configs/dependency.ini` stubs. On **activate**, a module's `assets/`
+  (if present) is symlinked into `public/_modules/<slug>` (`Tiger_Module_Installer::publishAssets`);
+  **deactivate** removes it (`unpublishAssets`). **`Tiger_Module_Dependency`** adds lazy, no-boot-cost
+  dependency *alerts* (never blocks): activate warns of required modules that aren't active
+  (`missing()`), deactivate surfaces modules that depend on this one (`dependents()`) — both read
+  `configs/dependency.ini` on demand. Wired into `bin/tiger module:activate|deactivate` and
+  `System_Service_Modules`.
 - **`bin/tiger link:assets`** + **`Tiger_Install::linkPublicAssets()`** — (re)create the webroot's
   `_theme`/`_tiger` symlinks with absolute targets computed from the app root. The failsafe way to
   wire assets on any host (recreate links, never copy); `--webroot` handles the cPanel split layout

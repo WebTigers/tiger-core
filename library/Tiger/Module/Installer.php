@@ -202,6 +202,40 @@ class Tiger_Module_Installer
         if (!@symlink($assets, $link)) { self::_rcopy($assets, $link); }   // copy where symlinks aren't allowed
     }
 
+    /**
+     * Publish a module's assets to public/_modules/<slug> — IF the module has an assets/ dir.
+     * A symlink (copy fallback where symlinks are blocked); a no-op otherwise. Called on ACTIVATE
+     * (and install), so a module's css/js is served the moment it's turned on. Finds the module in
+     * the app OR the first-party core modules dir.
+     */
+    public static function publishAssets($slug)
+    {
+        $slug = basename((string) $slug);
+        foreach (self::_moduleRoots() as $root) {
+            if (is_dir($root . '/' . $slug . '/assets')) {
+                self::_publishAssets($slug, $root . '/' . $slug);
+                return;
+            }
+        }
+    }
+
+    /** Remove a module's published assets from public/_modules/<slug>. Called on DEACTIVATE. */
+    public static function unpublishAssets($slug)
+    {
+        $link = self::publicModulesDir() . '/' . basename((string) $slug);
+        if (is_link($link)) { @unlink($link); } elseif (is_dir($link)) { self::_rrmdir($link); }
+    }
+
+    /** The module directories to search (app first, then first-party core). */
+    protected static function _moduleRoots()
+    {
+        $roots = [];
+        if (defined('APPLICATION_PATH')) { $roots[] = APPLICATION_PATH . '/modules'; }
+        if (defined('TIGER_CORE_PATH'))  { $roots[] = TIGER_CORE_PATH . '/modules'; }
+        if (!$roots) { $roots[] = self::modulesDir(); }
+        return $roots;
+    }
+
     protected static function _migrate()
     {
         $db = Zend_Db_Table_Abstract::getDefaultAdapter();

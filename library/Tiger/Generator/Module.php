@@ -179,14 +179,31 @@ INI;
 
 INI;
 
+        $dependencyIni = <<<'INI'
+; Modules this one depends on — LIGHTWEIGHT + optional. A convenience ALERT only, never a block:
+;   - on activate:   you're told if a required module isn't active ("requires account, billing")
+;   - on deactivate: modules that list this one are surfaced ("still required by …")
+; Parsed lazily (only when toggling this module) — no boot cost. Delete this file if unused.
+[requires]
+; modules[] = "account"
+; modules[] = "billing"
+
+INI;
+
         return [
             'Bootstrap.php'                     => $bootstrap,
             'controllers/IndexController.php'   => $controller,
             'services/Example.php'              => $service,
             'views/scripts/index/index.phtml'   => $view,
+            // Optional view-layer dirs — a module can be theme-agnostic (its own layouts) or ship
+            // its own assets (css/js/img), symlinked to public/_modules/<name> on activate. A pure
+            // /api module can delete any of views/, layouts/, assets/.
+            'layouts/.gitkeep'                  => '',
+            'assets/.gitkeep'                   => '',
             'configs/module.ini'                => $moduleIni,
             'configs/acl.ini'                   => $aclIni,
             'configs/routes.ini'                => $routesIni,
+            'configs/dependency.ini'            => $dependencyIni,
             'models/.gitkeep'                   => '',
             'migrations/.gitkeep'               => '',
         ];
