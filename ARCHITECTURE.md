@@ -439,17 +439,44 @@ registered dirs; assets = symlink.**
 
 ---
 
-## 13. Current state (as of 2026-07-05)
+## 13. Current state (as of 2026-07-09)
 
-**Built & live** on `tiger-dev.webtigers.com` (behind the shared ALB, wildcard cert):
-the entry/bootstrap/config backbone (`Tiger_Application`, `Tiger_Application_Bootstrap`, the
-config cascade, ALB handling, `custom.php` hook, ZF1 module scanning), and the PUMA theme with
-`jaguar`/`cheetah` skins (reskin by flipping one config key, zero rebuild).
+**Public beta released.** `webtigers/tiger-core` (**v0.1.0-beta.2**) and the `webtigers/tiger`
+skeleton (**v0.1.0-beta.3**) are on **Packagist**, on top of `webtigers/tigerzf`. A new app is a
+one-liner (proven from a clean room — pure Packagist, no VCS repos):
 
-**Pending (next):** the Core substrate — `Org` / `User` / `org_user` + the first migrations —
-then the `/api/:module/:service/:action` dispatcher, DB-driven ACL with role-on-membership, the
-per-org theming resolver (the DB config layer), and the real `bin/tiger` console
-(migrate / install:admin / make:module).
+```bash
+composer create-project webtigers/tiger my-app --stability=beta
+```
+
+`--stability=beta` drops away at the stable 1.0. Tags self-publish (the Packagist GitHub App is on
+the org).
+
+**Built & live** on `tiger-dev.webtigers.com` — a *real vendored install* behind the shared ALB;
+Apache is a faithful cPanel mirror (docroot + `public/.htaccess`, no vhost rules):
+
+- **Kernel** — `Tiger_Application` + `Tiger_Application_Bootstrap`, the 4-tier config cascade, ALB
+  handling, `custom.php` hook, a self-locating `public/index.php`.
+- **Multi-tenant substrate** — `org` / `user` / `org_user` (membership = tenancy + role); auth split
+  into `user_credential` + `auth_challenge`; email-or-username login, DB sessions, auto-logout.
+- **Webservices** — the `/api` TIGER message dispatcher (`Tiger_Ajax_ServiceFactory`), standard
+  response envelope, DataTables server-side processing.
+- **Authorization** — `Tiger_Acl_Acl`, deny-by-default, role-on-membership, `acl.ini` + DB.
+- **CMS + theming** — `Tiger_Model_Page` store + `Tiger_Cms_Renderer` (md / html / phtml / GrapesJS
+  builder), slug dispatch; PUMA theme + `jaguar`/`cheetah` skins (zero-rebuild reskin).
+- **Routing overrides** — PHP-layer pretty routes (`Tiger_Routing_Overrides`), zero infra.
+- **Admin + UI** — `Tiger_Controller_Admin_Action` + the Settings registry; vanilla UI primitives
+  (TigerButton / TigerDOM / TigerValidate) and convenience validation.
+- **Modules** — discovery / installer / registry, activate-deactivate (asset symlink on activate,
+  lightweight dependency alerts), `make:module` scaffolding.
+- **Plus** — media storage adapters, `Tiger_Location` + `Tiger_I18n_Country`, the `bin/tiger` console
+  (migrate / install:* / make:module / module:* / crypto / `link:assets`), the signup reference
+  form, and the first installable module (TigerDocs, dual-source).
+
+**Pending (roadmap):** the cPanel/no-shell install track — a pre-built vendored ZIP release-build
+plus a browser web installer (the composer path is done; this covers hosts with no shell); a
+smoke-test suite + CI ahead of a stable **1.0** (which freezes the `@api`); and deferred
+integrations (live AWS Location adapter, front-end GrapesJS, AI review bot).
 
 ---
 
