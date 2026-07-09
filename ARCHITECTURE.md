@@ -254,6 +254,14 @@ A module is **purely additive** — it plugs in by convention, touching no Core 
   access goes through `Zend_Acl::isAllowed($role, $resource, $privilege)`.
 - **Views/i18n/routes** — same additive pattern.
 
+**Activation is zero-infra.** A module **never touches infrastructure** — no Apache/nginx config,
+no filesystem outside its own dir, no DNS. It works the moment it's activated, on any install.
+This is why a pretty public URL is a **PHP-layer route override** (a `Tiger_Routing_Overrides`
+declaration applied by a plugin — see ROUTING.md), *not* a rewrite rule: a rewrite rule would make
+installing a module require editing the web server, which breaks 1-click install and the ownership
+boundary. A SaaS/platform owner may of course change their own deployment's infra — that's their
+prerogative — but it is **never** something a module install/activation does or depends on.
+
 ---
 
 ## 7. The multi-tenant substrate

@@ -94,6 +94,10 @@ For any incoming URL:
 
 - Reach features at `<module>/<controller>/<action>`; don't register the canonical path.
 - Want a pretty URL? **Declare** an override; never `addRoute` an alias in a module Bootstrap.
+- **A module never touches web-server config.** Pretty routes are PHP-layer overrides that work
+  the instant a module is activated — editing Apache/nginx to route a module is *never* a module's
+  job (it would break 1-click install). Changing a deployment's own web-server config is the
+  app/SaaS owner's prerogative, separate from installing a module.
 - Priority is **open** — a module may declare any weight, even one that outranks core. Open is
   open; band-clamping guardrails can be added later if abuse ever appears. Keep module defaults
   in a sane range (≈100) so an admin rarely has to reorder.
