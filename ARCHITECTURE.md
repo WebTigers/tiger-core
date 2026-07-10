@@ -439,9 +439,9 @@ registered dirs; assets = symlink.**
 
 ---
 
-## 13. Current state (as of 2026-07-09)
+## 13. Current state (as of 2026-07-10)
 
-**Public beta released.** `webtigers/tiger-core` (**v0.4.0-beta**) and the `webtigers/tiger`
+**Public beta released.** `webtigers/tiger-core` (**v0.5.0-beta**) and the `webtigers/tiger`
 skeleton (**v0.1.1-beta**) are on **Packagist**, on top of `webtigers/tigerzf`. A new app is a
 one-liner (proven from a clean room — pure Packagist, no VCS repos):
 
@@ -469,9 +469,16 @@ Apache is a faithful cPanel mirror (docroot + `public/.htaccess`, no vhost rules
   (TigerButton / TigerDOM / TigerValidate) and convenience validation.
 - **Modules** — discovery / installer / registry, activate-deactivate (asset symlink on activate,
   lightweight dependency alerts), `make:module` scaffolding.
+- **Documentation (TigerDocs)** — the first installable module, now a full docs engine:
+  **zero-config, multi-source** (platform content + every active module's own `docs/` folder =
+  self-documenting modules), a `public | admin` **visibility** split (the `/docs` site + an in-admin
+  help center), ⌘K search, and a per-server fingerprint-invalidated **build cache**. Plus a
+  **docblock-driven reference generator** — token-based (no boot), `@api` classes → `tiger:doc` pages
+  as a gitignored **build artifact** (`var/docs-generated`, never committed, rebuilt each deploy),
+  run from a deploy hook (`bin/build-reference.php`) or a one-click admin **Build reference** button.
+  Now serving the platform docs in **production** at `tiger.webtigers.com/docs`.
 - **Plus** — media storage adapters, `Tiger_Location` + `Tiger_I18n_Country`, the `bin/tiger` console
-  (migrate / install:* / make:module / module:* / crypto / `link:assets`), the signup reference
-  form, and the first installable module (TigerDocs, dual-source).
+  (migrate / install:* / make:module / module:* / crypto / `link:assets`), and the signup reference form.
 
 **Pending (roadmap):** the cPanel/no-shell install track — a pre-built vendored ZIP release-build
 plus a browser web installer (the composer path is done; this covers hosts with no shell); a
