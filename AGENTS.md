@@ -175,6 +175,25 @@ public function create(array $params): void
 Never emit business errors as bare strings or raw exceptions — use `_error`/`_formErrors`
 with a translation key. Never put business logic in a controller; controllers are thin.
 
+**Declaring the ACL is part of writing the call, not an afterthought.** `/api` is deny-by-default:
+the dispatcher checks `isAllowed($role, <ServiceClass>, <method>)` — **the resource is the service
+class, the privilege is the method name**. A service with no allow rule is refused outright, so
+every service you add needs an entry in the module's `configs/acl.ini`:
+
+```ini
+; resource = the service class; a rule with NO privilege allows ALL its methods to the role
+acl.resources.billing_invoice_svc.resource = "Billing_Service_Invoice"
+acl.rules.billing_invoice_svc.role         = "admin"
+acl.rules.billing_invoice_svc.resource     = "Billing_Service_Invoice"
+acl.rules.billing_invoice_svc.permission   = "allow"
+```
+
+Adding a method to an already-allowed service inherits that blanket allow — correct when the whole
+service shares one role (an admin-only settings service, a guest-allowed search service). When
+methods need *different* access (a public read on an otherwise-admin service), name the method as
+the `privilege` on a scoped rule instead of a blanket one. The in-method `_isAdmin()` guard is
+defense-in-depth — it does not replace the `acl.ini` rule.
+
 ## Forms
 
 Extend `Tiger_Form` (not `Zend_Form` directly). Declare elements as an array schema via
@@ -232,7 +251,10 @@ geocode / reverse / IP behind adapters, normalized `Place` payload) and **`Tiger
 Deny-by-default. Access is data in `acl.ini` / `acl_*` tables, never a hardcoded role compare.
 A resource with no allow rule is denied. Role comes from `org_user` (role-on-membership) and
 is resolved live each request. Module `configs/acl.ini` grants access to that module's
-controllers/services.
+controllers/services. Two resource shapes: a **controller** dispatch gates on
+`isAllowed($role, <Controller>, <action>)` (privilege = action); an **`/api` service** gates on
+`isAllowed($role, <ServiceClass>, <method>)` (privilege = method). Declaring the rule is part of
+writing the call — see "Services (`/api`)".
 
 ## Internationalization
 
