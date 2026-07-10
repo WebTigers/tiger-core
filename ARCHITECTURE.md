@@ -441,7 +441,7 @@ registered dirs; assets = symlink.**
 
 ## 13. Current state (as of 2026-07-10)
 
-**Public beta released.** `webtigers/tiger-core` (**v0.5.0-beta**) and the `webtigers/tiger`
+**Public beta released.** `webtigers/tiger-core` (**v0.5.1-beta**) and the `webtigers/tiger`
 skeleton (**v0.1.1-beta**) are on **Packagist**, on top of `webtigers/tigerzf`. A new app is a
 one-liner (proven from a clean room — pure Packagist, no VCS repos):
 
