@@ -170,6 +170,38 @@ working to-do, not a changelog (git history is the changelog).
     (just a different DB name in `local.ini`). A prefix would also leak/bypass through our raw
     `Zend_Db_Select` service queries. Models + migrations keep literal table names.
 
+- **Update system — detect + apply, for core AND modules, no-shell included** (companion to the
+  Module Installer + WHM/cPanel entries above; current mechanics documented in [`UPDATING.md`](UPDATING.md)).
+  What exists: `composer update` for core/platform, and `Tiger_Module_Installer` (install from a
+  GitHub release tarball → migrate → publish → record in the `module` table) driven by
+  `bin/tiger module:install|remove|list|activate|deactivate`. The gaps:
+  - **Version-change DETECTION (nothing checks for "newer" today).** The `module` table already
+    stores `version`/`repository`/`ref`, so the diff data is there — add a checker that reads a
+    **latest-available** source and `version_compare`s it: the **Vendor Registry `index.json`** (or
+    a module's GitHub releases) for modules, and **Packagist** (`repo.packagist.org/p2/webtigers/
+    tiger-core.json`) / GitHub tags vs `Tiger_Version::VERSION` for core. Cache with a TTL (no
+    hammering); surface **"update available" badges** in the Modules/Settings admin.
+    - **Fix the version source of truth:** `Tiger_Version::VERSION` is a hand-maintained constant —
+      assert it equals the git tag in CI (or derive it) so detection can't silently lie.
+  - **`module:update <slug>`** as a first-class verb (today "update" = re-`install` at a newer ref)
+    — resolve the target ref, re-run the installer, re-migrate, re-publish, update the row; keep the
+    old files until the health-check passes (rollback).
+  - **Modules admin screen** — WP-style installed list + update badges + Install/Update/Activate,
+    registry search + Install-from-URL — thin front-ends over the existing `Tiger_Module_Installer`.
+  - **No-shell / cPanel path (the biggest lift).** Modules are ~there: `installFromTarball()` is pure
+    PHP (curl download, `PharData` extract, `Tiger_Db_Migrator`, symlink publish) and modules carry
+    no Composer deps — wrap it in a **web service/controller**; close the cPanel caveats (tarball
+    temp in `var/` not system tmp; a **copy fallback** where symlink is unavailable; `phar`+`zlib`
+    +`max_execution_time` in the [`INSTALL.md`](INSTALL.md) pre-flight). **Core** is the hard one:
+    ship a **pre-built vendored release ZIP** (CI-resolved `vendor/`, so no dependency resolution on
+    the host) + a browser updater that: pre-flights → downloads → **verifies checksum/signature** →
+    extracts to a staging dir (zip-slip guarded) → **atomically swaps `vendor/`** (`vendor.new` →
+    rename `vendor`→`vendor.old`, `vendor.new`→`vendor`, `opcache_reset()`) under a maintenance flag
+    → migrates → health-checks → drops `vendor.old` (else rolls back by un-renaming). Only `vendor/`
+    moves; app-owned files are never touched (the ownership boundary is what makes a hot core swap
+    survivable). Primitives already exist and are Composer-free — this is orchestration + the atomic
+    swap + a signed release-ZIP build in CI, not new low-level capability.
+
 - **Access admin — remaining screens** — the **Users + Organizations** admin ships (the
   first-party `access` module: `/access/user`, `/access/org` — list/edit/soft-delete via the
   shared DataTables grid + `/api` services). Core's remaining pieces:

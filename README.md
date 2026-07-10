@@ -44,8 +44,9 @@ $view->addScriptPath(TIGER_CORE_PATH . '/core/views/scripts');
 `Tiger_*` and `Zend_*` classes need no wiring at all — Composer autoloads them from `vendor/`.
 
 See [FEATURES.md](FEATURES.md) for what the platform does, [ARCHITECTURE.md](ARCHITECTURE.md)
-for the *why*, [WEBSERVICES.md](WEBSERVICES.md) for the `/api` message pattern, and
-[AGENTS.md](AGENTS.md) for the conventions to follow when writing Tiger code (AI or human).
+for the *why*, [WEBSERVICES.md](WEBSERVICES.md) for the `/api` message pattern,
+[AGENTS.md](AGENTS.md) for the conventions to follow when writing Tiger code (AI or human), and
+[INSTALL.md](INSTALL.md) / [UPDATING.md](UPDATING.md) for installing + keeping an app current.
 
 ---
 
