@@ -41,6 +41,11 @@ class AuthController extends Tiger_Controller_Action
                 return;   // gate emitted the JSON; returnTo left intact for the retry
             }
 
+            // Auth responses stay MINIMAL — result + redirect (+ twofa), never the identity object.
+            // The client only needs where to go next; anything that wants the current user calls the
+            // dedicated whoami (GET /auth/me). Least disclosure: keep user_id / org / role / email out
+            // of the login response body (it ends up in logs, browser history, analytics captures).
+            //
             // Read the intended destination BEFORE anything regenerates the session
             // (login / verifyTwoFactor both rotate the id on success, wiping the return).
             $return = $auth->takeReturnTo();
@@ -49,7 +54,7 @@ class AuthController extends Tiger_Controller_Action
             if ($twoFaStep) {
                 $identity = $auth->verifyTwoFactor($code);
                 if ($identity) {
-                    $this->_json(['result' => 1, 'data' => $identity, 'redirect' => ($return !== '' ? $return : $this->_roleHome($identity))]);
+                    $this->_json(['result' => 1, 'redirect' => ($return !== '' ? $return : $this->_roleHome($identity))]);
                 } else {
                     if ($return !== '') { $auth->setReturnTo($return); }   // keep it for the retry
                     $this->_json(['result' => 0, 'message' => 'core.api.error.login_failed'], 401);
@@ -65,7 +70,7 @@ class AuthController extends Tiger_Controller_Action
                 return;
             }
             if ($result) {
-                $this->_json(['result' => 1, 'data' => $result, 'redirect' => ($return !== '' ? $return : $this->_roleHome($result))]);
+                $this->_json(['result' => 1, 'redirect' => ($return !== '' ? $return : $this->_roleHome($result))]);
             } else {
                 if ($return !== '') { $auth->setReturnTo($return); }
                 $this->_json(['result' => 0, 'message' => 'core.api.error.login_failed'], 401);
@@ -241,7 +246,7 @@ class AuthController extends Tiger_Controller_Action
                 $return   = $auth->takeReturnTo();
                 $identity = $auth->verifyLoginCode($email, $code);
                 if ($identity) {
-                    $this->_json(['result' => 1, 'data' => $identity, 'redirect' => ($return !== '' ? $return : $this->_roleHome($identity))]);
+                    $this->_json(['result' => 1, 'redirect' => ($return !== '' ? $return : $this->_roleHome($identity))]);
                 } else {
                     $this->_json(['result' => 0, 'message' => 'core.api.error.login_failed'], 401);
                 }

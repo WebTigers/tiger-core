@@ -4,6 +4,17 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [Unreleased]
+
+### Security
+- **Login responses no longer echo the identity object.** `AuthController::loginAction` /
+  `otpAction` returned the full identity (`user_id`, `org_id`, `email`, `username`, `org_name`,
+  `role`) in the success JSON, but the client only ever uses `redirect`. Trimmed to
+  `{result, redirect}` (+ `twofa`) — least-disclosure: no user/org IDs, email, or role in a
+  response body that lands in logs, browser history, and analytics captures. The session identity
+  itself is unchanged (`_buildIdentity` still carries what the app needs server-side); a client that
+  genuinely wants the current user calls the dedicated whoami, **`GET /auth/me`**.
+
 ## [0.5.0-beta] — 2026-07-10
 
 ### Changed
