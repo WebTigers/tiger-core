@@ -4,7 +4,7 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
-## [Unreleased]
+## [0.5.1-beta] — 2026-07-10
 
 ### Security
 - **Login responses no longer echo the identity object.** `AuthController::loginAction` /
@@ -149,6 +149,8 @@ TigerZF (ZF1 for PHP 8.1–8.5). Beta: functional and running, API not yet froze
 ### Licensing
 - **BSD-3-Clause**; Tiger™/WebTigers™ trademarks reserved (see LICENSE / TRADEMARKS.md).
 
+[0.5.1-beta]: https://github.com/WebTigers/TigerCore/releases/tag/v0.5.1-beta
+[0.5.0-beta]: https://github.com/WebTigers/TigerCore/releases/tag/v0.5.0-beta
 [0.4.0-beta]: https://github.com/WebTigers/TigerCore/releases/tag/v0.4.0-beta
 [0.3.0-beta]: https://github.com/WebTigers/TigerCore/releases/tag/v0.3.0-beta
 [0.2.1-beta]: https://github.com/WebTigers/TigerCore/releases/tag/v0.2.1-beta
