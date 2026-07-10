@@ -31,6 +31,8 @@ $_lang = defined('LANG') ? LANG : 'en';
     <link id="tiger-skin" rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/skins/' . $this->skin . '.css') ?>">
 <?php endif; ?>
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/auth.css') ?>">
+    <!-- Override playground — loads last so it wins the cascade. See themes/puma/assets/custom.css. -->
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 </head>
 <body class="tiger-auth-body">
     <main class="tiger-auth-wrap<?= !empty($this->authWide) ? ' tiger-auth-wrap-wide' : '' ?>">

@@ -10,7 +10,7 @@ plus a skeleton (`webtigers/tiger`, created once with `composer create-project`)
 their own licenses). "Tiger" and "WebTigers" are trademarks — see [LICENSE](LICENSE) and
 [TRADEMARKS.md](TRADEMARKS.md).
 
-> **Status: public beta.** `webtigers/tiger-core` (**v0.2.1-beta**) and the `webtigers/tiger`
+> **Status: public beta.** `webtigers/tiger-core` (**v0.3.0-beta**) and the `webtigers/tiger`
 > skeleton (**v0.1.1-beta**) are on **Packagist**. Create a new app with
 > `composer create-project webtigers/tiger my-app --stability=beta` (the `--stability` flag drops
 > at the stable 1.0). The `@api` surface may still shift between beta releases.

@@ -36,6 +36,8 @@ $_lang = defined('LANG') ? LANG : 'en';
 <?php if (!empty($this->skin)): ?>
     <link id="tiger-skin" rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/skins/' . $this->skin . '.css') ?>">
 <?php endif; ?>
+    <!-- Override playground — loads last so it wins the cascade. See themes/puma/assets/custom.css. -->
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 <?= $this->codeInject('head') ?>
 </head>
 <body>

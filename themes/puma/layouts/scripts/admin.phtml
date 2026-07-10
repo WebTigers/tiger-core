@@ -53,6 +53,8 @@ $_hasAside = !empty($this->rightAside);
     <!-- DataTables (Bootstrap 5), loaded only for screens that opt in ($this->useDataTables). -->
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/datatables/dataTables.bootstrap5.min.css') ?>">
 <?php endif; ?>
+    <!-- Override playground — loads last so it wins the cascade. See themes/puma/assets/custom.css. -->
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 <?= $this->codeInject('head') ?>
 </head>
 <body>
