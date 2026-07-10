@@ -170,11 +170,18 @@ working to-do, not a changelog (git history is the changelog).
     (just a different DB name in `local.ini`). A prefix would also leak/bypass through our raw
     `Zend_Db_Select` service queries. Models + migrations keep literal table names.
 
-- **Update system — detect + apply, for core AND modules, no-shell included** (companion to the
+- **Update system — a WordPress-simple, one-click "Updates" admin screen** (companion to the
   Module Installer + WHM/cPanel entries above; current mechanics documented in [`UPDATING.md`](UPDATING.md)).
-  What exists: `composer update` for core/platform, and `Tiger_Module_Installer` (install from a
-  GitHub release tarball → migrate → publish → record in the `module` table) driven by
-  `bin/tiger module:install|remove|list|activate|deactivate`. The gaps:
+  - **The UX is the point — dead simple, exactly like WP's *Dashboard → Updates*.** *Login → Admin →
+    Updates.* ONE screen lists everything with a pending update — **Tiger + TigerCore to latest**, and
+    **each module** — with checkboxes + an **Update** / **Update All** button. Click and it
+    **self-installs**: download → verify → apply → migrate → warm → done. **No shell, no Composer, no
+    file juggling, no FTP.** A progress line + a rollback on failure; a maintenance flash during a core
+    swap. Everything below is just the engine that makes that one click real — from the user's side
+    it's a checkbox and a button.
+  - What exists to build on: `composer update` for core/platform, and `Tiger_Module_Installer`
+    (install from a GitHub release tarball → migrate → publish → record in the `module` table) driven
+    by `bin/tiger module:install|remove|list|activate|deactivate`. The gaps:
   - **Version-change DETECTION (nothing checks for "newer" today).** The `module` table already
     stores `version`/`repository`/`ref`, so the diff data is there — add a checker that reads a
     **latest-available** source and `version_compare`s it: the **Vendor Registry `index.json`** (or
