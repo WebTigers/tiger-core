@@ -293,10 +293,26 @@ framework.
   own help center). Resolution is the familiar cascade: **a DB doc (org-scoped) wins, else a
   static file** — so a tenant can override a shipped doc just like a config value or theme view.
   Both sources render through `Tiger_Cms_Renderer` + the active theme.
+- **Zero-config, self-documenting modules.** No manifest: a doc is a markdown file with a small
+  `tiger:doc` header, and a folder is a collection. Docs aggregate automatically from the platform's
+  content **and every active module's own `docs/` folder** — drop a `docs/` folder in a module and it
+  appears in the site. A `public | admin` **visibility** axis serves one engine as two surfaces: the
+  public `/docs` site and an in-admin **help center** (`/docs/admin/help`) for operator docs. A
+  per-server, fingerprint-invalidated **build cache** fronts the scan — self-heals on content change,
+  no DB, fleet-safe, and stays inside the app root (cPanel-friendly).
 - **Navigation built in.** A **filter box** at the top of the sidebar TOC narrows the page list as
   you type (client-side); a per-doc **"On this page"** rail is auto-built from the doc's headings;
   and a **⌘K search** (also `/`, or the header launcher) runs a locale-aware full-text query over
   the docs through a public `/api` service — ranked results with keyboard navigation.
+- **API reference, generated from docblocks.** A token-based generator (no app boot, no autoload)
+  turns `@api` classes — a module's own, or the platform's `Tiger_*` — into browsable reference pages
+  straight from their source docblocks + signatures, one page per class (only `@api` classes + public
+  methods; the [docblock contract](AGENTS.md) is the input). It's a **build artifact**: written to a
+  gitignored `var/docs-generated/`, **never committed to any repo**, rebuilt from code on every deploy
+  so it can't drift — and it **merges in** as a *Reference* section on the module's own docs (a module
+  documents itself) or stands up the platform `reference` collection. Run it from the deploy hook
+  (`bin/build-reference.php`) or a one-click **Build reference** button in the admin — no shell needed
+  (cPanel-friendly). Hand-written pages always win a same-id collision.
 
 ## Logging
 
