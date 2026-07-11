@@ -278,7 +278,7 @@ request body is *already written*. An `email` element → `string`/`format:email
 ### Discovery respects the ACL
 
 The spec is **not** one fixed document — it's **generated filtered to the requester's
-role**. You only *discover* what you can *call*: a guest's `/api/openapi.json` lists
+role**. You only *discover* what you can *call*: a guest's `/api/openapi` lists
 guest-allowed operations, an admin's lists theirs, and a **scoped token**
 ([ACL.md](ACL.md)) lists exactly its map's surface. Discovery and authorization are the
 *same ACL*, so the catalog can never leak an operation you aren't allowed to invoke — a
@@ -286,12 +286,12 @@ property most OpenAPI setups don't have.
 
 ### Serving it
 
-- **Spec — built.** `GET /api/openapi.json` (core `ApiController::openapiAction`) reflects the
+- **Spec — built.** `GET /api/openapi` (core `ApiController::openapiAction`) reflects the
   **live** services and returns the OpenAPI 3 doc. **Opt-in:** 404 unless `tiger.api.discovery` is
   enabled — a shared-host CMS install shouldn't publish its API surface; a SaaS building a public API
   turns it on.
 - **UI — opt-in, NOT bundled.** Swagger UI's ~MB of assets do **not** ship with base Tiger — a true
-  SaaS concern, not a shared-host one. Point *any* Swagger UI at `/api/openapi.json`, or install it as
+  SaaS concern, not a shared-host one. Point *any* Swagger UI at `/api/openapi`, or install it as
   an add-on. Base Tiger ships only the spec endpoint.
 
 ### Versioning
@@ -305,7 +305,7 @@ needs it.
 1. **`Tiger_OpenApi_Generator`** — reflect services → operations, the envelope component,
    module tags, docblock summaries, and the Form→schema mapper; emits a valid `openapi.json`.
    **(Phase 1 — built.)**
-2. **Serve it** — `GET /api/openapi.json`, opt-in via `tiger.api.discovery`, over the live service
+2. **Serve it** — `GET /api/openapi`, opt-in via `tiger.api.discovery`, over the live service
    surface. Swagger UI stays an **unbundled** add-on. **(Phase 2 — built.)**
 3. Role-filter the spec (discovery respects the ACL).
 4. Richer `data` typing + versioning.

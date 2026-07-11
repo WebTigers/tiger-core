@@ -51,8 +51,9 @@ class ApiController extends Zend_Controller_Action
     }
 
     /**
-     * GET /api/openapi.json — the self-describing OpenAPI 3 catalog of the `/api` surface, generated
-     * from the live services (`Tiger_OpenApi_Generator`). See WEBSERVICES.md §9.
+     * GET /api/openapi — the self-describing OpenAPI 3 catalog of the `/api` surface, generated from
+     * the live services (`Tiger_OpenApi_Generator`). No route needed: the default `:controller/:action`
+     * route dispatches it here. See WEBSERVICES.md §9.
      *
      * OPT-IN: 404 unless `tiger.api.discovery` is enabled — a shared-host CMS install shouldn't
      * publish its API surface; a SaaS building a public API turns it on. The Swagger UI that renders

@@ -64,12 +64,8 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $router->addRoute('tiger_api', new Zend_Controller_Router_Route(
             'api/:svc_module/:svc_service/:svc_action', $target
         ));
-
-        // Self-describing OpenAPI catalog (opt-in; 404 unless `tiger.api.discovery`). Added last so
-        // it's matched before the :module/:service/:action form.
-        $router->addRoute('tiger_api_openapi', new Zend_Controller_Router_Route_Static(
-            'api/openapi.json', ['module' => 'default', 'controller' => 'api', 'action' => 'openapi']
-        ));
+        // NB: /api/openapi needs no route — the default :controller/:action route dispatches it to
+        // ApiController::openapiAction (the self-describing catalog). See WEBSERVICES.md §9.
     }
 
     /**
