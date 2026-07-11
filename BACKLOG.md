@@ -53,6 +53,14 @@ working to-do, not a changelog (git history is the changelog).
   (module code must be out in the open for review). Vendors may sell pro tiers; we **encourage a
   free tier for every module**. First end-to-end test: the **`docs` module** (WebTigers/tiger-docs).
 
+  - **STATUS (2026-07-11): the core is BUILT.** `Tiger_Module_Installer` (tarball install/update),
+    `Tiger_Module_Github`, `Tiger_Module_Registry` (fetch/cache `WebTigers/Vendors/index.json`), the
+    `module` table, the CLI (`module:install|remove|list|activate|deactivate`), and the **Module
+    Manager admin screen** (`system` module: installed list + Add New/registry search + Install-from-URL
+    + per-module "Update to vX") all ship. Remaining = proactive update badges + the unified Updates
+    screen + core self-update + logs (see the **Update system** item below). The bullets here are the
+    design of record; treat the shipped pieces as done.
+
   - **Discovery — the Vendor Registry (`WebTigers/Vendors` repo).** The registry IS a git repo (no
     server to run/scale). A vendor opens a PR adding their listing; our **AI reviews open PRs a few
     times/day** — manifest schema valid, repo public + exists, license present, the claimed release
@@ -194,22 +202,26 @@ working to-do, not a changelog (git history is the changelog).
     **viewable afterward** (an "Update history / log" panel). This matters most for the core swap +
     migrations, where a half-applied update needs a precise trail to diagnose and to drive the
     rollback. No silent steps — a failure names itself, its input, and the rollback taken.
-  - What exists to build on: `composer update` for core/platform, and `Tiger_Module_Installer`
-    (install from a GitHub release tarball → migrate → publish → record in the `module` table) driven
-    by `bin/tiger module:install|remove|list|activate|deactivate`. The gaps:
-  - **Version-change DETECTION (nothing checks for "newer" today).** The `module` table already
-    stores `version`/`repository`/`ref`, so the diff data is there — add a checker that reads a
-    **latest-available** source and `version_compare`s it: the **Vendor Registry `index.json`** (or
-    a module's GitHub releases) for modules, and **Packagist** (`repo.packagist.org/p2/webtigers/
-    tiger-core.json`) / GitHub tags vs `Tiger_Version::VERSION` for core. Cache with a TTL (no
-    hammering); surface **"update available" badges** in the Modules/Settings admin.
+  - **Already built** (don't re-scope): `composer update` for core/platform; and for modules the full
+    engine + UI — `Tiger_Module_Installer` (tarball → migrate → publish → record in the `module`
+    table), the **Vendor Registry** (`Tiger_Module_Registry` fetch/cache of `WebTigers/Vendors/
+    index.json`), a **Module Manager admin screen** (`system` module: installed list + Add New /
+    registry search + Install-from-URL), **per-module update via the UI** ("Update to vX" = forced
+    re-install), and `bin/tiger module:install|remove|list|activate|deactivate`. The gaps:
+  - **Version-change DETECTION on the installed list.** The registry is already fetched/cached
+    (`Tiger_Module_Registry`) and the `module` table stores installed `version`/`ref`, but nothing
+    **diffs installed-vs-latest** — so the installed list shows no "update available" badges (you
+    only see an update inside *Add New*). Add the diff (`version_compare` installed vs registry
+    latest) → badges on the installed list; and a **core check** (Packagist `repo.packagist.org/p2/
+    webtigers/tiger-core.json` / GitHub tags vs `Tiger_Version::VERSION`) — core has no detection at all.
     - **Fix the version source of truth:** `Tiger_Version::VERSION` is a hand-maintained constant —
       assert it equals the git tag in CI (or derive it) so detection can't silently lie.
-  - **`module:update <slug>`** as a first-class verb (today "update" = re-`install` at a newer ref)
-    — resolve the target ref, re-run the installer, re-migrate, re-publish, update the row; keep the
-    old files until the health-check passes (rollback).
-  - **Modules admin screen** — WP-style installed list + update badges + Install/Update/Activate,
-    registry search + Install-from-URL — thin front-ends over the existing `Tiger_Module_Installer`.
+  - **`module:update <slug>`** as a first-class verb (today CLI "update" = re-`install` at a newer
+    ref; UI update is the "Update to vX" button) — resolve the target ref, re-run the installer,
+    re-migrate, re-publish, update the row; keep the old files until the health-check passes (rollback).
+  - **The unified one-click *Updates* screen** — the Modules admin screen already EXISTS and updates
+    modules one at a time (via Add New); what's missing is the WP *Dashboard → Updates* view:
+    everything stale (core + every module) in one place, checkboxes, **Update All** (the Priority above).
   - **No-shell / cPanel path (the biggest lift).** Modules are ~there: `installFromTarball()` is pure
     PHP (curl download, `PharData` extract, `Tiger_Db_Migrator`, symlink publish) and modules carry
     no Composer deps — wrap it in a **web service/controller**; close the cPanel caveats (tarball

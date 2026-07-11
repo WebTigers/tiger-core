@@ -1,8 +1,9 @@
 # Tiger — Updating (platform, core, modules)
 
 How you keep a Tiger install current, layer by layer. This documents the mechanics that **exist
-today**; for what's still coming (version-change detection, a Modules admin UI, the no-shell core
-self-updater) see [BACKLOG.md](BACKLOG.md). For host requirements read [INSTALL.md](INSTALL.md);
+today**; for what's still coming (proactive "update available" badges, the unified one-click
+*Updates* screen, the no-shell core self-updater) see [BACKLOG.md](BACKLOG.md). For host
+requirements read [INSTALL.md](INSTALL.md);
 for *why* the layers update differently read [ARCHITECTURE.md](ARCHITECTURE.md) §1 + §0.
 
 The one rule that makes updates safe: **only `vendor/` is Tiger-owned.** A core/platform update
@@ -50,8 +51,8 @@ vendor/bin/tiger migrate                      # apply any new schema (always run
 ## Modules — the module installer
 
 Modules are **not** Composer packages — the repo root *is* the module, and on install its contents
-become `application/modules/<slug>/`. `Tiger_Module_Installer` does the work; the `bin/tiger`
-console is the front-end (a web UI is planned):
+become `application/modules/<slug>/`. `Tiger_Module_Installer` does the work, behind **two
+front-ends**: the `bin/tiger` console **and a Module Manager admin screen** (see below).
 
 ```bash
 vendor/bin/tiger module:install <github-url> [ref]   # install/update from a public GitHub repo
@@ -73,9 +74,20 @@ vendor/bin/tiger module:remove <slug>                # remove files + assets + t
    **publish assets** (symlink `public/_modules/<slug>/`), and record a row in the **`module`**
    table (`slug, name, version, repository, ref, source, active, status`).
 
-**Updating a module, today,** is re-running `module:install <url> <newer-ref>` — it re-extracts at
-the new ref, re-migrates, re-publishes, and updates the `module` row. (A dedicated `module:update`
-verb and "update available" detection are planned — BACKLOG.)
+**The Module Manager (admin).** The `system` module ships a WP-style Module Manager: an **installed
+list** (`ModulesController::index` — activate / deactivate, source / license / free-tier badges) and
+an **Add New** screen backed by the **Vendor Registry** (`Tiger_Module_Registry` fetches +
+TTL-caches `WebTigers/Vendors/index.json`, offline-resilient) plus **Install from URL**. It drives
+the same `Tiger_Module_Installer` engine — **no shell, no Composer** (the cPanel-native path).
+
+**Updating a module, today:**
+- **In the UI** — in *Add New*, an already-installed module shows an **"Update to vX"** button that
+  re-installs at the new ref (a forced install).
+- **On the CLI** — re-run `module:install <url> <newer-ref>`.
+
+Both re-extract, re-migrate, re-publish, and update the `module` row. Still to come (BACKLOG): a
+first-class `module:update` verb, and **proactive "update available" badges on the *installed*
+list** — today the Manager only surfaces an update once you open *Add New* for that module.
 
 **Activation is the tenancy of code:** discovery loads **active managed** modules; a developer's
 own *custom* modules stay always-on (managed-vs-custom = Tiger-owned vs app-owned, the same boundary
@@ -101,10 +113,16 @@ click → it **self-installs** (download → verify → apply → migrate → wa
 with a **full step-by-step log** streamed live and kept for review, so any failure is diagnosable.
 Everything below is the engine behind that one click.
 
-- **Version-change detection** — polling a registry / Packagist / GitHub tags to surface
-  "update available" badges for core *and* modules.
-- **`module:update <slug>`** as a first-class verb, and the **Modules admin screen** (WP-style
-  list + update badges + Install/Update buttons + registry search) over the existing installer.
-- **No-shell / cPanel self-update** — a pre-built vendored release ZIP + a browser updater that
-  verifies, stages, and **atomically swaps `vendor/`** (core), and a web front-end over
-  `Tiger_Module_Installer` (modules).
+Already built (don't re-scope these): the **Module Manager** (installed list + Add New), the
+**Vendor Registry** fetch/cache, and **per-module update via the UI** ("Update to vX"). The gaps:
+
+- **Proactive update detection** — the Manager fetches the registry but the **installed list
+  doesn't diff installed-vs-latest**, so there are no "update available" badges there (you only
+  see it in *Add New*). No core/Packagist version check yet either. Plus a first-class
+  **`module:update <slug>`** CLI verb (CLI update = re-`module:install` today).
+- **The unified one-click *Updates* screen** — WP *Dashboard → Updates*: everything stale (core +
+  every module) in one place, checkboxes, **Update All**. Today it's one module at a time via Add New.
+- **Core / platform self-update** — the Manager updates **modules only**; Tiger + TigerCore still
+  need `composer update`. The no-shell path (pre-built vendored release ZIP + a browser updater that
+  verifies, stages, and **atomically swaps `vendor/`**) is unbuilt.
+- **Full update logs** — the streamed + retained "what broke" audit trail across all of the above.
