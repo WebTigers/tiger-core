@@ -13,6 +13,17 @@ working to-do, not a changelog (git history is the changelog).
    Updates*, checkbox-select **Tiger + TigerCore + modules**, click → **self-installs** (no shell, no
    Composer), with a **full step-by-step log** so any failure is diagnosable. Full design + the engine
    (detection, no-shell installer, atomic `vendor/` swap) under **Update system** in *Features* below.
+2. **API discovery — OpenAPI / Swagger for `/api`** *(homepage "Discoverable by design" claim).* The
+   TIGER message pattern already makes this a small problem ([WEBSERVICES.md](WEBSERVICES.md) §9): the
+   gateway knows every `module`/`service`/`method` and each service's public methods + ACL, so
+   generate an **OpenAPI 3** spec from the service registry (reflect param/response shapes; annotate
+   from docblocks — same "describe from the code" idea we just shipped for docs) and serve a **Swagger
+   UI**. Natural follow-on to the reference generator.
+3. **Stateless `/api` auth (token mode)** *(homepage "Stateless or stateful" claim).* Today `/api`
+   authorizes via the **session** identity (stateful — right for a first-party UI). Add a **stateless**
+   path: a bearer token (API key / JWT) resolved to an identity + role at the gateway, running the
+   **same ACL and same services** — config-selectable per surface. Needed for public APIs + mobile
+   clients. Keep the session path as-is; this is an additive second door, not a replacement.
 
 ## Features (planned)
 
