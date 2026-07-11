@@ -32,20 +32,19 @@ working to-do, not a changelog (git history is the changelog).
    floor** no map can override; a token **narrows, never widens**; **fail-closed**; and — the pillar —
    an **explain/trace + admin ACL Simulator** so "why am I locked out?" is always answerable. Build
    debuggability first. Full model, invariants, storage (`acl_map` + `map_id`), and phasing in ACL.md.
-5. **Module Manager — auto-install a module's Composer deps when Composer is available.** A module
-   declares optional deps in `module.json` (a `composer` block: package ⇒ constraint); on install, if
-   the box has a usable Composer, `Tiger_Module_Installer` runs `composer require` into the **app's**
-   `vendor/` (app owns it, never tiger-core's), else it **skips and the module degrades** — the same
-   capability-gated pattern TigerAPIDocs already uses (Swagger lib present → UI, absent → JSON). Sharp
-   edges: "available" is more than a binary — needs `exec`/`proc_open` enabled (shared hosts often
-   block it), a writable `vendor/`, memory/time, and network, so **detect fail-closed** and never hang
-   an install. Do it **auto in the CLI** (`bin/tiger module:install` — real shell, no web timeout) and
-   **detect-and-advise in the web installer** (offer the copy-paste `composer require`, or queue it —
-   don't run heavy Composer synchronously inside a request). Constrain/surface the deps (supply-chain:
-   vetted registry + pinned versions, operator consent — never silently pull unbounded packages).
-   *Swagger-UI wrinkle:* Swagger UI is npm/front-end, not a Composer package, so closing the loop for
-   TigerAPIDocs means publishing a tiny `webtigers/swagger-ui-dist` Composer package that just vendors
-   the dist, which the module optionally requires and `_swaggerBase()` also looks for in `vendor/`.
+5. **Module dependency provisioning — libs on no-Composer hosts** *(design of record:
+   [DEPENDENCIES.md](DEPENDENCIES.md)).* **Foundation built.** `Tiger_Vendor_Environment` (fail-closed
+   capability detection), the shared `vendor-libs/` store + bootstrap autoloading
+   (`_initVendorLibraries`), and `Tiger_Vendor` (Tier 1 Composer exec · Tier 2 pre-built bundle · Tier
+   3 raw tarball → download+verify+unpack+autoloader-generate) are in tiger-core; the installer
+   provisions `module.json` `dependencies.php` and surfaces per-dep statuses. Verified end-to-end (a
+   real GitHub lib installs into the store and autoloads). *The thesis:* never solve a dep graph on a
+   shared host — consume **pre-resolved bundles** built off-box.
+   *Staged (WebTigers infra):* the **Vendor Library Registry** repo + CI bundle-builder + published
+   AWS/Stripe/Guzzle bundles (the provisioner *consumes* these). *Follow-on:* `asset`-dependency
+   provisioning + rewire TigerAPIDocs' Swagger UI onto it; Billing's Stripe SDK as the first real
+   Tier-2 consumer; conflict reporting for the one-version rule; the skeleton `.gitignore` adds
+   `vendor-libs/`; CLI-auto / web-advise polish.
 
 ## Features (planned)
 

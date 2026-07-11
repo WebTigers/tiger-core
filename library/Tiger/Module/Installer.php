@@ -109,6 +109,7 @@ class Tiger_Module_Installer
 
             self::_migrate();
             self::_publishAssets($slug, $target);
+            $deps = self::_provisionDependencies($manifest);
 
             (new Tiger_Model_Module())->install($slug, [
                 'name'       => (string) ($manifest['name'] ?? ucfirst($slug)),
@@ -118,7 +119,8 @@ class Tiger_Module_Installer
                 'source'     => $provenance['source'] ?? Tiger_Model_Module::SOURCE_URL,
             ]);
 
-            return ['slug' => $slug, 'name' => $manifest['name'] ?? $slug, 'version' => $manifest['version'] ?? null, 'ref' => $provenance['ref'] ?? null];
+            return ['slug' => $slug, 'name' => $manifest['name'] ?? $slug, 'version' => $manifest['version'] ?? null,
+                    'ref' => $provenance['ref'] ?? null, 'dependencies' => $deps];
         } finally {
             self::_rrmdir($parent);
         }
@@ -270,6 +272,34 @@ class Tiger_Module_Installer
     {
         $db = Zend_Db_Table_Abstract::getDefaultAdapter();
         (new Tiger_Db_Migrator($db, self::migrationPaths()))->migrate();
+    }
+
+    /**
+     * Provision a module's declared third-party PHP libraries (module.json `dependencies.php`) via
+     * Tiger_Vendor — Composer / pre-built bundle / raw tarball, best available tier, fail-closed. We
+     * DON'T throw on a failed dep (that would leave the module half-registered); the per-dep statuses
+     * are returned so the caller (admin/CLI) can surface a required-but-missing library and the fix.
+     * See DEPENDENCIES.md.
+     *
+     * @param  array $manifest the module.json
+     * @return array a status per dependency ({ok, tier, name, message, required})
+     */
+    protected static function _provisionDependencies(array $manifest)
+    {
+        $deps = $manifest['dependencies']['php'] ?? null;
+        if (!is_array($deps)) {
+            return [];
+        }
+        $out = [];
+        foreach ($deps as $dep) {
+            if (!is_array($dep) || empty($dep['name'])) {
+                continue;
+            }
+            $status = Tiger_Vendor::ensure($dep);
+            $status['required'] = empty($dep['optional']);
+            $out[] = $status;
+        }
+        return $out;
     }
 
     protected static function migrationPaths()

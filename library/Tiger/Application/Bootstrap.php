@@ -44,6 +44,18 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Register the shared vendor-library store's autoloaders, so any third-party lib provisioned
+     * for a module (aws-sdk, stripe, …) resolves for every module. On a Composer box these live in
+     * vendor/ (Composer's autoloader already has them); this covers the NO-Composer store
+     * (`vendor-libs/`) that Tiger_Vendor populates on shared hosting. No-op when the store is empty.
+     * See DEPENDENCIES.md.
+     */
+    protected function _initVendorLibraries()
+    {
+        Tiger_Vendor::registerAutoloaders();
+    }
+
+    /**
      * Register the TIGER /api gateway routes: the bare `/api` (POST body carries
      * module/service/method — the primary form all JS clients use) and the URL
      * form `/api/:module/:service/:action` (svc_* params so they don't collide
