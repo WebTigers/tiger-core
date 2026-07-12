@@ -143,7 +143,9 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     {
         $this->bootstrap('frontController');
         $this->getResource('frontController')
-             ->registerPlugin(new Tiger_Controller_Plugin_PageDispatch());
+             ->registerPlugin(new Tiger_Controller_Plugin_PageDispatch())
+             // AFTER PageDispatch: a DB page wins; else the active theme's static content partial.
+             ->registerPlugin(new Tiger_Controller_Plugin_ThemeContent());
 
         // [menu name="primary"] in html/markdown page bodies -> the rendered menu.
         // Same output as the {menu} view helper and Tiger_Menu::getHTML (auth-filtered).
@@ -280,6 +282,7 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
             $themeDir = TIGER_CORE_PATH . '/themes/puma';
             $theme    = 'puma';
         }
+        Zend_Registry::set('Tiger_ThemeDir', $themeDir);   // the theme-content fallback plugin reads this
 
         // Available skins = the CSS files on disk. The active skin may be overridden
         // per-request by the `tiger_skin` cookie (the skin switcher) — validated

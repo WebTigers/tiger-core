@@ -52,7 +52,9 @@ $jf = JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JS
             api:      '/api',
             project:  <?= $this->projectData ? json_encode($this->projectData, $jf) : 'null' ?>,
             seedHtml: <?= json_encode((string) $this->page->body, $jf) ?>,
-            menus:    <?= json_encode($this->menus ?: (object) [], $jf) ?>
+            menus:    <?= json_encode($this->menus ?: (object) [], $jf) ?>,
+            themeBlocks: <?= json_encode($this->themeBlocks ?: [], $jf) ?>,
+            canvasCss:   <?= json_encode($this->canvasCss ?: [], $jf) ?>
         };
     </script>
     <script src="<?= $this->asset($va . '/js/bootstrap.bundle.min.js') ?>"></script>

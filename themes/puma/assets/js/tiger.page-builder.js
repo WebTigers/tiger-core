@@ -20,6 +20,7 @@
     height: '100%',
     fromElement: false,
     storageManager: false,            // Tiger owns persistence, via /api
+    canvas: { styles: cfg.canvasCss || [] },   // load the ACTIVE theme's CSS so blocks preview in its style
     // Choosing/uploading an image opens the shared Tiger Media Library (TigerMediaPicker
     // over Media_Service_Media) instead of GrapesJS's default uploader — so page media is
     // real TigerMedia (public URL / CDN), never a base64 blob inlined into the body.
@@ -49,6 +50,7 @@
   // enough to show where this goes (a Divi/Elementor-class kit); dress up later.
   registerMenuComponent(editor);
   registerBootstrapBlocks(editor);
+  registerThemeBlocks(editor);
 
   // Seed the canvas: prefer the lossless project blob, else import the body HTML.
   try {
@@ -183,6 +185,23 @@
     add('tb-accordion', 'Accordion', 'Components', accordionHtml(), 'fa-bars-staggered');
 
     bm.add('tb-menu', { label: 'Menu', category: 'Components', media: '<i class="fa-solid fa-bars"></i>', content: { type: 'tiger-menu' } });
+  }
+
+  // ---- theme-provided blocks: the ACTIVE theme's components/*.phtml (Tiger_Theme::components) ----
+  // Passed on window.TIGER_BUILDER.themeBlocks by the CMS designAction; each drops the vendor's own
+  // markup, and the canvas CSS (cfg.canvasCss) makes it preview in the theme's style.
+  function registerThemeBlocks(editor) {
+    var blocks = (window.TIGER_BUILDER && window.TIGER_BUILDER.themeBlocks) || [];
+    if (!blocks.length) { return; }
+    var bm = editor.BlockManager;
+    blocks.forEach(function (b) {
+      bm.add('theme-' + b.id, {
+        label:    b.label,
+        category: b.category || 'Theme',
+        media:    b.media ? '<i class="fa-solid ' + b.media + '"></i>' : '<i class="fa-solid fa-cube"></i>',
+        content:  b.content
+      });
+    });
   }
 
   // Bootstrap markup helpers (fixed ids — one carousel/accordion per page for now; base set).

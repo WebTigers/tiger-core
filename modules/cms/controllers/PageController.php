@@ -92,11 +92,17 @@ class Cms_PageController extends Tiger_Controller_Admin_Action
             $menus[$key] = Tiger_Menu::getHTML($key);
         }
 
+        // The ACTIVE theme's builder components (its components/*.phtml) + the CSS to load into
+        // the GrapesJS canvas so those blocks preview in the theme's own style (THEMES.md Tier 2).
+        $manifest = Tiger_Theme::manifest();
+
         $this->_helper->layout()->disableLayout();   // full-screen — the view is a complete document
         $this->view->title       = $page->title;
         $this->view->page        = $page;
         $this->view->projectData = !empty($meta['builder']) ? $meta['builder'] : null;
         $this->view->menus       = $menus;
+        $this->view->themeBlocks = Tiger_Theme::components();
+        $this->view->canvasCss   = isset($manifest['canvasCss']) ? (array) $manifest['canvasCss'] : [];
     }
 
     /** Map a page row to editor form values. */

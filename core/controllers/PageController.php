@@ -61,7 +61,52 @@ class PageController extends Tiger_Controller_Action
             $this->view->cmsContent  = $html;
             $this->view->pageHead    = $head;      // the theme layout emits this in <head>
             $this->view->pageScripts = $scripts;   // …and this before </body>
+            $this->view->pageMeta    = $meta;      // whole meta -> the layout can read theme hints (e.g. skin)
         }
+    }
+
+    /**
+     * Render a THEME's bundled static page (a `content/<slug>.phtml` body partial) inside the
+     * active theme layout. Reached only via Tiger_Controller_Plugin_ThemeContent, which resolves
+     * the slug and confirms no controller/CMS-page claimed it first. The partial may lead with a
+     *   <!-- tiger:page title="…" skin="…" css="demos/x.css" view="view.foo" -->
+     * hint line declaring the page's title + per-page head/scripts (the axes that vary across a
+     * vendor theme's pages); the rest is the page body, wrapped by the shared layout.
+     *
+     * @return void
+     * @throws Zend_Controller_Action_Exception when the slug resolves to no partial (404).
+     */
+    public function themeContentAction()
+    {
+        $slug = (string) $this->getParam('theme_content_slug', '');
+        $dir  = Tiger_Theme::dir();
+        $file = ($dir !== '' && $slug !== '') ? $dir . '/content/' . $slug . '.phtml' : '';
+
+        if ($file === '' || !is_file($file)) {
+            throw new Zend_Controller_Action_Exception('Page not found', 404);
+        }
+
+        $raw  = (string) file_get_contents($file);
+        $meta = Tiger_Theme::hint($raw, 'tiger:page');
+        $body = preg_replace('/^\s*<!--\s*tiger:page\b.*?-->\s*/s', '', $raw, 1);   // strip the hint line
+
+        // Per-page head/scripts from the hint, resolved against the theme's own asset base.
+        $base = Tiger_Theme::assetBase();
+        $head = '';
+        foreach (array_filter(array_map('trim', explode(',', (string) ($meta['css'] ?? '')))) as $css) {
+            $head .= '<link rel="stylesheet" href="' . htmlspecialchars($base . '/css/' . $css, ENT_QUOTES) . '">' . "\n";
+        }
+        $scripts = '';
+        if (!empty($meta['view'])) {
+            $scripts .= '<script src="' . htmlspecialchars($base . '/js/views/' . $meta['view'] . '.js', ENT_QUOTES) . '"></script>' . "\n";
+        }
+
+        $this->view->title       = $meta['title'] ?? ucfirst(str_replace('-', ' ', $slug));
+        $this->view->pageMeta     = $meta;         // 'skin' -> the layout selects the skin file
+        $this->view->cmsContent   = $body;         // page/view.phtml echoes this; the theme layout wraps it
+        $this->view->pageHead     = $head;
+        $this->view->pageScripts  = $scripts;
+        $this->_helper->viewRenderer->setScriptAction('view');   // reuse core/views/scripts/page/view.phtml
     }
 
     /** Splice a fragment immediately before a tag in an HTML string (append if the tag is absent). */

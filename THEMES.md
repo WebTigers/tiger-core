@@ -10,8 +10,11 @@ read [WEBSERVICES.md](WEBSERVICES.md).
 > **Status: design-of-record (proposed, not built).** This records the decisions and their
 > rationale so we don't relitigate them or drift when the code lands. Where it says "a theme
 > does X," that's the target behavior. Current reality: Tiger has **theme-as-a-path** + skins
-> (built) and a CMS `page` store with a GrapesJS builder (built); the block contract, provenance
-> columns, and marketplace import described here are the roadmap.
+> (built) and a CMS `page` store with a GrapesJS builder (built). **Prototyped** (on the Porto POC —
+> a licensed vendor theme, off-repo): **theme-as-a-module** (a `theme-<name>` module resolves as the
+> active theme), **file-based theme pages** (`content/` + the ThemeContent plugin cascade, §8a), and
+> **file-based builder components** (`components/` + `Tiger_Theme`, §8a). Still roadmap: the semantic
+> block contract (§3), provenance columns (§4), and marketplace import.
 
 ---
 
@@ -219,24 +222,70 @@ This avoids the "which layout wins?" ambiguity: structure is a file, author temp
 ## 8. What a theme module ships
 
 ```
-modules/theme-aurora/
-  module.ini              ; type=theme, marketplace meta (name, version, screenshots, price ref)
-  theme.json              ; the MANIFEST (below)
-  layouts/                ; Tier 1 — chrome (public layout, admin optional)
-  skins/                  ; Tier 1 — CSS-variable skins (aurora, aurora-dark, …)
-  blocks/                 ; Tier 1 renderers for Tier 2 contract + own namespaced blocks
-    hero.phtml            ;   overrides the core `hero` renderer
-    split-hero.phtml      ;   aurora:split-hero (namespaced extension)
-  assets/                 ; Tier 1 — fonts, images, js (symlinked to /_theme on activate)
-  starter/                ; Tier 3 — portable seed content (pages/menus/media manifests)
-  configs/                ; acl.ini / navigation.ini / routes.ini as any module
+modules/theme-aurora/           (a `theme-<name>` module; resolved purely by path — no Bootstrap)
+  theme.json              ; the MANIFEST — key, assetBase, skins, canvasCss, pages, components
+  layouts/scripts/        ; Tier 1 — chrome (public layout + per-page slots: title/skin/head/scripts)
+  assets/                 ; Tier 1 — fonts, images, js, vendor (served via a public/_<x> symlink)
+    skins/                ; Tier 1 — CSS skins (default, aurora-dark, …)
+  blocks/                 ; Tier 2 — renderers for the semantic block contract (roadmap)
+  components/             ; Tier 2 — GrapesJS block partials (+ tiger:block hint)     [prototyped §8a]
+  content/                ; theme-shipped PAGES as body partials (+ tiger:page hint)  [prototyped §8a]
+  source/                 ; pristine vendor .html — extraction INPUT, need not ship   [prototyped §8a]
+  configs/                ; acl.ini / routes.ini as any module
 ```
 
-The **manifest** (`theme.json`) declares, at minimum: the theme `key`; the skins it provides; the
-contract blocks it **overrides** and the ones it **adds** (namespaced); and a **starter-content
-list** (each entry: type, seed key, source file, prefixed target `page_key`). The manifest is what
-the Module Manager reads to show the marketplace card, the "extends N blocks" note, and the import
-checklist.
+The **manifest** (`theme.json`) declares: the theme `key`; the `assetBase` (its `public/_<x>`
+symlink); the `skins` it provides; the `canvasCss` to load into the GrapesJS canvas so its
+components preview in-style; the contract blocks it overrides/adds; and a starter-content list. The
+manifest is what the Module Manager reads to show the marketplace card, the "extends N blocks" note,
+and the import checklist.
+
+---
+
+## 8a. Theme-shipped pages & components — file-based (PROTOTYPED)
+
+A separate, cheaper track from Tier-3 DB starter content, built for the reality that a vendor theme
+(e.g. Porto) ships **hundreds of pages**. Putting those in the DB is the wrong tool — they're
+presentation, so they live as **files in the theme** and are served through the *one* layout. Two
+kinds, both self-describing via a leading HTML-comment hint (the same shape as TigerDocs' `tiger:doc`):
+
+**Pages — `content/<slug>.phtml`.** The page *body* only (not the chrome), led by:
+```html
+<!-- tiger:page title="Contact Us" skin="default" view="view.contact" css="demos/x.css" -->
+```
+`Tiger_Controller_Plugin_ThemeContent` (registered after PageDispatch) is the last hop of the slug
+chain (ROUTING.md §5): **real controller → CMS `page` (PageDispatch) → theme `content/` partial →
+404**. So a DB page always overrides a same-slug theme page (the live-override tier), and the theme's
+stock `.html` links resolve (the suffix is stripped). `PageController::themeContentAction` parses the
+hint, wires the per-page **skin / view-JS / extra CSS** into the shared layout's `pageHead`/
+`pageScripts` slots (the axes that actually vary across a vendor theme — see the analysis in §8b),
+and wraps the body. Net: ~one layout + N tiny body files, no per-page DB rows, no repeated chrome
+(~70% smaller per page). `source/` holds the pristine vendor `.html` as the **extraction input** for
+generating `content/` partials — it need not ship in the distributed theme.
+
+**Components — `components/<id>.phtml`.** A GrapesJS block, led by:
+```html
+<!-- tiger:block label="Call to Action" category="Porto" icon="fa-bullhorn" -->
+```
+`Tiger_Theme::components()` reads them; the CMS `designAction` passes them (+ the manifest's
+`canvasCss`) to the builder, which registers each as a draggable block that drops the vendor's own
+markup and previews in the theme's CSS. This is the concrete, file-based on-ramp to the Tier-2 block
+contract (§3): a theme's palette is just a folder of hinted partials.
+
+Both reads go through **`Tiger_Theme`** (`dir()` / `manifest()` / `assetBase()` / `components()` /
+`hint()`), which resolves the active theme dir from the `Tiger_ThemeDir` registry entry set at
+bootstrap. **Why files, not the DB:** a vendor (or an AI agent) adds/edits a page or a block by
+touching exactly **one self-describing file** — no routing, no schema, no chrome — and converting a
+static theme is a mechanical `source/*.html → content/*.phtml + hint` pass. Compartmentalization an
+agent can work with.
+
+### 8b. Why per-page *slots*, not per-page layouts
+
+Analyzing a real vendor theme (Porto, 835 pages) confirmed the model: **~13 core CSS + 4 core JS are
+shared by every page**; only a few axes vary — the **skin** (one page is special, the rest use
+`default`), an optional **demo CSS**, and an optional **per-view JS** (`view.shop`, `view.contact`,
+…). So one shared layout with a handful of per-page slots (title / skin / head / scripts) covers the
+whole theme — exactly what the `tiger:page` hint fills. Confirm this per theme before extracting.
 
 ---
 
