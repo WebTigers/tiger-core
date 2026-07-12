@@ -91,6 +91,68 @@ $features = [
     </div>
 </section>
 
+<!-- Performance -->
+<section class="pb-5 pt-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <i class="fa-solid fa-gauge-high text-primary fs-2 mb-3"></i>
+                        <h3 class="h5 fw-bold">Built for speed</h3>
+                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">runs on</div>
+                        <div class="display-5 fw-bold text-primary mb-1">PHP&nbsp;8.x+</div>
+                        <p class="text-secondary small mb-0">
+                            A lean core with no per-request framework bloat — zero build step, tiny memory
+                            footprint, OPcache-tuned. Flies on a $5 shared host, not just a beefy server.
+                            Fast is the default, not an upgrade.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <i class="fa-solid fa-stopwatch text-primary fs-2 mb-3"></i>
+                        <h3 class="h5 fw-bold">The numbers don't lie</h3>
+                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">responds in</div>
+                        <div class="display-5 fw-bold text-primary mb-1">~10&thinsp;ms</div>
+                        <p class="text-secondary small mb-0">
+                            Steady at the median, the 95th, <em>and</em> the 99th percentile &mdash; the tail
+                            stays flat under load, not just on a quiet box. That's the raw cost of generating a
+                            real page, with no output cache and no tricks. Consistent, with zero errors.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <i class="fa-solid fa-ranking-star text-primary fs-2 mb-3"></i>
+                        <h3 class="h5 fw-bold">The competition</h3>
+                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">up to</div>
+                        <div class="display-5 fw-bold text-primary mb-1">3&ndash;10&times;</div>
+                        <p class="text-secondary small mb-0">
+                            faster than Laravel, Next.js, or Django&nbsp;+&nbsp;ORM at generating the same
+                            dynamic page &mdash; most of their time is framework plumbing, not your code. And
+                            Tiger does it on a $5 shared host those stacks can't even run on. Lean beats heavy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <p class="text-secondary text-center mt-3 mb-0" style="font-size:.7rem; line-height:1.45;">
+                    ~10&thinsp;ms measured (single warm request, 2&#8209;vCPU box, PHP&nbsp;8 + OPcache). Multipliers reflect
+                    typical per&#8209;request generation times for an equivalent dynamic page vs. mainstream framework
+                    defaults &mdash; not a controlled benchmark; results vary by workload and hardware.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Features -->
 <section id="features" class="py-5" style="background: var(--bs-tertiary-bg);">
     <div class="container">
@@ -112,6 +174,92 @@ $features = [
                 </div>
             </div>
 <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+
+<!-- Webservices / API -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2">
+                Webservices &mdash; the TIGER pattern
+            </span>
+            <h2 class="fw-bold">REST without the bloat</h2>
+            <p class="text-secondary mx-auto mb-0" style="max-width:640px;">
+                One endpoint. The message says where it's going. Add a method and it's live &mdash; no route
+                to design, no verb to argue about, no endpoint zoo to maintain.
+            </p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex gap-3 p-4">
+                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
+                            <i class="fa-solid fa-arrows-to-dot fs-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="h6 fw-semibold mb-1">One endpoint, not 50</h3>
+                            <p class="small text-secondary mb-0">
+                                A single <code>/api</code>. The <code>module</code> + <code>service</code> +
+                                <code>method</code> ride in the message, so a new call is a new <em>method</em> &mdash;
+                                not a new route, a new controller, and a new version to babysit.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex gap-3 p-4">
+                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
+                            <i class="fa-solid fa-lock fs-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="h6 fw-semibold mb-1">Secured by ACL</h3>
+                            <p class="small text-secondary mb-0">
+                                Every call is authorized <em>before</em> it runs &mdash; deny-by-default, resource =
+                                the service, privilege = the method. Auth isn't a check you can forget to write;
+                                it's the gateway you can't route around.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex gap-3 p-4">
+                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
+                            <i class="fa-solid fa-toggle-on fs-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="h6 fw-semibold mb-1">Stateless or stateful</h3>
+                            <p class="small text-secondary mb-0">
+                                Ride the session for a first-party UI, or go token-based and stateless for a public
+                                API or a mobile client &mdash; the same services answer either way. Pick the model
+                                per surface, not per framework.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex gap-3 p-4">
+                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
+                            <i class="fa-solid fa-compass fs-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="h6 fw-semibold mb-1">Discoverable by design</h3>
+                            <p class="small text-secondary mb-0">
+                                Because routing is data in the message, the API can describe itself &mdash; versioned
+                                services and an OpenAPI / Swagger catalog fall out of the pattern, not a bolt-on spec
+                                you keep in sync by hand.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
