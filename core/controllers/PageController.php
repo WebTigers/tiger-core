@@ -106,6 +106,11 @@ class PageController extends Tiger_Controller_Action
         $this->view->cmsContent   = $body;         // page/view.phtml echoes this; the theme layout wraps it
         $this->view->pageHead     = $head;
         $this->view->pageScripts  = $scripts;
+        // A theme may ship several chrome variants (layouts/scripts/<layout>.phtml) — a landing
+        // header vs an inner-page header, etc. The hint's `layout` picks one (default `layout`);
+        // sanitized to a bare name so it can't escape the theme's layout dir.
+        $layout = isset($meta['layout']) ? preg_replace('/[^a-z0-9_-]/i', '', $meta['layout']) : '';
+        $this->_helper->layout()->setLayout($layout !== '' ? $layout : 'layout');
         $this->_helper->viewRenderer->setScriptAction('view');   // reuse core/views/scripts/page/view.phtml
     }
 

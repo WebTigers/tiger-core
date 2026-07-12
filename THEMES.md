@@ -279,13 +279,23 @@ touching exactly **one self-describing file** — no routing, no schema, no chro
 static theme is a mechanical `source/*.html → content/*.phtml + hint` pass. Compartmentalization an
 agent can work with.
 
-### 8b. Why per-page *slots*, not per-page layouts
+### 8b. A few named layouts + per-page slots (not one layout, not 835)
 
-Analyzing a real vendor theme (Porto, 835 pages) confirmed the model: **~13 core CSS + 4 core JS are
-shared by every page**; only a few axes vary — the **skin** (one page is special, the rest use
-`default`), an optional **demo CSS**, and an optional **per-view JS** (`view.shop`, `view.contact`,
-…). So one shared layout with a handful of per-page slots (title / skin / head / scripts) covers the
-whole theme — exactly what the `tiger:page` hint fills. Confirm this per theme before extracting.
+Analyzing a real vendor theme (Porto, 835 pages): a **shared core** (~13 CSS + 4 JS) underpins every
+page, but pages cluster into a **handful of chrome variants** — and it's the **header/footer** that
+differ most (Porto: a dark transparent *landing* header vs a light *inner-page* header + breadcrumb
+band vs a *shop* header with a cart), on top of lighter axes (**skin**, optional **demo CSS**,
+optional **per-view JS**). One shared layout is therefore *too* few — it forces the landing's header
+onto every page. So a theme ships a **few named layouts** (`layouts/scripts/<layout>.phtml`, one per
+chrome variant), and each `content/` partial names its layout and fills its slots via the hint:
+```html
+<!-- tiger:page layout="page" skin="default" view="view.contact" css="demos/x.css" -->
+```
+`PageController::themeContentAction` sets the Zend layout from `layout` (sanitized to a bare name, so
+it can't escape the layout dir; default `layout`) and the head/scripts slots from the rest. The
+filename **prefix** (`about-*`, `blog-*`, `shop-*`, `index-*`) is a good *grouping* proxy for which
+layout a page needs — but confirm the actual header/footer per group before extracting, since the
+prefix isn't a clean 1:1 map (several prefixes share the inner-page chrome).
 
 ---
 
