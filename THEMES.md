@@ -1,0 +1,288 @@
+# Tiger — Installable Themes & the CMS
+
+How a **theme** is packaged, sold in the marketplace, installed through the Module Manager, and
+how its material meets the CMS **without** the WordPress trap where switching a theme breaks every
+page. Read this before building the theme-provenance columns, the block registry, or a marketplace
+theme. For the platform *why* read [ARCHITECTURE.md](ARCHITECTURE.md) (esp. §9 theming, §5 config
+cascade, §6 modules); for the CMS surface read [FEATURES.md](FEATURES.md); for the `/api` contract
+read [WEBSERVICES.md](WEBSERVICES.md).
+
+> **Status: design-of-record (proposed, not built).** This records the decisions and their
+> rationale so we don't relitigate them or drift when the code lands. Where it says "a theme
+> does X," that's the target behavior. Current reality: Tiger has **theme-as-a-path** + skins
+> (built) and a CMS `page` store with a GrapesJS builder (built); the block contract, provenance
+> columns, and marketplace import described here are the roadmap.
+
+---
+
+## 0. The one principle everything follows
+
+**Presentation is a *theme* (files, resolved by path). Content is *CMS data* (rows, portable).
+The seam between them is a contract of semantic blocks.**
+
+This is not a new philosophy — it's ARCHITECTURE §9 (*"Core emits data + semantic default views;
+a theme decides the whole rendering approach. Theme is just a path."*) pushed down into page
+content. Hold this line and a theme switch becomes a **config flip**, not a migration.
+
+The WordPress/Divi failure is letting a *page* store **theme-specific markup** — a soup of theme
+classes and page-builder shortcodes. Switch the theme and the markup still points at the old one,
+so the page breaks. Tiger's answer: a page stores **intent** (which semantic blocks, with what
+content); the *theme* supplies **appearance** (how each block renders). Same content, new
+renderers, re-styled — not broken.
+
+If you're ever unsure where something belongs, ask the ARCHITECTURE §0 question: *"Who owns this,
+and what happens on uninstall / theme-switch?"* Presentation disappears with its theme; content
+never does.
+
+---
+
+## 1. Three tiers of theme material
+
+Everything a theme ships falls into exactly one tier, and each is stored and namespaced
+differently. This table is the whole model; the rest of the doc is detail.
+
+| Tier | What | Lives as | In the CMS DB? | Namespaced by | Survives theme switch? |
+|---|---|---|---|---|---|
+| **1 — Presentation** | layouts, skins/CSS, fonts, images, **block renderers** | **files** in the theme module dir, path-resolved at render | **no** | filesystem path + prefixed registry key | replaced by the new theme's files |
+| **2 — Block contract** | semantic block *types* the builder composes | a **registry** (code/config) + per-theme renderer files | the page stores a **portable block tree**, not theme HTML | block-type key (`hero`, `aurora:split-hero`) | re-rendered by the new theme; unknown types fall back to a snapshot |
+| **3 — Starter content** | demo pages / menus / media | **copied** into normal app-owned CMS rows, on explicit import | **yes** (as a fork) | `source` / `source_key` columns + owner-prefixed keys | yes — it's the user's copy now |
+
+The load-bearing consequence: **a theme never *owns* a live CMS content row.** It owns files
+(Tier 1), a contract (Tier 2), and a one-time *seed* (Tier 3). Nothing the user made vanishes when
+they switch or uninstall.
+
+---
+
+## 2. Tier 1 — Presentation (files, never rows)
+
+Layouts, view scripts, skins, fonts, images, and **block renderers** live in the theme module's
+directory and are resolved live by **theme-as-a-path** (ARCHITECTURE §9a) — never imported into
+the CMS. This is why *"does the CMS import the theme's pieces?"* is **no** for presentation: the
+CMS renders *through* the active theme's files, so a switch is a config change with no data to move.
+
+- **Namespacing needs no DB.** Two installed themes are two module directories
+  (`modules/theme-aurora/`, `modules/theme-lumen/`); only the *active* one is woven into the view
+  path + asset base (the existing asset symlink on activate). Any block types a theme *adds* carry
+  a prefixed registry key (`aurora:split-hero`), the same owner-prefix convention as i18n keys
+  (`<module>.*`) and ACL resources.
+- **Skins are unchanged** — a skin is still the CSS-variable overlay *within* a theme
+  (ARCHITECTURE §9). A marketplace theme may ship several skins; the theme is the heavy axis, the
+  skin the light per-tenant one. Nothing here changes the theme/skin split.
+- **Uninstall is clean** because it's just files — remove the module, the presentation is gone.
+
+---
+
+## 3. Tier 2 — The block contract (the portability seam)
+
+This is the crux and the escape from lock-in. It reuses three things Tiger already has: the
+**shortcode registry**, the **GrapesJS component pattern** (live canvas preview, semantic export),
+and the **view-path cascade** (theme → core-default fallback). A "block" unifies all three.
+
+### 3a. What a block is
+
+A **block** is three parts:
+
+1. **A registry entry** — `key`, a **prop schema** (declared slots: `hero{heading, sub, image,
+   buttons[]}`), a builder category + icon. Registered like a shortcode / the way
+   `registerBootstrapBlocks` seeds the palette today.
+2. **A builder component** — the drag-drop UI, trait editors, and a **live canvas preview**
+   (renders the real thing while editing).
+3. **A renderer** — resolved *per active theme*: `themes/<theme>/blocks/hero.phtml`, with a
+   fallback to the core default `blocks/hero.phtml` through the **existing view-path cascade**
+   (theme wins, else core). Presentation lives here (Tier 1); the block is the contract.
+
+The proof-of-concept already ships: the CMS **Menu** builder component renders a live menu in the
+canvas yet **exports the `[menu name="X"]` shortcode**, staying dynamic + auth-filtered at view
+time. A contract block is the same move generalized — it edits richly, previews live, but
+**persists a semantic invocation** (props), and the *theme* renders it.
+
+### 3b. What the page stores
+
+The page's `meta.builder` (GrapesJS project) stores a **tree of block types + content props** —
+portable, theme-agnostic. The rendered HTML in `page.body` is a **snapshot** of the active theme's
+output (Tiger already stores both). So every page carries *both* its portable source **and** a
+safety-net snapshot — the platform is already positioned for this.
+
+On render, `Tiger_Cms_Renderer` resolves each block's renderer through the active theme. Switch
+theme → same tree → the new theme's renderers → the page re-flows in the new look.
+
+### 3c. Portability is a spectrum, stated honestly
+
+Your instinct is right: *posts are easy, designed pages are not.* So the model grades content by
+how portable it actually is, and shows the author which grade a page is in:
+
+| Grade | Content shape | On theme switch |
+|---|---|---|
+| **Portable** | posts, markdown, HTML prose | re-styled cleanly (theme is pure CSS over semantic markup) |
+| **Contract** | a tree of **shared** block types (`hero`, `cta`, `pricing`) | re-rendered by the new theme's renderers — clean |
+| **Theme-bound** | a **theme-specific** block (`aurora:split-hero`) or a raw-HTML block using theme classes | renders the **stored snapshot**, flagged *"designed for Aurora — re-open in the builder to re-flow"* |
+
+The theme-bound grade is where WP simply breaks; Tiger instead renders the frozen snapshot and
+tells the author, so nothing 500s and nothing is silently lost. That's strictly better than "switch
+theme, pray."
+
+### 3d. Extension + graceful degradation
+
+A theme may **extend** the contract with its own namespaced block types (`aurora:split-hero`,
+renderer at `themes/aurora/blocks/split-hero.phtml`). If the active theme lacks a renderer for a
+block a page uses, resolution is: **active theme → core default → per-block snapshot HTML** (with
+the author flag from 3c). Whole-page `body` snapshot is the v1 safety net; per-block snapshot is a
+refinement.
+
+---
+
+## 4. Tier 3 — Starter content & DB namespacing
+
+This is the **only** tier that becomes CMS rows, so DB namespacing is small and clean.
+
+### 4a. Import is explicit, a copy, and app-owned thereafter
+
+The theme manifest lists starter pages / menus / media (Tier 3, §9). **Install never seeds the
+CMS.** A separate, explicit **"Import starter content"** action copies them into ordinary `page`
+rows the user owns from then on — editable, and **not removed on theme switch or uninstall.** Import
+is idempotent (skip/rename on key collision). This is the WP "import demo content" step, done as a
+one-way copy instead of a live dependency.
+
+### 4b. Provenance columns (not a parallel table)
+
+Add provenance to the content tables (`page`, `menu`, media) — **never** a per-theme side table
+(that would overload the schema the way a `wp_options` grab-bag does; see the config-discipline
+rule). Three columns:
+
+| Column | Meaning |
+|---|---|
+| `source` | `user` \| `theme` \| `module` — who created the row |
+| `source_key` | the provider key, e.g. `aurora` (null for user-authored) |
+| `forked` | `1` once the user edits a theme-seeded row → a theme **update won't clobber it** |
+
+- **Keys** collide-proof by **owner-prefix on seed**: `page_key = "aurora:home"`, same convention
+  as i18n and ACL. Row uniqueness stays `(org_id, page_key)` — no schema gymnastics.
+- **Queries fall out for free:** "all Aurora pages" (`source_key='aurora'`), "pages orphaned by an
+  uninstalled theme," "pages that diverge from their theme's shipped version" (`forked=1`). This is
+  exactly why structured columns beat a namespaced string blob.
+
+### 4c. Fork-on-edit = non-destructive updates
+
+The answer to *"switching/updating means you like doing updates"*: when a user edits a
+`source='theme'` row, set `forked=1`. A theme **update** refreshes only the untouched copies —
+`WHERE source='theme' AND source_key=? AND forked=0` — and leaves the user's edited pages alone.
+This is the config **live-override** pattern (the user tier always wins) applied to content. WP
+can't do this for theme-shipped files; Tiger can, because the seed is a row, not a file.
+
+---
+
+## 5. A theme *is* a module (marketplace lifecycle)
+
+A theme ships as a **module** (already true — a theme can live in a module; ARCHITECTURE §9a),
+flagged `module.type = "theme"` in `module.ini` so the Module Manager lists it under a
+**Themes / Marketplace** filter. The lifecycle has **three distinct verbs** — conflating them is
+the WP mistake:
+
+1. **Install** — download the module; register its theme path, block renderers, and any
+   contract extensions (**code/config only**). *Nothing enters the CMS.* Fully reversible.
+2. **Activate** — write the active-theme config row (`tiger.theme`). Because that's the **per-org
+   config tier** (ARCHITECTURE §5), activation is site-wide *or* per-tenant with **no new
+   machinery** — per-org theming already resolves this way. Activation also flips the asset symlink.
+3. **Import starter content** — optional, explicit, idempotent; produces app-owned rows tagged with
+   provenance (§4). This is the only step that writes CMS rows.
+
+Keeping install ≠ activate ≠ import is what makes the whole thing safe: you can install ten themes
+to preview, activate one, and never import a page you didn't ask for.
+
+---
+
+## 6. Multi-tenant: the payoff WP can't match
+
+Because the active theme is a **per-org config row** and starter content is namespaced by
+`(org_id, source_key)`, two tenants on one install can run **different themes with their own
+content**, side by side. Theme-switching, provenance, and fork-on-edit are all already
+tenant-scoped, so the multi-tenant story needs no extra design — it's the same columns doing
+double duty. A single-tenant CMS (WordPress) structurally cannot offer this.
+
+---
+
+## 7. Layouts: files for chrome, an *optional* seeded row for templates
+
+Two "layout" concepts already coexist: **theme layout files** (presentation chrome — header /
+footer / nav, `themes/<theme>/layouts/`) and **CMS `layout` rows** (author-made page templates,
+`type=layout`). Keep the split:
+
+- **Chrome is a file** (Tier 1) — path-resolved, swapped on theme change.
+- A theme **may** seed an **editable** CMS `layout` row as Tier-3 starter content *when it wants
+  the author to be able to tweak a template* — but its core chrome is never a row. Default to files;
+  reach for a seeded layout row only for genuinely author-editable templates.
+
+This avoids the "which layout wins?" ambiguity: structure is a file, author templates are rows.
+
+---
+
+## 8. What a theme module ships
+
+```
+modules/theme-aurora/
+  module.ini              ; type=theme, marketplace meta (name, version, screenshots, price ref)
+  theme.json              ; the MANIFEST (below)
+  layouts/                ; Tier 1 — chrome (public layout, admin optional)
+  skins/                  ; Tier 1 — CSS-variable skins (aurora, aurora-dark, …)
+  blocks/                 ; Tier 1 renderers for Tier 2 contract + own namespaced blocks
+    hero.phtml            ;   overrides the core `hero` renderer
+    split-hero.phtml      ;   aurora:split-hero (namespaced extension)
+  assets/                 ; Tier 1 — fonts, images, js (symlinked to /_theme on activate)
+  starter/                ; Tier 3 — portable seed content (pages/menus/media manifests)
+  configs/                ; acl.ini / navigation.ini / routes.ini as any module
+```
+
+The **manifest** (`theme.json`) declares, at minimum: the theme `key`; the skins it provides; the
+contract blocks it **overrides** and the ones it **adds** (namespaced); and a **starter-content
+list** (each entry: type, seed key, source file, prefixed target `page_key`). The manifest is what
+the Module Manager reads to show the marketplace card, the "extends N blocks" note, and the import
+checklist.
+
+---
+
+## 9. Rejected alternatives (so we don't relitigate)
+
+| Rejected | Why | Chosen instead |
+|---|---|---|
+| Theme owns live CMS page rows (WP model) | switch/uninstall breaks or deletes user pages | theme owns files + a contract + a one-time seed; content rows are app-owned |
+| Page stores theme-specific builder HTML | not portable — the Divi/Elementor lock-in | page stores a **semantic block tree**; theme supplies renderers |
+| A separate `theme_page` / per-theme table | schema sprawl, a `wp_options`-style grab-bag | 3 provenance columns on existing content tables |
+| Namespacing via a mangled string key only | not queryable (orphans, diffs, per-theme lists) | structured `source`/`source_key` columns + owner-prefixed keys |
+| Install auto-seeds the CMS | surprises the user; couples install to content | install ≠ activate ≠ **explicit** import (three verbs) |
+| Silent breakage on a missing block type | white screens on switch | resolve active-theme → core-default → **snapshot** + author flag |
+| Theme update overwrites edited pages | destroys the user's work | **fork-on-edit** — updates skip `forked=1` rows |
+
+---
+
+## 10. Build order (phasing)
+
+1. **Provenance columns** — `source` / `source_key` / `forked` on `page` (then `menu`, media) +
+   the migration; teach `Tiger_Model_Page` finders about them. *(Cheap, unblocks everything.)*
+2. **Block registry + renderer cascade** — generalize the shortcode/menu-component pattern into a
+   `Tiger_Cms_Block` registry with a per-theme renderer resolved through the view-path cascade;
+   port the current Bootstrap blocks to it as the core-default set.
+3. **Builder → semantic export** — the GrapesJS components persist block invocations (props), not
+   frozen theme HTML, with the `body` snapshot as the safety net; add the portability-grade flag.
+4. **Theme = module (marketplace)** — `module.type=theme`, the Themes filter, install/activate
+   wired to the module installer + the `tiger.theme` config tier.
+5. **Starter content import** — the manifest reader + the explicit, idempotent, app-owned copy.
+6. **Marketplace polish** — screenshots, "extends N blocks," per-block snapshot refinement,
+   theme-switch preview.
+
+---
+
+## 11. Open questions (decide before Phase 2/3)
+
+- **How strict is the contract?** Contract-first with a raw-HTML escape hatch (recommended:
+  max portability, honest snapshot for the escape hatch) vs. anything-goes HTML blocks (easier,
+  less portable).
+- **Import granularity** — à-la-carte pattern insert vs. a whole "install the demo site" button
+  (recommended: both — à-la-carte is the primitive, "install demo" is a batch of it).
+- **Do we ever let a tenant author its own theme?** Skins already, safely (inert CSS). A full
+  theme is code — likely a marketplace/publisher concern, not an in-app tenant one. Deferred.
+
+---
+
+*This document records decisions and their rationale. If you change a decision, update the
+relevant section here in the same change — the "why" is the most valuable and most perishable part
+of the codebase.*
