@@ -1,0 +1,108 @@
+<?php
+/**
+ * ACL Simulator — pick a role × resource × privilege and see the decision AND why (the deciding rule
+ * or deny-by-default, plus the role inheritance chain). The answer to "why am I locked out?" Reads
+ * the live ACL over /api (System_Service_Acl); changes nothing. Semantic Bootstrap only. See ADMIN.md.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">ACL Simulator</h1>
+        <p class="text-body-secondary mb-0">Ask the live ACL: would this role reach this resource — and <em>why?</em></p>
+    </div>
+</div>
+
+<div id="acl-feedback"></div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-vial me-2"></i>Simulate</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" for="acl-role">Role</label>
+                    <select id="acl-role" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="acl-resource">Resource <span class="text-body-secondary">(controller or service class)</span></label>
+                    <select id="acl-resource" class="form-select"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="acl-privilege">Privilege <span class="text-body-secondary">(action/method — blank = any)</span></label>
+                    <input id="acl-privilege" class="form-control" placeholder="e.g. save, index">
+                </div>
+                <button type="button" id="acl-run" class="btn btn-primary">
+                    <i class="fa-solid fa-play me-2"></i>Explain
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div id="acl-result" class="card border-0 shadow-sm d-none">
+            <div class="card-body">
+                <div id="acl-verdict" class="d-flex align-items-center gap-2 mb-3"></div>
+                <p id="acl-reason" class="mb-3"></p>
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-3 text-body-secondary">Deciding rule</dt>
+                    <dd class="col-sm-9" id="acl-rule">—</dd>
+                    <dt class="col-sm-3 text-body-secondary">Role chain</dt>
+                    <dd class="col-sm-9" id="acl-chain">—</dd>
+                </dl>
+            </div>
+        </div>
+        <div id="acl-empty" class="card border-0 shadow-sm">
+            <div class="card-body text-center text-body-secondary p-5">
+                <i class="fa-solid fa-scale-balanced fs-1 mb-3 d-block"></i>
+                Pick a role and resource, then <strong>Explain</strong> to trace the decision.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var fb = document.getElementById('acl-feedback');
+    function post(method, body) {
+        var fd = new URLSearchParams(body || {});
+        fd.set('module', 'system'); fd.set('service', 'acl'); fd.set('method', method);
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+    function opt(sel, val, label) { var o = document.createElement('option'); o.value = val; o.textContent = label || val; sel.appendChild(o); }
+
+    // populate the pickers
+    post('catalog', {}).then(function (res) {
+        if (!res || res.result !== 1) { return; }
+        var rs = document.getElementById('acl-role'), rr = document.getElementById('acl-resource');
+        (res.data.roles || []).forEach(function (r) { opt(rs, r); });
+        opt(rr, '', '— any resource —');
+        (res.data.resources || []).forEach(function (r) { opt(rr, r); });
+    });
+
+    document.getElementById('acl-run').addEventListener('click', function () {
+        var body = {
+            role: document.getElementById('acl-role').value,
+            resource: document.getElementById('acl-resource').value,
+            privilege: document.getElementById('acl-privilege').value.trim()
+        };
+        TigerButton.run(this, function () { return post('simulate', body); }).then(function (res) {
+            if (!res || res.result !== 1) {
+                (res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+                return;
+            }
+            var x = res.data.explain;
+            document.getElementById('acl-empty').classList.add('d-none');
+            document.getElementById('acl-result').classList.remove('d-none');
+            document.getElementById('acl-verdict').innerHTML = x.allowed
+                ? '<span class="badge text-bg-success fs-6"><i class="fa-solid fa-lock-open me-1"></i>ALLOWED</span>'
+                : '<span class="badge text-bg-danger fs-6"><i class="fa-solid fa-lock me-1"></i>DENIED</span>';
+            document.getElementById('acl-reason').textContent = x.reason;
+            document.getElementById('acl-rule').innerHTML = x.rule
+                ? '<code>role=' + x.rule.role + ' · resource=' + x.rule.resource + ' · privilege=' + x.rule.privilege + ' · ' + x.rule.permission + '</code>'
+                : '<span class="text-body-secondary">none — deny-by-default</span>';
+            document.getElementById('acl-chain').textContent = (x.roleChain || []).join('  →  ') || '—';
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+})();
+</script>

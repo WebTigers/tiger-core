@@ -38,11 +38,14 @@ working to-do, not a changelog (git history is the changelog).
    dev (Bearer auth works, no `PHPSESSID` emitted). *Remaining:* a token-management admin screen; the
    token carrying an explicit **org/map** context (feeds #4); scoping (read-only / per-service).
 4. **App-level ACL — floor + maps + token-selected context** *(design of record: [ACL.md](ACL.md)).*
-   Extend the single platform ACL to **multiple named policy maps** (app-wide + per-tenant), selected
-   per request (by the token from #3, or the org). Hard rails: the platform ACL is an **immovable
-   floor** no map can override; a token **narrows, never widens**; **fail-closed**; and — the pillar —
-   an **explain/trace + admin ACL Simulator** so "why am I locked out?" is always answerable. Build
-   debuggability first. Full model, invariants, storage (`acl_map` + `map_id`), and phasing in ACL.md.
+   **Phase 1 (debuggability-first) built:** `Tiger_Acl_Acl::explain($role, $resource, $privilege)` —
+   the decision **plus** the deciding rule (explicit allow/deny, inheritance-aware) or deny-by-default,
+   and the role chain — surfaced as an admin **ACL Simulator** (`/system/acl`, superadmin) so "why am I
+   locked out?" is always answerable. Verified on the live ACL (inherited allows traced, deny-by-default
+   spine identified, unknown roles caught). *Staged (phase 2 — the access-changing parts, built
+   carefully):* the **named policy maps** (`acl_map` + `map_id` storage), floor+map **composition**
+   (floor immovable, deny-wins), **token→map** selection (the token from #3 carries a map/org context),
+   the **narrows-never-widens** enforcement, and per-tenant map authoring. Full model in ACL.md.
 5. **Module dependency provisioning — libs on no-Composer hosts** *(design of record:
    [DEPENDENCIES.md](DEPENDENCIES.md)).* **Foundation built.** `Tiger_Vendor_Environment` (fail-closed
    capability detection), the shared `vendor-libs/` store + bootstrap autoloading

@@ -14,4 +14,5 @@ return [
     'system.settings.saved'     => 'Settings saved.',
     'system.update.done'          => 'Updates applied.',
     'system.update.none_selected' => 'Select at least one update to apply.',
+    'system.acl.unavailable'      => 'The ACL engine isn\'t available in this request.',
 ];

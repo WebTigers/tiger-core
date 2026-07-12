@@ -33,5 +33,13 @@ class System_Bootstrap extends Zend_Application_Module_Bootstrap
             'resource' => 'System_UpdatesController',
             'order'    => 15,
         ]);
+        Tiger_Admin_Nav::register([
+            'key'      => 'system_acl',
+            'label'    => 'ACL Simulator',
+            'icon'     => 'fa-scale-balanced',
+            'href'     => '/system/acl',
+            'resource' => 'System_AclController',
+            'order'    => 16,
+        ]);
     }
 }

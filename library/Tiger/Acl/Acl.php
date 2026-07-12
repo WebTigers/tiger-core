@@ -65,6 +65,102 @@ class Tiger_Acl_Acl extends Zend_Acl
     }
 
     /**
+     * EXPLAIN an authorization decision — the debuggability pillar (ACL.md §7): the answer to "why am
+     * I locked out?" Returns the decision PLUS the reasoning — the role's inheritance chain and the
+     * deciding rule (explicit allow/deny, possibly inherited) or **deny-by-default**. Read-only; it
+     * never changes policy. `isAllowed()` stays authoritative for the decision; the reason is derived
+     * by probing the rules in Zend_Acl's specificity order, defensively (a Zend quirk degrades the
+     * *reason*, never the decision).
+     *
+     * @param  string|null $role
+     * @param  string|null $resource
+     * @param  string|null $privilege
+     * @return array {allowed, role, resource, privilege, roleKnown, resourceKnown, roleChain, rule, reason}
+     */
+    public function explain($role = null, $resource = null, $privilege = null)
+    {
+        $allowed   = $this->isAllowed($role, $resource, $privilege);
+        $roleKnown = $role === null || $this->hasRole($role);
+        $resKnown  = $resource === null || $this->has($resource);
+        $chain     = $this->_roleChain($role);
+        $rule      = null;
+
+        if ($roleKnown) {
+            try {
+                // Walk specificity: each role in the chain then the wildcard; resource then wildcard;
+                // privilege then wildcard. The first EXPLICIT rule is the one that decides.
+                foreach (array_merge($chain, [null]) as $r) {
+                    $roleObj = ($r !== null) ? $this->_getRoleRegistry()->get($r) : null;
+                    foreach ([$resource, null] as $res) {
+                        $resObj = ($res !== null && $this->has($res)) ? $this->get($res) : null;
+                        foreach ([$privilege, null] as $priv) {
+                            $type = $this->_getRuleType($resObj, $roleObj, $priv);
+                            if ($type !== null) {
+                                $rule = ['role' => $r ?? '*', 'resource' => $res ?? '*',
+                                         'privilege' => $priv ?? '*', 'permission' => $type];
+                                break 3;
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+                $rule = null;   // reason degrades to the robust default below; decision unaffected
+            }
+        }
+
+        return [
+            'allowed'       => $allowed,
+            'role'          => $role,
+            'resource'      => $resource,
+            'privilege'     => $privilege,
+            'roleKnown'     => $roleKnown,
+            'resourceKnown' => $resKnown,
+            'roleChain'     => $chain,
+            'rule'          => $rule,
+            'reason'        => $this->_explainReason($role, $resource, $privilege, $allowed, $roleKnown, $rule),
+        ];
+    }
+
+    /** Human sentence for an explain() result. */
+    protected function _explainReason($role, $resource, $privilege, $allowed, $roleKnown, $rule)
+    {
+        $priv = $privilege !== null ? " · {$privilege}" : '';
+        if (!$roleKnown) {
+            return "DENY — unknown role '{$role}'. A user's role must exist in the ACL.";
+        }
+        if ($rule !== null) {
+            $verb = $rule['permission'] === self::TYPE_ALLOW ? 'ALLOW' : 'DENY';
+            $via  = ($rule['role'] !== $role && $rule['role'] !== '*') ? " (inherited: {$role} → {$rule['role']})" : '';
+            return "{$verb} by rule — role={$rule['role']} · resource={$rule['resource']} · privilege={$rule['privilege']}{$via}.";
+        }
+        return $allowed
+            ? "ALLOW — {$role} on {$resource}{$priv}."
+            : "DENY (deny-by-default) — no rule grants role '{$role}' access to '{$resource}'{$priv}.";
+    }
+
+    /** A role's inheritance chain, most-specific first (the role, then its parents, transitively). */
+    protected function _roleChain($role)
+    {
+        if ($role === null || !$this->hasRole($role)) {
+            return $role === null ? [] : [$role];
+        }
+        $chain = [$role];
+        $seen  = [$role => true];
+        $queue = [$role];
+        try {
+            while ($queue) {
+                $r = array_shift($queue);
+                foreach ($this->_getRoleRegistry()->getParents($r) as $pid => $parent) {
+                    if (empty($seen[$pid])) { $seen[$pid] = true; $chain[] = $pid; $queue[] = $pid; }
+                }
+            }
+        } catch (Throwable $e) {
+            // partial chain is fine
+        }
+        return $chain;
+    }
+
+    /**
      * Every `configs/acl.ini` Tiger should read: the core package, then app
      * modules, then first-party (package) modules.
      *

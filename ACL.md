@@ -188,12 +188,15 @@ Nothing here is a rewrite — it's a selector on seams you already have:
 
 Debuggability **first** — so you can see the machine think while you build it.
 
-1. **Maps + composition + the *explain* trace.** The `acl_map` table, floor+map composition, and the
-   structured decision record / log. Even before tokens, an app can define a map and *see* every
-   decision.
-2. **The ACL Simulator** (admin) — role × resource × privilege × map → decision + winning rule + trace.
-3. **Token → map selection** — depends on stateless `/api` auth (the bearer-token resolver). Wire the
-   token's `map` claim into §6, enforce §5 narrowing.
+1. **The *explain* trace + ACL Simulator — ✅ built.** `Tiger_Acl_Acl::explain($role, $resource,
+   $privilege)` returns the decision + the deciding rule (inheritance-aware) or deny-by-default + the
+   role chain; the admin **ACL Simulator** (`/system/acl`, `System_Service_Acl`) runs it live. This
+   works on the current single (floor) ACL today — the "why am I locked out?" answer exists *before*
+   maps, exactly as intended.
+2. **Maps + composition** — the `acl_map` table, floor+map composition (floor immovable, deny-wins);
+   extend `explain()` to name which *layer* (floor | map) decided. *(Next.)*
+3. **Token → map selection** — the token (stateless auth, #3 — built) carries a `map`/org context;
+   wire it into §6, enforce §5 narrowing. *(Next.)*
 4. **Per-tenant map authoring** (admin) + the reserved-floor test.
 
 ---
