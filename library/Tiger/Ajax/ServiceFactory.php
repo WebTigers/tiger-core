@@ -182,6 +182,51 @@ class Tiger_Ajax_ServiceFactory
         }
     }
 
+    /** @var bool whether the request identity has been resolved yet (property, not method-static). */
+    protected $_identityResolved = false;
+    /** @var object|null the resolved request identity. */
+    protected $_identityValue = null;
+
+    /**
+     * The request identity, resolved once. **Auto-detected mode:** `Authorization: Bearer <token>`
+     * (a personal access token) → **stateless** (never starts a session); else the **stateful**
+     * session identity. A token wins when both are present, and an *invalid* token stays guest
+     * (a token request never silently falls back to a session). Token mode flags the request
+     * CSRF-exempt (`tiger.auth.stateless`). See WEBSERVICES.md §8.
+     *
+     * @return object|null
+     */
+    protected function _identity()
+    {
+        if ($this->_identityResolved) {
+            return $this->_identityValue;
+        }
+        $this->_identityResolved = true;
+
+        $token = $this->_bearerToken();
+        if ($token !== null) {
+            $identity = (new Tiger_Service_Authentication())->identityFromToken($token);
+            if ($identity !== null) {
+                Zend_Registry::set('tiger.auth.stateless', true);
+                // Make the token identity visible to the service + its helpers (_isAdmin, _userId)
+                // via Zend_Auth — but through REQUEST-ONLY storage, so NOTHING is written to the
+                // session. This is what keeps the token path truly stateless.
+                $auth = Zend_Auth::getInstance();
+                $auth->setStorage(new Zend_Auth_Storage_NonPersistent());
+                $auth->getStorage()->write($identity);
+            }
+            return $this->_identityValue = $identity;   // null (guest) if the token is invalid
+        }
+        return $this->_identityValue = Zend_Auth::getInstance()->getIdentity();
+    }
+
+    /** The Bearer token from the Authorization header, or null. */
+    protected function _bearerToken()
+    {
+        $h = (string) $this->_request->getHeader('Authorization');
+        return preg_match('/^\s*Bearer\s+(\S+)/i', $h, $m) ? $m[1] : null;
+    }
+
     /**
      * Deny-by-default ACL pre-auth, shared by both modes. When no ACL is loaded
      * (only before the ACL engine exists) we fail-OPEN rather than hard-deny every
@@ -193,7 +238,7 @@ class Tiger_Ajax_ServiceFactory
             return true;
         }
         $acl      = Zend_Registry::get('Zend_Acl');
-        $identity = Zend_Auth::getInstance()->getIdentity();
+        $identity = $this->_identity();
         $role     = $identity->role ?? 'guest';
 
         if (!$acl->has($className)) {

@@ -29,13 +29,14 @@ working to-do, not a changelog (git history is the changelog).
    and the **TigerAPIDocs** module (`WebTigers/TigerAPIDocs`) renders **Swagger UI** at `/apidocs`
    (JSON dump when the Swagger lib is absent). *Remaining:* role-filtered discovery (Phase 3), richer
    `data` typing, and services adopting `@apiRequest <Form>` for form-derived request schemas.
-3. **Stateless `/api` auth (token mode)** *(homepage "Stateless or stateful" claim).* Today `/api`
-   authorizes via the **session** identity (stateful — right for a first-party UI). Add a **stateless**
-   path: a bearer token (a `personal_access_token` `user_credential` factor) resolved to an identity +
-   role at the gateway, running the **same ACL and same services** — auto-detected per request
-   (`Authorization` header → stateless; session cookie → stateful; **token wins** if both;
-   **CSRF applies only in cookie mode**; token path never starts a session). Additive second door,
-   not a replacement.
+3. **Stateless `/api` auth (token mode)** — **✅ built.** `Authorization: Bearer tgr_…` (a
+   `personal_access_token` `user_credential` factor, hashed at rest) → the gateway resolves the
+   identity and runs the **same ACL + same services**, auto-detected: token → **stateless** (no
+   session cookie/row — request-only `Zend_Auth_Storage_NonPersistent`, session start skipped in the
+   bootstrap), else session → stateful; an *invalid* token stays guest (no session fallback). **CSRF
+   is skipped in token mode** (`Tiger_Form`); mint/list/revoke via `Tiger_Service_Token`. Verified on
+   dev (Bearer auth works, no `PHPSESSID` emitted). *Remaining:* a token-management admin screen; the
+   token carrying an explicit **org/map** context (feeds #4); scoping (read-only / per-service).
 4. **App-level ACL — floor + maps + token-selected context** *(design of record: [ACL.md](ACL.md)).*
    Extend the single platform ACL to **multiple named policy maps** (app-wide + per-tenant), selected
    per request (by the token from #3, or the org). Hard rails: the platform ACL is an **immovable

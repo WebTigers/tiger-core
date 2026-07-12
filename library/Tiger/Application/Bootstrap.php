@@ -413,6 +413,18 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
      */
     protected function _initSession()
     {
+        // A STATELESS token request (Authorization: Bearer tgr_…) must never touch the session — no
+        // session start, no cookie, no session row. Give Zend_Auth REQUEST-ONLY storage so reading
+        // the identity (in _initConfigs, the auth plugin, …) can't lazily start a session, and skip
+        // Zend_Session::start() entirely. The /api gateway writes the token identity into this store.
+        if ($this->_bearerRequest()) {
+            Zend_Auth::getInstance()->setStorage(new Zend_Auth_Storage_NonPersistent());
+            if (!Zend_Session::isStarted()) {
+                Zend_Session::setOptions(['use_cookies' => 0, 'use_only_cookies' => 1]);   // belt: no cookie even if something starts one
+            }
+            return;
+        }
+
         $this->bootstrap('db');
 
         $opts    = $this->getOption('tiger') ?: [];
@@ -440,6 +452,13 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         if (!Zend_Session::isStarted()) {
             Zend_Session::start();
         }
+    }
+
+    /** True when this request carries a Tiger personal access token (stateless mode). */
+    protected function _bearerRequest()
+    {
+        $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+        return (bool) preg_match('/^\s*Bearer\s+tgr_/i', (string) $h);
     }
 
     protected function _initConfigs()

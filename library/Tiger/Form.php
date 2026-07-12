@@ -76,7 +76,10 @@ class Tiger_Form extends Zend_Form
         // token's lifetime in SECONDS and must be positive — Zend_Form_Element_Hash
         // rejects 0 ("Seconds must be positive"), which silently breaks the token.
         // Two hours is generous enough for long edits without outliving the session.
-        if ($this->csrf()) {
+        // CSRF is a COOKIE-mode defense. A STATELESS token request (Authorization: Bearer …) carries
+        // no session cookie, so it's CSRF-immune by construction and MUST skip the check — see the
+        // per-mode design in WEBSERVICES.md §8. The gateway flags token requests via the registry.
+        if ($this->csrf() && !(Zend_Registry::isRegistered('tiger.auth.stateless') && Zend_Registry::get('tiger.auth.stateless'))) {
             $this->addElement('hash', '_csrf', ['salt' => static::class, 'timeout' => static::CSRF_TIMEOUT]);
         }
 

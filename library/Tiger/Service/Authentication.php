@@ -995,6 +995,24 @@ class Tiger_Service_Authentication
      *
      * @return object
      */
+    /**
+     * Resolve a STATELESS identity from a personal access token (Bearer) — no session is started,
+     * nothing is written to Zend_Auth. The identity is the user's, in their primary active org. Used
+     * by the /api gateway to authenticate token clients (see WEBSERVICES.md §8). Null = invalid token.
+     *
+     * @param  string $plain the Bearer token
+     * @return object|null the identity, or null
+     */
+    public function identityFromToken($plain)
+    {
+        $userId = (new Tiger_Model_UserCredential())->verifyToken((string) $plain);
+        if ($userId === null) {
+            return null;
+        }
+        $user = (new Tiger_Model_User())->findById($userId);
+        return $user ? $this->_buildIdentity($user) : null;
+    }
+
     protected function _buildIdentity($user, $orgId = null)
     {
         $ouModel = new Tiger_Model_OrgUser();

@@ -26,6 +26,8 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
     const TYPE_OAUTH    = 'oauth';
     /** Single-use backup codes for TOTP recovery — one row per code, hashed secret. */
     const TYPE_RECOVERY = 'recovery';
+    /** A personal access token — a stateless /api credential (Bearer). No schema change: just a new factor type. */
+    const TYPE_PAT      = 'personal_access_token';
 
     /** Login lockout: lock the password credential after this many consecutive failures. */
     const MAX_FAILURES = 5;
@@ -139,6 +141,85 @@ class Tiger_Model_UserCredential extends Tiger_Model_Table
             'type'       => self::TYPE_SMS,
             'identifier' => $e164,
         ]);
+    }
+
+    /**
+     * Mint a personal access token — a stateless `/api` credential. Returns the PLAINTEXT token
+     * ONCE (only its hash is stored). Format `tgr_<prefix>_<secret>`: the 12-char prefix is a
+     * non-secret lookup key; the whole string is sent as `Authorization: Bearer <token>`.
+     *
+     * @param  string $userId the owning user
+     * @return array {token: string (show once), credential_id: string, prefix: string}
+     */
+    public function createToken($userId)
+    {
+        $prefix = bin2hex(random_bytes(6));    // 12 hex
+        $plain  = 'tgr_' . $prefix . '_' . bin2hex(random_bytes(24));   // + 48 hex secret
+        $id = $this->insert([
+            'user_id'     => $userId,
+            'type'        => self::TYPE_PAT,
+            'identifier'  => $prefix,
+            'secret'      => hash('sha256', $plain),
+            'verified_at' => $this->_now(),
+        ]);
+        return ['token' => $plain, 'credential_id' => $id, 'prefix' => $prefix];
+    }
+
+    /**
+     * Verify a presented personal access token → the owning user_id, or null. Constant-time hash
+     * compare; records last_used_at on success. A revoked (soft-deleted) token never matches.
+     *
+     * @param  string $plain the Bearer token
+     * @return string|null the user_id, or null if unknown/invalid/revoked
+     */
+    public function verifyToken($plain)
+    {
+        if (!preg_match('/^tgr_([a-f0-9]{12})_[a-f0-9]{48}$/', (string) $plain, $m)) {
+            return null;
+        }
+        $row = $this->fetchRow(
+            $this->activeSelect()->where('type = ?', self::TYPE_PAT)->where('identifier = ?', $m[1])
+        );
+        if (!$row || !hash_equals((string) $row->secret, hash('sha256', (string) $plain))) {
+            return null;
+        }
+        $this->update(['last_used_at' => $this->_now()],
+            $this->getAdapter()->quoteInto('credential_id = ?', $row->credential_id));
+        return $row->user_id;
+    }
+
+    /**
+     * A user's active personal access tokens (for a "manage tokens" screen) — prefix + timestamps,
+     * never the secret.
+     *
+     * @param  string $userId the owning user
+     * @return array<int,array>
+     */
+    public function tokensFor($userId)
+    {
+        $out = [];
+        foreach ($this->activeSelect()->where('user_id = ?', $userId)->where('type = ?', self::TYPE_PAT)->query()->fetchAll() as $r) {
+            $out[] = ['credential_id' => $r['credential_id'], 'prefix' => $r['identifier'],
+                      'created_at' => $r['created_at'] ?? null, 'last_used_at' => $r['last_used_at'] ?? null];
+        }
+        return $out;
+    }
+
+    /**
+     * Revoke (soft-delete) a personal access token the user owns.
+     *
+     * @param  string $userId       the owning user (ownership guard)
+     * @param  string $credentialId the token to revoke
+     * @return bool
+     */
+    public function revokeToken($userId, $credentialId)
+    {
+        return (bool) $this->update(
+            ['deleted' => 1, 'status' => 'revoked'],
+            $this->getAdapter()->quoteInto('credential_id = ?', $credentialId)
+                . $this->getAdapter()->quoteInto(' AND user_id = ?', $userId)
+                . $this->getAdapter()->quoteInto(' AND type = ?', self::TYPE_PAT)
+        );
     }
 
     /**

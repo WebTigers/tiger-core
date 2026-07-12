@@ -16,6 +16,8 @@ return [
     'core.api.error.invalid_action'  => 'That action is not available.',
     'core.api.error.not_allowed'     => "You don't have permission to do that.",
     'core.api.error.login_required'  => 'Please sign in to continue.',
+    'core.token.created'          => 'Token created — copy it now; it won\'t be shown again.',
+    'core.token.revoked'          => 'Token revoked.',
     'core.api.error.login_failed'    => 'Invalid email or password.',
     'core.api.error.missing_module'  => 'No module was specified.',
     'core.api.error.missing_service' => 'No service was specified.',
