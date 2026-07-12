@@ -45,6 +45,11 @@
     pluginsOpts: preset ? { 'grapesjs-preset-webpage': { modalImportTitle: 'Import HTML' } } : {}
   });
 
+  // Tiger additions: a live-rendering Menu component + a Bootstrap 5 block library. Base set —
+  // enough to show where this goes (a Divi/Elementor-class kit); dress up later.
+  registerMenuComponent(editor);
+  registerBootstrapBlocks(editor);
+
   // Seed the canvas: prefer the lossless project blob, else import the body HTML.
   try {
     if (cfg.project) {
@@ -109,6 +114,94 @@
   window.addEventListener('beforeunload', function (e) {
     if (dirty) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // ---- the live-rendering Menu component (renders in the canvas, exports the [menu] shortcode) ----
+  function registerMenuComponent(editor) {
+    var menus = (window.TIGER_BUILDER && window.TIGER_BUILDER.menus) || {};
+    var names = Object.keys(menus);
+
+    editor.Components.addType('tiger-menu', {
+      isComponent: function (el) { return el && el.getAttribute && el.getAttribute('data-tiger-menu') !== null; },
+      model: {
+        defaults: {
+          menuKey: names[0] || 'primary',
+          draggable: true, droppable: false, editable: false, highlightable: true,
+          attributes: { 'data-tiger-menu': '' },
+          traits: [{
+            type: names.length ? 'select' : 'text', name: 'menuKey', label: 'Menu', changeProp: 1,
+            options: names.map(function (n) { return { id: n, name: n }; })
+          }]
+        },
+        init: function () { this.on('change:menuKey', function () { if (this.view) { this.view.render(); } }); },
+        // Export the SHORTCODE, not the preview — the menu stays dynamic + auth-filtered at view time.
+        toHTML: function () { return '[menu name="' + (this.get('menuKey') || 'primary') + '"]'; }
+      },
+      view: {
+        onRender: function () {
+          var key = this.model.get('menuKey') || 'primary';
+          var m = (window.TIGER_BUILDER && window.TIGER_BUILDER.menus) || {};
+          this.el.innerHTML = (m[key] != null && m[key] !== '')
+            ? '<nav class="tb-menu-preview">' + m[key] + '</nav>'
+            : '<div class="p-2 small text-muted border rounded bg-light">[menu name="' + key + '"] — no preview</div>';
+          this.el.style.pointerEvents = 'none';   // canvas preview only
+        }
+      }
+    });
+  }
+
+  // ---- Bootstrap 5 block library (base set — dress up later) ----
+  function registerBootstrapBlocks(editor) {
+    var bm = editor.BlockManager;
+    var add = function (id, label, category, content, icon) {
+      bm.add(id, { label: label, category: category, content: content,
+        media: '<i class="fa-solid ' + (icon || 'fa-cube') + '"></i>' });
+    };
+    var cols = function (n) {
+      var out = '';
+      for (var i = 0; i < n; i++) { out += '<div class="col-md-' + (12 / n) + '"><p>Column</p></div>'; }
+      return '<div class="row g-4">' + out + '</div>';
+    };
+
+    add('tb-section', 'Section', 'Layout', '<section class="py-5"><div class="container"><h2>Section title</h2><p>Section content…</p></div></section>', 'fa-square');
+    add('tb-container', 'Container', 'Layout', '<div class="container py-3"><p>Container…</p></div>', 'fa-box');
+    add('tb-row2', '2 Columns', 'Layout', cols(2), 'fa-table-columns');
+    add('tb-row3', '3 Columns', 'Layout', cols(3), 'fa-table-columns');
+
+    add('tb-heading', 'Heading', 'Content', '<h2>Heading</h2>', 'fa-heading');
+    add('tb-text', 'Text', 'Content', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>', 'fa-align-left');
+    add('tb-button', 'Button', 'Content', '<a href="#" class="btn btn-primary">Button</a>', 'fa-hand-pointer');
+    add('tb-buttons', 'Buttons', 'Content', '<div class="d-inline-flex gap-2"><a href="#" class="btn btn-primary">Primary</a> <a href="#" class="btn btn-outline-secondary">Secondary</a></div>', 'fa-hand-pointer');
+    add('tb-list', 'List', 'Content', '<ul><li>One</li><li>Two</li><li>Three</li></ul>', 'fa-list');
+    add('tb-divider', 'Divider', 'Content', '<hr>', 'fa-minus');
+
+    add('tb-card', 'Card', 'Components', '<div class="card" style="max-width:22rem"><div class="card-body"><h5 class="card-title">Card title</h5><p class="card-text">Some quick example text to build on.</p><a href="#" class="btn btn-primary">Go</a></div></div>', 'fa-address-card');
+    add('tb-cards', 'Card grid', 'Components', '<div class="row g-4">' + [1, 2, 3].map(function () { return '<div class="col-md-4"><div class="card h-100"><div class="card-body"><h5 class="card-title">Card</h5><p class="card-text">Text.</p></div></div></div>'; }).join('') + '</div>', 'fa-grip');
+    add('tb-alert', 'Alert', 'Components', '<div class="alert alert-primary" role="alert">A simple primary alert.</div>', 'fa-circle-exclamation');
+    add('tb-badge', 'Badge', 'Components', '<span class="badge text-bg-primary">Badge</span>', 'fa-certificate');
+    add('tb-hero', 'Hero', 'Components', '<section class="py-5 text-center bg-body-tertiary"><div class="container"><h1 class="display-5 fw-bold">Hero headline</h1><p class="lead">A short supporting line for the hero.</p><a href="#" class="btn btn-primary btn-lg">Call to action</a></div></section>', 'fa-panorama');
+    add('tb-carousel', 'Carousel', 'Components', carouselHtml(), 'fa-images');
+    add('tb-accordion', 'Accordion', 'Components', accordionHtml(), 'fa-bars-staggered');
+
+    bm.add('tb-menu', { label: 'Menu', category: 'Components', media: '<i class="fa-solid fa-bars"></i>', content: { type: 'tiger-menu' } });
+  }
+
+  // Bootstrap markup helpers (fixed ids — one carousel/accordion per page for now; base set).
+  function carouselHtml() {
+    var slide = function (active, n) {
+      return '<div class="carousel-item' + (active ? ' active' : '') + '"><div class="ratio ratio-21x9 bg-secondary-subtle d-flex align-items-center justify-content-center text-muted">Slide ' + n + '</div></div>';
+    };
+    return '<div id="tbCarousel" class="carousel slide" data-bs-ride="carousel"><div class="carousel-inner">' +
+      slide(true, 1) + slide(false, 2) + slide(false, 3) + '</div>' +
+      '<button class="carousel-control-prev" type="button" data-bs-target="#tbCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>' +
+      '<button class="carousel-control-next" type="button" data-bs-target="#tbCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button></div>';
+  }
+  function accordionHtml() {
+    var item = function (i, show) {
+      return '<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button' + (show ? '' : ' collapsed') + '" type="button" data-bs-toggle="collapse" data-bs-target="#tbAcc' + i + '">Item ' + i + '</button></h2>' +
+        '<div id="tbAcc' + i + '" class="accordion-collapse collapse' + (show ? ' show' : '') + '" data-bs-parent="#tbAccordion"><div class="accordion-body">Content for item ' + i + '.</div></div></div>';
+    };
+    return '<div class="accordion" id="tbAccordion">' + item(1, true) + item(2, false) + '</div>';
+  }
 
   window.TigerBuilder = { editor: editor, save: save };
 })();

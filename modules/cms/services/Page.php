@@ -115,6 +115,20 @@ class Cms_Service_Page extends Tiger_Service_Service
             'published_at' => $publishedAt !== '' ? $publishedAt : null,
         ];
 
+        // SEO + head/body injection, merged into `meta` — preserving the visual-builder project blob.
+        $meta = [];
+        if ($pageId) {
+            $existing = (new Tiger_Model_Page())->findById($pageId);
+            if ($existing && !empty($existing->meta)) {
+                $decoded = is_array($existing->meta) ? $existing->meta : json_decode((string) $existing->meta, true);
+                if (is_array($decoded)) { $meta = $decoded; }
+            }
+        }
+        $meta['description']  = trim((string) ($v['meta_description'] ?? ''));
+        $meta['head_html']    = (string) ($v['head_html'] ?? '');
+        $meta['body_scripts'] = (string) ($v['body_scripts'] ?? '');
+        $data['meta'] = json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
         try {
             // Tiger_Model_Page::save() is itself transactional (write + version snapshot).
             $id = (new Tiger_Model_Page())->save($data, $pageId);

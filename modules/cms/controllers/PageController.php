@@ -85,27 +85,43 @@ class Cms_PageController extends Tiger_Controller_Admin_Action
             if (is_array($decoded)) { $meta = $decoded; }
         }
 
+        // Pre-render each menu so the builder's Menu component shows a LIVE preview in the canvas
+        // (it still exports the [menu] shortcode, staying dynamic + auth-filtered at view time).
+        $menus = [];
+        foreach ((new Tiger_Model_Menu())->keys() as $key) {
+            $menus[$key] = Tiger_Menu::getHTML($key);
+        }
+
         $this->_helper->layout()->disableLayout();   // full-screen — the view is a complete document
         $this->view->title       = $page->title;
         $this->view->page        = $page;
         $this->view->projectData = !empty($meta['builder']) ? $meta['builder'] : null;
+        $this->view->menus       = $menus;
     }
 
     /** Map a page row to editor form values. */
     protected function _editValues($page)
     {
+        $meta = [];
+        if (!empty($page->meta)) {
+            $decoded = is_array($page->meta) ? $page->meta : json_decode((string) $page->meta, true);
+            if (is_array($decoded)) { $meta = $decoded; }
+        }
         return [
-            'page_id'      => $page->page_id,
-            'title'        => $page->title,
-            'slug'         => $page->slug,
-            'page_key'     => $page->page_key,
-            'type'         => $page->type,
-            'format'       => $page->format,
-            'status'       => $page->status,
-            'locale'       => $page->locale,
-            'layout_key'   => $page->layout_key,
-            'published_at' => $page->published_at,
-            'body'         => $page->body,
+            'page_id'          => $page->page_id,
+            'title'            => $page->title,
+            'slug'             => $page->slug,
+            'page_key'         => $page->page_key,
+            'type'             => $page->type,
+            'format'           => $page->format,
+            'status'           => $page->status,
+            'locale'           => $page->locale,
+            'layout_key'       => $page->layout_key,
+            'published_at'     => $page->published_at,
+            'body'             => $page->body,
+            'meta_description' => $meta['description']  ?? '',
+            'head_html'        => $meta['head_html']    ?? '',
+            'body_scripts'     => $meta['body_scripts'] ?? '',
         ];
     }
 }

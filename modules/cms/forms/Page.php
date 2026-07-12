@@ -79,6 +79,22 @@ class Cms_Form_Page extends Tiger_Form
                 'filters' => ['StringTrim'],
                 'attribs' => array_merge($control, ['id' => 'cms-body', 'rows' => 18, 'spellcheck' => 'false']),
             ]],
+
+            // --- SEO & head (stored in the page `meta`; rendered into the public page) ---
+            ['textarea', 'meta_description', [
+                'filters' => ['StringTrim'],
+                'attribs' => array_merge($control, ['id' => 'cms-meta-description', 'rows' => 2, 'maxlength' => 320]),
+            ]],
+            // Raw <head> additions (link/meta/style/script src) + end-of-body scripts. Admin-authored
+            // (trusted) — output verbatim. Emptied by default; a tenant-safe editor would sanitize.
+            ['textarea', 'head_html', [
+                'attribs' => array_merge($control, ['id' => 'cms-head-html', 'rows' => 4, 'spellcheck' => 'false',
+                    'placeholder' => '<link rel="stylesheet" href="…">   <meta …>   <script src="…"></script>']),
+            ]],
+            ['textarea', 'body_scripts', [
+                'attribs' => array_merge($control, ['id' => 'cms-body-scripts', 'rows' => 4, 'spellcheck' => 'false',
+                    'placeholder' => '<script src="…"></script>   <script>…</script>']),
+            ]],
         ];
     }
 }

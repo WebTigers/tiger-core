@@ -111,6 +111,26 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
             </div>
         </div>
     </div>
+    <div class="card mt-4">
+        <div class="card-header fw-semibold"><i class="fa-solid fa-code me-2"></i>SEO &amp; head</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label" for="<?= $this->escape($el('meta_description')->getId()) ?>">Meta description</label>
+                <?= $el('meta_description') ?>
+                <div class="form-text">Search-result snippet &amp; <code>&lt;meta name="description"&gt;</code> (≈160 chars).</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="<?= $this->escape($el('head_html')->getId()) ?>">Head HTML <span class="text-body-secondary">— runs in <code>&lt;head&gt;</code></span></label>
+                <?= $el('head_html') ?>
+                <div class="form-text">Raw <code>&lt;link&gt;</code> / <code>&lt;meta&gt;</code> / <code>&lt;style&gt;</code> / <code>&lt;script src&gt;</code>, output verbatim. Admin-authored (trusted).</div>
+            </div>
+            <div class="mb-0">
+                <label class="form-label" for="<?= $this->escape($el('body_scripts')->getId()) ?>">Body scripts <span class="text-body-secondary">— runs before <code>&lt;/body&gt;</code></span></label>
+                <?= $el('body_scripts') ?>
+                <div class="form-text">Raw <code>&lt;script&gt;</code>, loaded at the end of the page.</div>
+            </div>
+        </div>
+    </div>
 </form>
 
 <?php if ($isEdit && count($versions)): ?>

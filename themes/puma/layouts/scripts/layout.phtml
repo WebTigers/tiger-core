@@ -39,6 +39,7 @@ $_lang = defined('LANG') ? LANG : 'en';
     <!-- Override playground — loads last so it wins the cascade. See themes/puma/assets/custom.css. -->
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 <?= $this->codeInject('head') ?>
+<?= $this->pageHead ?? '' ?><?php /* per-page head from the CMS page meta (admin-authored) */ ?>
 </head>
 <body>
 <?= $this->render('_partials/public-header.phtml') ?>
@@ -52,5 +53,6 @@ $_lang = defined('LANG') ? LANG : 'en';
 <script src="<?= $this->asset($this->themeAssets . '/js/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
 <?= $this->codeInject('footer') ?>
+<?= $this->pageScripts ?? '' ?><?php /* per-page body scripts from the CMS page meta (admin-authored) */ ?>
 </body>
 </html>
