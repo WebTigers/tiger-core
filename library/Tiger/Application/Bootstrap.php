@@ -262,10 +262,23 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $theme = ($tiger && $tiger->get('theme')) ? (string) $tiger->theme : 'puma';
         $skin  = ($tiger && $tiger->get('skin'))  ? (string) $tiger->skin  : '';
 
-        // Prefer an app-provided theme dir, else the package's:
-        $themeDir = APPLICATION_PATH . '/themes/' . $theme;
-        if (!is_dir($themeDir)) {
-            $themeDir = TIGER_CORE_PATH . '/themes/' . $theme;
+        // Resolve the theme's directory. A theme may live in a plain `themes/<name>` dir OR ship as a
+        // `theme-<name>` MODULE (THEMES.md: a marketplace theme is a module, activated via the Module
+        // Manager) — in which case the module dir IS the theme dir (its own layouts/, views/, assets/,
+        // skins/). App-owned candidates win the package's; a missing theme falls back to packaged puma
+        // so a stale `tiger.theme` config row can never boot into a broken path.
+        $themeDir = null;
+        foreach ([
+            APPLICATION_PATH . '/themes/' . $theme,
+            APPLICATION_PATH . '/modules/theme-' . $theme,
+            TIGER_CORE_PATH  . '/modules/theme-' . $theme,
+            TIGER_CORE_PATH  . '/themes/' . $theme,
+        ] as $candidate) {
+            if (is_dir($candidate)) { $themeDir = $candidate; break; }
+        }
+        if ($themeDir === null) {
+            $themeDir = TIGER_CORE_PATH . '/themes/puma';
+            $theme    = 'puma';
         }
 
         // Available skins = the CSS files on disk. The active skin may be overridden
