@@ -29,15 +29,24 @@ class Tiger_Module_Discovery
             foreach (glob($root['path'] . '/*', GLOB_ONLYDIR) ?: [] as $dir) {
                 $slug = basename($dir);
                 if (isset($modules[$slug])) { continue; }   // app dir wins if a slug collides
-                if (!is_file($dir . '/Bootstrap.php') && !is_dir($dir . '/controllers')) { continue; }
+                // A code module has a Bootstrap/controllers; a THEME module has neither but ships a
+                // theme.json (it's resolved by path, not scanned as MVC). Accept either.
+                $isCode  = is_file($dir . '/Bootstrap.php') || is_dir($dir . '/controllers');
+                $isTheme = is_file($dir . '/theme.json');
+                if (!$isCode && !$isTheme) { continue; }
 
                 $m = self::_manifest($dir);
                 $author = $m['author'] ?? '';
                 if (is_array($author)) { $author = $author['name'] ?? ''; }
+                $type = (string) ($m['type'] ?? ($isTheme ? 'theme' : 'module'));
 
                 $modules[$slug] = [
                     'slug'         => $slug,
                     'area'         => $root['area'],
+                    'type'         => $type,                                  // module | theme
+                    // The theme KEY (what tiger.theme stores → _initTheme resolves modules/theme-<key>).
+                    // From the manifest, else the slug minus its `theme-` prefix.
+                    'key'          => (string) ($m['key'] ?? preg_replace('/^theme-/', '', $slug)),
                     'name'         => (string) ($m['name'] ?? ucfirst($slug)),
                     'version'      => isset($m['version']) ? (string) $m['version'] : null,
                     'description'  => (string) ($m['description'] ?? ''),
@@ -45,6 +54,7 @@ class Tiger_Module_Discovery
                     'license'      => (string) ($m['license'] ?? ''),
                     'homepage'     => (string) ($m['homepage'] ?? ''),
                     'pricing'      => $m['pricing']['model'] ?? null,
+                    'asset_base'   => (string) ($m['assetBase'] ?? ''),       // themes: the public/_<x> symlink base
                     'has_manifest' => (bool) $m,
                 ];
             }
@@ -55,11 +65,14 @@ class Tiger_Module_Discovery
 
     protected static function _manifest($dir)
     {
-        $f = $dir . '/module.json';
-        if (!is_file($f)) {
-            return [];
+        // A code module's manifest is module.json; a theme's is theme.json (same shape).
+        foreach (['module.json', 'theme.json'] as $name) {
+            $f = $dir . '/' . $name;
+            if (is_file($f)) {
+                $j = json_decode((string) @file_get_contents($f), true);
+                return is_array($j) ? $j : [];
+            }
         }
-        $j = json_decode((string) @file_get_contents($f), true);
-        return is_array($j) ? $j : [];
+        return [];
     }
 }

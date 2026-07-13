@@ -28,13 +28,16 @@ class System_ModulesController extends Tiger_Controller_Admin_Action
      */
     public function indexAction()
     {
-        $installed = (new Tiger_Model_Module())->bySlugMap();
+        $installed   = (new Tiger_Model_Module())->bySlugMap();
+        $activeTheme = (string) (new Tiger_Model_Config())->get(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.theme');
 
         $modules = [];
         foreach (Tiger_Module_Discovery::all() as $slug => $m) {
-            $row    = $installed[$slug] ?? null;
-            $active = $row ? ((int) $row->active === 1) : true;   // absent = active (default)
-            $source = $row ? $row->source : ($m['area'] === 'core' ? 'bundled' : 'custom');
+            $row     = $installed[$slug] ?? null;
+            $isTheme = ($m['type'] ?? 'module') === 'theme';
+            // A theme's active state is the tiger.theme config (its KEY, one per scope); a module's is its flag.
+            $active  = $isTheme ? ($activeTheme === ($m['key'] ?? $slug)) : ($row ? ((int) $row->active === 1) : true);
+            $source  = $row ? $row->source : ($m['area'] === 'core' ? 'bundled' : 'custom');
             $modules[] = $m + [
                 'active'    => $active,
                 'source'    => $source,
@@ -42,8 +45,9 @@ class System_ModulesController extends Tiger_Controller_Admin_Action
             ];
         }
 
-        $this->view->title   = 'Modules — Tiger Admin';
-        $this->view->modules = $modules;
+        $this->view->title       = 'Modules — Tiger Admin';
+        $this->view->modules     = $modules;
+        $this->view->activeTheme = $activeTheme;
     }
 
     /**

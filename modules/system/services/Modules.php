@@ -45,7 +45,15 @@ class System_Service_Modules extends Tiger_Service_Service
         if (!isset($discovered[$slug])) { $this->_error('system.error.unknown'); return; }
 
         try {
-            $d     = $discovered[$slug];
+            $d = $discovered[$slug];
+
+            // Themes activate differently (THEMES.md §5a): not the module.active flag, but the
+            // `tiger.theme` config (one active per scope) + the asset-base symlink. No build/deploy.
+            if (($d['type'] ?? 'module') === 'theme') {
+                $this->_toggleTheme($slug, $d, $on);
+                return;
+            }
+
             $model = new Tiger_Model_Module();
             if ($on) {
                 $model->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
@@ -64,6 +72,47 @@ class System_Service_Modules extends Tiger_Service_Service
             );
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
+        }
+    }
+
+    /**
+     * Activate/deactivate a THEME (THEMES.md §5a). Activation writes `tiger.theme` (global scope —
+     * one active theme per scope) and symlinks the theme's assets to its `assetBase`; deactivation
+     * clears the config back to the platform base theme. No module.active flag, no build, no deploy.
+     *
+     * @param  string $slug the theme slug
+     * @param  array  $d     its discovery row (type/asset_base/area)
+     * @param  bool   $on    activate (true) or deactivate (false)
+     * @return void
+     */
+    protected function _toggleTheme($slug, array $d, $on): void
+    {
+        $key = (string) ($d['key'] ?? preg_replace('/^theme-/', '', $slug));   // tiger.theme stores the KEY
+        $cfg = new Tiger_Model_Config();
+        if ($on) {
+            $cfg->set(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.theme', $key);   // one active per scope
+            $base = ((string) ($d['asset_base'] ?? '')) !== '' ? $d['asset_base'] : '/_' . $key;
+            $this->_linkThemeAssets($slug, $base, (string) ($d['area'] ?? 'app'));
+        } elseif ($cfg->get(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.theme') === $key) {
+            $cfg->set(Tiger_Model_Config::SCOPE_GLOBAL, '', 'tiger.theme', '');       // -> platform base theme
+        }
+        $this->_success(
+            ['slug' => $slug, 'theme' => true, 'active' => (bool) $on],
+            $on ? 'system.theme.activated' : 'system.theme.deactivated',
+            '/system/modules'
+        );
+    }
+
+    /** Symlink a theme's assets/ to public/<assetBase> (copy fallback where symlinks are blocked). */
+    protected function _linkThemeAssets($slug, $base, $area): void
+    {
+        $root   = ($area === 'app' && defined('APPLICATION_PATH')) ? APPLICATION_PATH : TIGER_CORE_PATH;
+        $assets = $root . '/modules/' . $slug . '/assets';
+        if (!is_dir($assets)) { return; }
+        $link = PUBLIC_PATH . '/' . ltrim((string) $base, '/');
+        if (is_link($link)) { @unlink($link); }
+        if (!@symlink($assets, $link) && !is_dir($link)) {
+            Tiger_Module_Installer::publishAssets($slug);   // best-effort; symlink is the norm on cPanel
         }
     }
 

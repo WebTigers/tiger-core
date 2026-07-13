@@ -264,6 +264,19 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $theme = ($tiger && $tiger->get('theme')) ? (string) $tiger->theme : 'puma';
         $skin  = ($tiger && $tiger->get('skin'))  ? (string) $tiger->skin  : '';
 
+        // PREVIEW (THEMES.md §5a): an installed theme can be previewed via a `tiger_theme` cookie
+        // (the Module Manager's Preview button sets it), same mechanism as the skin cookie below.
+        // Validated against a real theme dir so it can never point outside the theme locations.
+        if (!empty($_COOKIE['tiger_theme'])) {
+            $ck = strtolower(preg_replace('/[^a-z0-9_-]/i', '', (string) $_COOKIE['tiger_theme']));
+            if ($ck !== '' && (
+                is_dir(APPLICATION_PATH . '/modules/theme-' . $ck) || is_dir(APPLICATION_PATH . '/themes/' . $ck) ||
+                is_dir(TIGER_CORE_PATH  . '/modules/theme-' . $ck) || is_dir(TIGER_CORE_PATH  . '/themes/' . $ck)
+            )) {
+                $theme = $ck;
+            }
+        }
+
         // Resolve the theme's directory. A theme may live in a plain `themes/<name>` dir OR ship as a
         // `theme-<name>` MODULE (THEMES.md: a marketplace theme is a module, activated via the Module
         // Manager) — in which case the module dir IS the theme dir (its own layouts/, views/, assets/,

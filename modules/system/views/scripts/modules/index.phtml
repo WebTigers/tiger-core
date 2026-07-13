@@ -35,6 +35,7 @@ $badge = ['bundled' => 'secondary', 'custom' => 'info', 'registry' => 'primary',
                     <td>
                         <div class="fw-semibold"><?= $this->escape($m['name']) ?>
                             <code class="text-body-secondary fw-normal ms-1">/<?= $this->escape($m['slug']) ?></code>
+                            <?php if (($m['type'] ?? '') === 'theme'): ?><span class="badge text-bg-primary-subtle text-primary-emphasis border border-primary-subtle ms-1"><i class="fa-solid fa-palette me-1"></i>Theme</span><?php endif; ?>
                             <?php if ($m['protected']): ?><i class="fa-solid fa-lock text-body-secondary ms-1" title="Protected — always active"></i><?php endif; ?>
                         </div>
                         <?php if (!empty($m['description'])): ?><div class="small text-body-secondary"><?= $this->escape($m['description']) ?></div><?php endif; ?>
@@ -54,9 +55,9 @@ $badge = ['bundled' => 'secondary', 'custom' => 'info', 'registry' => 'primary',
                         <?php if ($m['protected']): ?>
                             <span class="text-body-secondary small">always on</span>
                         <?php elseif ($m['active']): ?>
-                            <button type="button" class="btn btn-sm btn-outline-warning" data-mod-toggle="deactivate" data-slug="<?= $this->escape($m['slug']) ?>"><i class="fa-solid fa-pause me-1"></i>Deactivate</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-mod-toggle="deactivate" data-slug="<?= $this->escape($m['slug']) ?>" data-theme="<?= (($m['type'] ?? '') === 'theme') ? 1 : 0 ?>"><i class="fa-solid fa-pause me-1"></i>Deactivate</button>
                         <?php else: ?>
-                            <button type="button" class="btn btn-sm btn-outline-success" data-mod-toggle="activate" data-slug="<?= $this->escape($m['slug']) ?>"><i class="fa-solid fa-play me-1"></i>Activate</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" data-mod-toggle="activate" data-slug="<?= $this->escape($m['slug']) ?>" data-theme="<?= (($m['type'] ?? '') === 'theme') ? 1 : 0 ?>"><i class="fa-solid fa-play me-1"></i>Activate</button>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -71,7 +72,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-mod-toggle]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var method = btn.getAttribute('data-mod-toggle'), slug = btn.getAttribute('data-slug');
-            if (method === 'deactivate' && !confirm('Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.')) { return; }
+            var isTheme = btn.getAttribute('data-theme') === '1';
+            var msg = isTheme
+                ? 'Deactivate the "' + slug + '" theme? The public site reverts to the default theme.'
+                : 'Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.';
+            if (method === 'deactivate' && !confirm(msg)) { return; }
             var body = new URLSearchParams({ module: 'system', service: 'modules', method: method, slug: slug });
             TigerButton.run(btn, function () {
                 return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
