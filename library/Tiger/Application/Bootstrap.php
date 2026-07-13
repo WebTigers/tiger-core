@@ -320,6 +320,17 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         $view->doctype('HTML5');
         $view->addHelperPath(TIGER_CORE_PATH . '/library/Tiger/View/Helper', 'Tiger_View_Helper');
         $view->addScriptPath(TIGER_CORE_PATH . '/core/views/scripts');
+        // Base-theme fallback (THEMES.md §5c): the admin/auth layouts + their partials always resolve
+        // from the platform base theme (puma). So a PUBLIC-only active theme (e.g. Grey Mist, which
+        // ships no admin.phtml) can be activated site-wide and the back office keeps working — public
+        // requests use the active theme's layout, admin/auth fall back to puma. Added at LOW priority
+        // (Zend_Layout adds the active theme's layout path at render time, so it always wins the public
+        // `layout.phtml`; only the base-theme-only `admin.phtml`/`auth.phtml`/partials fall through here).
+        $baseDir = TIGER_CORE_PATH . '/themes/puma';
+        if ($themeDir !== $baseDir) {
+            if (is_dir($baseDir . '/views/scripts'))   { $view->addScriptPath($baseDir . '/views/scripts'); }
+            if (is_dir($baseDir . '/layouts/scripts')) { $view->addScriptPath($baseDir . '/layouts/scripts'); }
+        }
         if (is_dir($themeDir . '/views/scripts')) {
             $view->addScriptPath($themeDir . '/views/scripts');
         }
