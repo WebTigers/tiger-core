@@ -17,6 +17,7 @@
 class Tiger_Module_Registry
 {
     const DEFAULT_INDEX     = 'https://raw.githubusercontent.com/WebTigers/Vendors/main/data/index.json';
+    const DEFAULT_SPONSORS  = 'https://raw.githubusercontent.com/WebTigers/Sponsors/main/sponsors.json';
     const CACHE_TTL         = 10800;   // 3h — a few refreshes a day, per the discovery model
     const CACHE_FILE        = 'registry-index.json';
     const CACHE_FILE_SPONS  = 'registry-sponsored.json';
@@ -175,12 +176,20 @@ class Tiger_Module_Registry
         return $mem;
     }
 
-    /** The sponsored-overlay URL — the index URL with its trailing index.json → sponsored.json. */
+    /**
+     * The sponsors-overlay URL — the curated placement map. Its own repo (WebTigers/Sponsors), not a
+     * file in the open Vendors registry, so access control is just repo permissions. Overridable via
+     * `tiger.modules.sponsors` (a fork can disable placement or point at its own file).
+     *
+     * @return string the sponsors.json URL
+     */
     public static function sponsoredUrl()
     {
-        $url = self::indexUrl();
-        $swapped = preg_replace('#/[^/]*index\.json$#', '/sponsored.json', $url);
-        return ($swapped && $swapped !== $url) ? $swapped : $url;
+        $cfg = Zend_Registry::isRegistered('Zend_Config') ? Zend_Registry::get('Zend_Config') : null;
+        $t   = $cfg ? $cfg->get('tiger') : null;
+        $mod = $t ? $t->get('modules') : null;
+        $url = ($mod && $mod->get('sponsors')) ? (string) $mod->sponsors : '';
+        return $url !== '' ? $url : self::DEFAULT_SPONSORS;
     }
 
     /**
