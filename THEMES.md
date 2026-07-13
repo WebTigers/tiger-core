@@ -379,6 +379,10 @@ prefix isn't a clean 1:1 map (several prefixes share the inner-page chrome).
 6. **Marketplace polish** — screenshots, "extends N blocks," per-block snapshot refinement,
    theme-switch preview.
 
+> The concrete, running to-do of **which components to build** (blocks, forms, media, taxonomy —
+> what a theme actually drops on a page) lives in [THEME-COMPONENTS.md](THEME-COMPONENTS.md), a
+> living checklist keyed to these phases. Group 0 there = the plumbing in #1–#3 above.
+
 ---
 
 ## 11. Open questions (decide before Phase 2/3)
