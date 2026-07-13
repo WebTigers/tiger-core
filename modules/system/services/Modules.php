@@ -157,10 +157,27 @@ class System_Service_Modules extends Tiger_Service_Service
         if ($ref === '') { $ref = Tiger_Module_Github::latestRef($r['org'], $r['repo']); }
         if (!$ref) { $this->_error('Couldn\'t resolve a release — is the repo public?'); return; }
 
+        // A code module ships module.json; a theme ships theme.json (slug = 'theme-' + key).
         $mj = Tiger_Module_Github::fetchRaw($r['org'], $r['repo'], $ref, 'module.json');
-        if ($mj === null) { $this->_error('No module.json found (or the repo isn\'t public).'); return; }
-        $m = json_decode($mj, true);
-        if (!is_array($m) || empty($m['slug'])) { $this->_error('That repo\'s module.json is invalid.'); return; }
+        if ($mj !== null) {
+            $m = json_decode($mj, true);
+            if (!is_array($m) || empty($m['slug'])) { $this->_error('That repo\'s module.json is invalid.'); return; }
+        } else {
+            $tj = Tiger_Module_Github::fetchRaw($r['org'], $r['repo'], $ref, 'theme.json');
+            if ($tj === null) { $this->_error('No module.json or theme.json found (or the repo isn\'t public).'); return; }
+            $t = json_decode($tj, true);
+            if (!is_array($t) || empty($t['key'])) { $this->_error('That repo\'s theme.json is invalid.'); return; }
+            $m = [
+                'slug'        => 'theme-' . $t['key'],
+                'name'        => $t['name'] ?? $t['key'],
+                'version'     => $t['version'] ?? null,
+                'author'      => $t['vendor'] ?? '',
+                'license'     => $t['license'] ?? '',
+                'description' => $t['description'] ?? '',
+                'requires'    => $t['requires'] ?? new stdClass(),
+                'type'        => 'theme',
+            ];
+        }
 
         $tigerMd  = Tiger_Module_Github::fetchRaw($r['org'], $r['repo'], $ref, 'TIGER.md');
         $descHtml = '';

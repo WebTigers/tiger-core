@@ -41,9 +41,11 @@ class Tiger_Module_Installer
         if (!$ref) {
             throw new RuntimeException("Couldn't resolve a version for {$org}/{$repo} — is it a public repo?");
         }
-        // Fail early if it isn't a module (or is private): probe the manifest.
-        if (Tiger_Module_Github::fetchRaw($org, $repo, $ref, 'module.json') === null) {
-            throw new RuntimeException("{$org}/{$repo}@{$ref} has no module.json (or the repo isn't public).");
+        // Fail early if it isn't installable (or is private): probe for a manifest — a code
+        // module ships module.json, a theme ships theme.json.
+        if (Tiger_Module_Github::fetchRaw($org, $repo, $ref, 'module.json') === null
+            && Tiger_Module_Github::fetchRaw($org, $repo, $ref, 'theme.json') === null) {
+            throw new RuntimeException("{$org}/{$repo}@{$ref} has no module.json or theme.json (or the repo isn't public).");
         }
 
         $tar = tempnam(sys_get_temp_dir(), 'tigermod') . '.tar.gz';
@@ -81,12 +83,9 @@ class Tiger_Module_Installer
             self::_extract($tarPath, $parent);
 
             $root = self::_findModuleRoot($parent);
-            if (!$root || !is_file($root . '/module.json')) {
-                throw new RuntimeException('Package has no module.json at its root.');
-            }
-            $manifest = json_decode((string) file_get_contents($root . '/module.json'), true);
-            if (!is_array($manifest) || empty($manifest['slug'])) {
-                throw new RuntimeException('Invalid module.json (missing slug).');
+            $manifest = $root ? self::_readManifest($root) : null;
+            if (!$manifest) {
+                throw new RuntimeException('Package has no valid module.json or theme.json at its root.');
             }
             $slug = self::_validSlug($manifest['slug']);
             self::_checkRequires($manifest['requires'] ?? []);
@@ -171,15 +170,46 @@ class Tiger_Module_Installer
         throw new RuntimeException('No archive extractor available (PharData/tar).');
     }
 
-    /** A bare module tar has module.json at the top; a GitHub tarball wraps it in one dir. */
+    /** A bare package tar has its manifest at the top; a GitHub tarball wraps it in one dir. */
     protected static function _findModuleRoot($parent)
     {
-        if (is_file($parent . '/module.json')) { return $parent; }
+        $has = static function ($d) { return is_file($d . '/module.json') || is_file($d . '/theme.json'); };
+        if ($has($parent)) { return $parent; }
         $dirs = glob($parent . '/*', GLOB_ONLYDIR) ?: [];
         foreach ($dirs as $d) {
-            if (is_file($d . '/module.json')) { return $d; }
+            if ($has($d)) { return $d; }
         }
         return count($dirs) === 1 ? $dirs[0] : null;
+    }
+
+    /**
+     * Read a package's manifest — a code module's module.json, or a theme's theme.json normalized to
+     * the same shape (slug = "theme-" + key, plus name/version/license/requires and type=theme). This
+     * is why themes install through the same path as modules. Returns null if neither is present or
+     * the manifest is invalid (missing slug/key).
+     *
+     * @param  string $dir the package root
+     * @return array|null the normalized manifest, or null
+     */
+    protected static function _readManifest($dir)
+    {
+        if (is_file($dir . '/module.json')) {
+            $m = json_decode((string) file_get_contents($dir . '/module.json'), true);
+            return (is_array($m) && !empty($m['slug'])) ? $m : null;
+        }
+        if (is_file($dir . '/theme.json')) {
+            $t = json_decode((string) file_get_contents($dir . '/theme.json'), true);
+            if (!is_array($t) || empty($t['key'])) { return null; }
+            return [
+                'slug'     => 'theme-' . $t['key'],
+                'name'     => $t['name'] ?? $t['key'],
+                'version'  => $t['version'] ?? null,
+                'license'  => $t['license'] ?? null,
+                'requires' => $t['requires'] ?? [],
+                'type'     => 'theme',
+            ];
+        }
+        return null;
     }
 
     protected static function _validSlug($slug)
