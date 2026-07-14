@@ -225,8 +225,9 @@ body {
 .media-tile-icon { display:flex; flex-direction:column; align-items:center; justify-content:center; aspect-ratio:1; gap:.35rem; color:var(--bs-secondary-color); text-decoration:none; }
 .media-tile-icon i { font-size:1.7rem; }
 .media-tile-name { font-size:.74rem; margin-top:.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--bs-secondary-color); }
-.media-tile-del { position:absolute; top:.3rem; right:.3rem; width:22px; height:22px; line-height:20px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; opacity:0; transition:opacity .1s; }
-.media-tile:hover .media-tile-del { opacity:1; }
+.media-tile-edit { position:absolute; top:.3rem; right:.3rem; display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; font-size:.72rem; cursor:pointer; opacity:0; transition:opacity .1s; }
+.media-tile:hover .media-tile-edit { opacity:1; }
+.media-tile-edit:hover { background:rgba(0,0,0,.82); }
 /* "Copied!" confirmation popper (Copy-URL action) — floats just above the button, fades out */
 .media-copied-pop { position:absolute; transform:translate(-50%,-100%); margin-top:-6px; background:var(--bs-emphasis-color); color:var(--bs-body-bg); font-size:.72rem; font-weight:500; line-height:1; padding:.3rem .5rem; border-radius:.35rem; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s ease, margin-top .15s ease; z-index:2000; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 .media-copied-pop.show { opacity:1; margin-top:-10px; }
