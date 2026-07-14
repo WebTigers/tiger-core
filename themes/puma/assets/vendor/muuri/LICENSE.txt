@@ -1,0 +1,2 @@
+Muuri v0.9.5 — MIT License — Copyright (c) 2015-present, Haltu Oy
+https://github.com/haltu/muuri/blob/master/LICENSE.md
