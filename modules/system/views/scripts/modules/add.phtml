@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ((pm==='free'||pm==='freemium') ? ' <span class="badge text-bg-success-subtle text-success-emphasis border border-success-subtle">free</span>' : '') +
             ((pm==='freemium'||pm==='paid') ? ' <span class="badge text-bg-primary-subtle text-primary-emphasis border border-primary-subtle" title="Paid pro version available">pro</span>' : '');
         var spon = m.sponsored?' <span class="badge text-bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="Promoted placement">'+esc(m.sponsored_label||'Sponsored')+'</span>':'';
-        var hero = (type==='theme' && m.hero) ? '<img src="'+esc(m.hero)+'" class="mod-card-hero" alt="" onerror="'+imgErr+'">' : '';
+        var hero = m.hero ? '<img src="'+esc(m.hero)+'" class="mod-card-hero" alt="" onerror="'+imgErr+'">' : '';
         return '<div class="mod-grid-item" data-type="'+esc(type)+'"><div class="mod-grid-item-content card'+(m.sponsored?' border-warning-subtle':'')+'">'+
             hero +
             '<div class="card-body d-flex gap-3">'+
