@@ -171,6 +171,14 @@
 
     add('tb-heading', 'Heading', 'Content', '<h2>Heading</h2>', 'fa-heading');
     add('tb-text', 'Text', 'Content', '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>', 'fa-align-left');
+    // Image → the native GrapesJS image component; `activate` fires its asset manager on drop, which
+    // Tiger routes to TigerMediaPicker (see the assetManager.custom config) — so you drop Image and the
+    // Media Library opens immediately. `select` leaves the new image selected for styling.
+    bm.add('tb-image', { label: 'Image', category: 'Content', activate: true, select: true,
+      media: '<i class="fa-solid fa-image"></i>', content: { type: 'image' } });
+    // Video → the native GrapesJS video component (HTML5 file URL, YouTube, or Vimeo via its traits).
+    bm.add('tb-video', { label: 'Video', category: 'Content', select: true,
+      media: '<i class="fa-solid fa-film"></i>', content: { type: 'video' } });
     add('tb-button', 'Button', 'Content', '<a href="#" class="btn btn-primary">Button</a>', 'fa-hand-pointer');
     add('tb-buttons', 'Buttons', 'Content', '<div class="d-inline-flex gap-2"><a href="#" class="btn btn-primary">Primary</a> <a href="#" class="btn btn-outline-secondary">Secondary</a></div>', 'fa-hand-pointer');
     add('tb-list', 'List', 'Content', '<ul><li>One</li><li>Two</li><li>Three</li></ul>', 'fa-list');
