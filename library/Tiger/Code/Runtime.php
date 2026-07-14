@@ -129,11 +129,26 @@ class Tiger_Code_Runtime
         // PHP is platform-scope only (org_id = '') — the security boundary.
         $rows = $model->activeForLoad(Tiger_Model_Code::LANG_PHP, $location, '');
 
-        $buf = "<?php\n/* Tiger Code — compiled {$location} bundle v{$version}. Generated from the `code` table; DO NOT EDIT. */\n";
+        $buf = "<?php\n/* Tiger Code — compiled {$location} bundle v{$version}. Generated from the `code` table + active module snippets; DO NOT EDIT. */\n";
         foreach ($rows as $r) {
             $buf .= "\n\$GLOBALS['" . self::MARKER . "'] = " . var_export((string) $r->code_id, true) . ";\n";
             $buf .= '/* == ' . str_replace('*/', '* /', (string) $r->name) . " == */\n";
             $buf .= $model->normalize($r->code) . "\n";
+        }
+
+        // Active MODULE snippets — file bodies read live from installed `code` modules, never copied
+        // into the DB. Each is linted on its own first, so one broken file is skipped instead of
+        // failing the whole bundle (the bundle-level lint below is still the final gate for cross-
+        // snippet conflicts). Module snippets are define-only + function_exists-guarded, so they carry
+        // no per-snippet self-heal marker — the marker stays null across them.
+        $buf .= "\n\$GLOBALS['" . self::MARKER . "'] = null;\n";
+        foreach (Tiger_Code_Modules::activeForLoad($location) as $key => $s) {
+            $body = Tiger_Code_Modules::body($key);
+            if ($body === '' || !$model->lint($body)['ok']) {
+                continue;
+            }
+            $buf .= "\n/* == module:" . str_replace('*/', '* /', (string) $key) . " == */\n";
+            $buf .= $body . "\n";
         }
         $buf .= "\n\$GLOBALS['" . self::MARKER . "'] = null;\n";
 
