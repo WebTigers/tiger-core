@@ -65,9 +65,24 @@ class Tiger_Module_Installer
     }
 
     /**
-     * Shared install tail: extract a .tar.gz, validate, place, migrate, publish, record.
+     * Install a module from an uploaded archive on the local filesystem (a .zip — or a .tar.gz).
+     * Same extract → validate → place → migrate → publish → record tail as a URL install, recorded
+     * with source=upload (no repository/ref). The caller validates the upload before calling this.
      *
-     * @param  string $tarPath    path to the module's .tar.gz package
+     * @param  string $archivePath path to the uploaded archive
+     * @param  array  $opts        install options (e.g. ['force' => true] to update in place)
+     * @return array the installed module summary
+     * @throws RuntimeException on extraction, manifest, slug, or placement failure
+     */
+    public static function installFromUpload($archivePath, array $opts = [])
+    {
+        return self::installFromTarball($archivePath, ['source' => Tiger_Model_Module::SOURCE_UPLOAD], $opts);
+    }
+
+    /**
+     * Shared install tail: extract an archive (.tar.gz or .zip), validate, place, migrate, publish, record.
+     *
+     * @param  string $tarPath    path to the module's archive package
      * @param  array  $provenance install provenance (repository, ref, source)
      * @param  array  $opts       install options (e.g. ['force' => true] to update in place)
      * @return array{slug:string,name:string,version:?string,ref:?string} the installed module summary
@@ -136,7 +151,7 @@ class Tiger_Module_Installer
     {
         $slug = self::_validSlug($slug);
         $row  = (new Tiger_Model_Module())->bySlug($slug);
-        if (!$row || !in_array($row->source, [Tiger_Model_Module::SOURCE_URL, Tiger_Model_Module::SOURCE_REGISTRY], true)) {
+        if (!$row || !in_array($row->source, [Tiger_Model_Module::SOURCE_URL, Tiger_Model_Module::SOURCE_REGISTRY, Tiger_Model_Module::SOURCE_UPLOAD], true)) {
             throw new RuntimeException("'{$slug}' isn't an installer-managed module — won't remove it.");
         }
         (new Tiger_Model_Module())->uninstall($slug);
@@ -151,10 +166,43 @@ class Tiger_Module_Installer
 
     // ---- helpers ---------------------------------------------------------------
 
-    protected static function _extract($tarPath, $into)
+    protected static function _extract($archivePath, $into)
     {
+        // ZIP (uploads) — detected by the "PK" magic, since an upload temp file has no extension.
+        $fh    = @fopen($archivePath, 'rb');
+        $magic = $fh ? (string) fread($fh, 4) : '';
+        if ($fh) { fclose($fh); }
+        if (strncmp($magic, "PK\x03\x04", 4) === 0 || strncmp($magic, "PK\x05\x06", 4) === 0) {
+            if (class_exists('ZipArchive')) {
+                $zip = new ZipArchive();
+                if ($zip->open($archivePath) === true) {
+                    $zip->extractTo($into);
+                    $zip->close();
+                    return;
+                }
+            }
+            if (function_exists('exec')) {
+                $out = []; $rc = 1;
+                exec('unzip -q ' . escapeshellarg($archivePath) . ' -d ' . escapeshellarg($into) . ' 2>&1', $out, $rc);
+                if ($rc === 0) { return; }
+            }
+            // PharData reads zip too (Phar is always loaded — tar.gz uses it), but it detects the
+            // zip format from a .zip extension, so hand it a .zip-named copy of the upload temp file.
+            try {
+                $zp = preg_match('/\.zip$/i', $archivePath) ? $archivePath : $archivePath . '.zip';
+                if ($zp !== $archivePath) { @copy($archivePath, $zp); }
+                (new PharData($zp))->extractTo($into, null, true);
+                if ($zp !== $archivePath) { @unlink($zp); }
+                return;
+            } catch (Throwable $e) {
+                // fall through to the error below
+            }
+            throw new RuntimeException('No zip extractor available (ZipArchive/unzip/Phar).');
+        }
+
+        // TAR.GZ (release tarballs)
         try {
-            $phar = new PharData($tarPath);
+            $phar = new PharData($archivePath);
             $phar->extractTo($into, null, true);
             return;
         } catch (Throwable $e) {
@@ -163,11 +211,11 @@ class Tiger_Module_Installer
         if (function_exists('exec')) {
             $out = [];
             $rc  = 1;
-            exec('tar -xzf ' . escapeshellarg($tarPath) . ' -C ' . escapeshellarg($into) . ' 2>&1', $out, $rc);
+            exec('tar -xzf ' . escapeshellarg($archivePath) . ' -C ' . escapeshellarg($into) . ' 2>&1', $out, $rc);
             if ($rc === 0) { return; }
             throw new RuntimeException('Extract failed: ' . trim(implode("\n", $out)));
         }
-        throw new RuntimeException('No archive extractor available (PharData/tar).');
+        throw new RuntimeException('No archive extractor available (PharData/tar/unzip).');
     }
 
     /** A bare package tar has its manifest at the top; a GitHub tarball wraps it in one dir. */

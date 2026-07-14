@@ -18,6 +18,7 @@ class Tiger_Model_Module extends Tiger_Model_Table
 
     const SOURCE_REGISTRY   = 'registry';
     const SOURCE_URL        = 'url';
+    const SOURCE_UPLOAD     = 'upload';
     const SOURCE_DISCOVERED = 'discovered';
 
     /**

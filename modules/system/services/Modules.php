@@ -245,4 +245,36 @@ class System_Service_Modules extends Tiger_Service_Service
             $this->_error('Install failed — ' . $e->getMessage());
         }
     }
+
+    /**
+     * Install a module from an uploaded .zip. Multipart POST to /api; the archive rides in
+     * $_FILES['archive'] (not the JSON message body), so we read it directly. Same extract →
+     * validate → place → migrate → publish → record path as a URL install (source=upload).
+     *
+     * @param  array $params the /api payload (optional `force` to update in place)
+     * @return void
+     */
+    public function upload(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+
+        $f = $_FILES['archive'] ?? null;
+        if (!is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            $this->_error('Choose a module .zip to upload.'); return;
+        }
+        if (($f['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            $this->_error(($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE)
+                ? 'That file is larger than the server allows.' : 'Upload failed — please try again.');
+            return;
+        }
+        if (empty($f['tmp_name']) || !is_uploaded_file($f['tmp_name'])) { $this->_error('Invalid upload.'); return; }
+        if (!preg_match('/\.zip$/i', (string) ($f['name'] ?? ''))) { $this->_error('Upload a .zip archive.'); return; }
+
+        try {
+            $r = Tiger_Module_Installer::installFromUpload($f['tmp_name'], ['force' => !empty($params['force'])]);
+            $this->_success($r, 'system.module.installed', '/system/modules');
+        } catch (Throwable $e) {
+            $this->_error('Install failed — ' . $e->getMessage());
+        }
+    }
 }
