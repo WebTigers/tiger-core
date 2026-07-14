@@ -45,14 +45,16 @@
       if (typeof CodeMirror === 'undefined') { return null; }
       opts = opts || {};
 
+      var ro = !!opts.readOnly;
       var cm = CodeMirror.fromTextArea(textarea, {
         mode: modeFor(opts.mode || textarea.getAttribute('data-mode') || 'htmlmixed'),
         theme: themeName(),
+        readOnly: ro,                       // view-only surfaces (e.g. a module snippet's source)
         lineNumbers: true,
         lineWrapping: opts.wrap !== false,
         matchBrackets: true,
-        autoCloseBrackets: true,
-        styleActiveLine: true,
+        autoCloseBrackets: !ro,
+        styleActiveLine: !ro,
         foldGutter: true,
         indentUnit: 2,
         tabSize: 2,
