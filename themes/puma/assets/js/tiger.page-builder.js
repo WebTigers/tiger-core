@@ -50,6 +50,7 @@
   // enough to show where this goes (a Divi/Elementor-class kit); dress up later.
   registerMenuComponent(editor);
   registerBootstrapBlocks(editor);
+  registerVideoPicker(editor);
   registerThemeBlocks(editor);
 
   // Seed the canvas: prefer the lossless project blob, else import the body HTML.
@@ -193,6 +194,41 @@
     add('tb-accordion', 'Accordion', 'Components', accordionHtml(), 'fa-bars-staggered');
 
     bm.add('tb-menu', { label: 'Menu', category: 'Components', media: '<i class="fa-solid fa-bars"></i>', content: { type: 'tiger-menu' } });
+  }
+
+  // ---- Video ↔ Media Library. The native video component takes its src from a trait, not the
+  // asset manager, so we bridge it: a command opens TigerMediaPicker (kind:video) and applies the
+  // pick as an HTML5 source. Fires on drop (like Image) and from a component toolbar button. ----
+  function registerVideoPicker(editor) {
+    editor.Commands.add('tiger-video-pick', {
+      run: function (ed, sender, options) {
+        var target = (options && options.target) || ed.getSelected();
+        if (!target || !window.TigerMediaPicker) { return; }
+        window.TigerMediaPicker.open({
+          kind: 'video',
+          title: 'Select a video',
+          onSelect: function (item) {
+            if (item && item.url) { target.set({ provider: 'so', src: item.url }); }   // 'so' = HTML5 <source> (an uploaded file)
+          }
+        });
+      }
+    });
+
+    // A toolbar button on any selected video component → (re)pick from the library.
+    editor.on('component:selected', function (component) {
+      if (!component || component.get('type') !== 'video') { return; }
+      var tb = (component.get('toolbar') || []).slice();
+      if (tb.some(function (t) { return t.command === 'tiger-video-pick'; })) { return; }
+      tb.unshift({ attributes: { class: 'fa-solid fa-photo-film', title: 'Choose video from the Media Library' }, command: 'tiger-video-pick' });
+      component.set('toolbar', tb);
+    });
+
+    // Dropping the Video block opens the picker immediately (only a fresh, src-less drop).
+    editor.on('block:drag:stop', function (component) {
+      if (component && component.get && component.get('type') === 'video' && !component.get('src')) {
+        editor.runCommand('tiger-video-pick', { target: component });
+      }
+    });
   }
 
   // ---- theme-provided blocks: the ACTIVE theme's components/*.phtml (Tiger_Theme::components) ----
