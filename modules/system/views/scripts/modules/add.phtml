@@ -102,6 +102,9 @@ $registryHasData = !empty($this->registryHasData);
                     <div class="small text-body-secondary">Module or theme package, up to 50&nbsp;MB</div>
                     <input type="file" class="d-none" id="mod-file" accept=".zip,application/zip">
                 </div>
+                <div id="mod-progress" class="progress mb-3 d-none" style="height:6px;" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="mod-progress-bar" style="width:0%"></div>
+                </div>
                 <div class="text-end">
                     <button type="button" id="mod-upload" class="btn btn-primary" disabled><i class="fa-solid fa-upload me-1"></i>Upload &amp; install</button>
                 </div>
@@ -127,6 +130,7 @@ $registryHasData = !empty($this->registryHasData);
 <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.css') ?>">
 <script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-lightbox/tiger-lightbox.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/vendor/muuri/muuri.min.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-upload/tiger-upload.js') ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var fb = document.getElementById('mod-feedback');
@@ -218,41 +222,51 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('mod-check').addEventListener('click', function(){ var u=urlEl.value.trim(); if(u){ openDetail(u, refEl.value.trim(), {}, this); } });
     urlEl.addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('mod-check').click(); } });
 
-    // Upload install — drag-drop zone + click-to-browse; the file rides in FormData (multipart).
+    // Upload install — TigerUpload: full-page drop (auto-switches to this tab), click-to-browse,
+    // real progress. Single .zip; install stays a deliberate click (it runs vendor code).
     var uploadBtn = document.getElementById('mod-upload'), fileEl = document.getElementById('mod-file');
     var dropzone = document.getElementById('mod-dropzone'), dropLabel = document.getElementById('mod-drop-label');
-    var pickedFile = null;
-    function pickFile(file){
-        if (!file){ return; }
-        if (!/\.zip$/i.test(file.name)){ TigerDOM.notify(fb, 'Please choose a .zip package.', { type:'alert' }); return; }
-        pickedFile = file;
-        dropLabel.innerHTML = '<i class="fa-solid fa-file-zipper text-success me-1"></i>'+esc(file.name)+' <span class="text-body-secondary">('+(file.size/1048576).toFixed(1)+' MB)</span>';
-        dropzone.classList.add('has-file');
-        uploadBtn.disabled = false;
-    }
-    if (dropzone){
-        dropzone.addEventListener('click', function(){ fileEl.click(); });
-        dropzone.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileEl.click(); } });
-        fileEl.addEventListener('change', function(){ pickFile(fileEl.files[0]); });
-        ['dragenter','dragover'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.add('dragover'); }); });
-        ['dragleave','dragend','drop'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.remove('dragover'); }); });
-        dropzone.addEventListener('drop', function(e){ pickFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
-        // stop the browser from navigating to a file dropped outside the zone
-        ['dragover','drop'].forEach(function(ev){ window.addEventListener(ev, function(e){ if(!dropzone.contains(e.target)){ e.preventDefault(); } }); });
-    }
-    if (uploadBtn){
-        uploadBtn.addEventListener('click', function(){
-            if (!pickedFile){ TigerDOM.notify(fb, 'Choose a .zip package to upload.', { type:'alert' }); return; }
+    var prog = document.getElementById('mod-progress'), progBar = document.getElementById('mod-progress-bar');
+    var staged = null;
+
+    if (window.TigerUpload && dropzone) {
+        var showUploadTab = function(){ var b = document.getElementById('tab-upload-btn'); if (b && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(b).show(); } };
+
+        var up = TigerUpload.create({
+            url: '/api', field: 'archive', accept: ['.zip'], maxSize: 50 * 1048576,
+            multiple: false, auto: false,                       // stage on drop; install on the button click
+            params: { module: 'system', service: 'modules', method: 'upload' }
+        });
+        up.fromInput(fileEl);                                   // click-to-browse
+        up.dropOnWindow({ label: 'Drop your module .zip', sublabel: 'unpacked into your modules folder', onDrop: showUploadTab });
+
+        up.subscribe({
+            onAdd: function (item) {                             // staged (auto:false → not uploading yet)
+                staged = item;
+                dropLabel.innerHTML = '<i class="fa-solid fa-file-zipper text-success me-1"></i>' + esc(item.name) +
+                    ' <span class="text-body-secondary">(' + (item.size / 1048576).toFixed(1) + ' MB)</span>';
+                dropzone.classList.add('has-file');
+                prog.classList.add('d-none'); progBar.style.width = '0%';
+                uploadBtn.disabled = false;
+            },
+            onProgress: function (item) { prog.classList.remove('d-none'); progBar.style.width = item.percent + '%'; },
+            onSuccess: function (item) { progBar.style.width = '100%'; window.location = item.redirect || '/system/modules'; },
+            onError: function (item) {
+                fb.innerHTML = ''; TigerDOM.notify(fb, item.error || 'Upload failed — please try again.', { type: 'error' });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                prog.classList.add('d-none'); uploadBtn.disabled = false;
+            },
+            onReject: function (info) { TigerDOM.notify(fb, info.error, { type: 'alert' }); }
+        });
+
+        dropzone.addEventListener('click', function () { fileEl.click(); });
+        dropzone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileEl.click(); } });
+
+        uploadBtn.addEventListener('click', function () {
+            if (!staged) { TigerDOM.notify(fb, 'Choose a .zip package to upload.', { type: 'alert' }); return; }
             if (!confirm('Install this uploaded package? Its code will run in your app once active.')) { return; }
-            var fd = new FormData();
-            fd.append('module','system'); fd.append('service','modules'); fd.append('method','upload');
-            fd.append('archive', pickedFile);
-            TigerButton.run(this, function(){
-                return fetch('/api',{ method:'POST', headers:{ 'X-Requested-With':'XMLHttpRequest' }, body: fd }).then(function(r){ return r.json().catch(function(){ return {}; }); });
-            }).then(function(res){
-                if (res && res.result===1){ window.location = res.redirect || '/system/modules'; return; }
-                fb.innerHTML=''; ((res&&res.messages)||[]).forEach(function(m){ TigerDOM.notify(fb, m.message, { type: m.class, replace:false }); }); window.scrollTo({ top:0, behavior:'smooth' });
-            }).catch(function(){ TigerDOM.notify(fb, 'Upload failed — please try again.', { type:'error' }); });
+            uploadBtn.disabled = true;
+            up.start();
         });
     }
 
