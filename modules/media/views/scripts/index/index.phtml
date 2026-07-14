@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { data:'visibility', render:function(t,type){ return type!=='display'?t:'<span class="badge text-bg-'+(t==='public'?'success':'secondary')+'">'+esc(t)+'</span>'; } },
             { data:null, orderable:false, searchable:false, className:'text-end text-nowrap', render:function(t,type,row){
                 var h = '<a href="'+esc(row.url)+'" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Open"><i class="fa-solid fa-up-right-from-square"></i></a> ';
+                h += '<button type="button" class="btn btn-sm btn-outline-secondary" data-media-copy="'+esc(row.url)+'" title="Copy URL"><i class="fa-solid fa-link"></i></button> ';
                 h += row.can_delete ? '<button type="button" class="btn btn-sm btn-outline-danger" data-media-delete="'+esc(row.media_id)+'" title="Delete"><i class="fa-solid fa-trash"></i></button>'
                                     : '<button type="button" class="btn btn-sm btn-outline-danger" disabled><i class="fa-solid fa-trash"></i></button>';
                 return h; } }
@@ -228,6 +229,36 @@ document.addEventListener('DOMContentLoaded', function () {
         TigerButton.run(b, function(){
             return fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:new URLSearchParams({ module:'media', service:'media', method:'delete', media_id:b.getAttribute('data-media-delete') }) });
         }).then(function(){ refresh(); }).catch(function(){ refresh(); });
+    });
+
+    // ---------- copy URL to clipboard (delegated) — a brief "Copied!" popper over the button ----------
+    function copyText(text){
+        if (navigator.clipboard && navigator.clipboard.writeText) { return navigator.clipboard.writeText(text); }
+        return new Promise(function(resolve, reject){                       // fallback for insecure/legacy contexts
+            try { var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.top='-9999px';
+                document.body.appendChild(ta); ta.focus(); ta.select(); var ok=document.execCommand('copy'); document.body.removeChild(ta);
+                ok ? resolve() : reject(new Error('copy failed')); } catch(err){ reject(err); }
+        });
+    }
+    function copiedPopper(btn){
+        var pop=document.createElement('div'); pop.className='media-copied-pop'; pop.textContent='Copied!';
+        document.body.appendChild(pop);
+        var r=btn.getBoundingClientRect();
+        pop.style.left=(r.left + r.width/2 + window.scrollX)+'px';
+        pop.style.top =(r.top + window.scrollY)+'px';
+        requestAnimationFrame(function(){ pop.classList.add('show'); });
+        setTimeout(function(){ pop.classList.remove('show'); setTimeout(function(){ if(pop.parentNode){ pop.parentNode.removeChild(pop); } }, 200); }, 1000);
+    }
+    document.addEventListener('click', function(e){
+        var b = e.target.closest('[data-media-copy]');
+        if (!b) { return; }
+        var url = b.getAttribute('data-media-copy') || '';
+        if (url.charAt(0)==='/') { url = window.location.origin + url; }   // share an absolute URL
+        copyText(url).then(function(){
+            var i=b.querySelector('i'), old=i?i.className:'';
+            if(i){ i.className='fa-solid fa-check text-success'; setTimeout(function(){ i.className=old; }, 1000); }
+            copiedPopper(b);
+        }).catch(function(){ TigerDOM.toast('Could not copy the URL.', { type:'error' }); });
     });
 
     // ---------- upload (TigerUpload engine → BOTH views as independent subscribers) ----------
