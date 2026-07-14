@@ -89,14 +89,14 @@ $registryHasData = !empty($this->registryHasData);
             <div class="card-header fw-semibold"><i class="fa-solid fa-upload me-2"></i>Upload a module package</div>
             <div class="card-body">
                 <p class="text-body-secondary small">Upload a module or theme <code>.zip</code> — it's unpacked into your modules folder and installed. Only upload packages you <strong>trust</strong>; the code runs in your app once active.</p>
-                <div class="row g-2 align-items-end">
-                    <div class="col-12 col-md-9">
-                        <label class="form-label small" for="mod-file">Package (<code>.zip</code>)</label>
-                        <input type="file" class="form-control" id="mod-file" accept=".zip,application/zip">
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <button type="button" id="mod-upload" class="btn btn-primary w-100"><i class="fa-solid fa-upload me-1"></i>Upload &amp; install</button>
-                    </div>
+                <div id="mod-dropzone" class="mod-dropzone text-center p-4 mb-3" role="button" tabindex="0" aria-label="Upload a .zip package — drag a file here or press Enter to browse">
+                    <i class="fa-solid fa-cloud-arrow-up fs-2 text-body-secondary d-block mb-2"></i>
+                    <div class="fw-semibold" id="mod-drop-label">Drag a <code>.zip</code> here, or <span class="text-primary text-decoration-underline">browse</span></div>
+                    <div class="small text-body-secondary">Module or theme package, up to 50&nbsp;MB</div>
+                    <input type="file" class="d-none" id="mod-file" accept=".zip,application/zip">
+                </div>
+                <div class="text-end">
+                    <button type="button" id="mod-upload" class="btn btn-primary" disabled><i class="fa-solid fa-upload me-1"></i>Upload &amp; install</button>
                 </div>
             </div>
         </div>
@@ -210,15 +210,35 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('mod-check').addEventListener('click', function(){ var u=urlEl.value.trim(); if(u){ openDetail(u, refEl.value.trim(), {}, this); } });
     urlEl.addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('mod-check').click(); } });
 
-    // Upload install (multipart — the file rides in FormData, not the URLSearchParams api() helper)
+    // Upload install — drag-drop zone + click-to-browse; the file rides in FormData (multipart).
     var uploadBtn = document.getElementById('mod-upload'), fileEl = document.getElementById('mod-file');
+    var dropzone = document.getElementById('mod-dropzone'), dropLabel = document.getElementById('mod-drop-label');
+    var pickedFile = null;
+    function pickFile(file){
+        if (!file){ return; }
+        if (!/\.zip$/i.test(file.name)){ TigerDOM.notify(fb, 'Please choose a .zip package.', { type:'alert' }); return; }
+        pickedFile = file;
+        dropLabel.innerHTML = '<i class="fa-solid fa-file-zipper text-success me-1"></i>'+esc(file.name)+' <span class="text-body-secondary">('+(file.size/1048576).toFixed(1)+' MB)</span>';
+        dropzone.classList.add('has-file');
+        uploadBtn.disabled = false;
+    }
+    if (dropzone){
+        dropzone.addEventListener('click', function(){ fileEl.click(); });
+        dropzone.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileEl.click(); } });
+        fileEl.addEventListener('change', function(){ pickFile(fileEl.files[0]); });
+        ['dragenter','dragover'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.add('dragover'); }); });
+        ['dragleave','dragend','drop'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.remove('dragover'); }); });
+        dropzone.addEventListener('drop', function(e){ pickFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+        // stop the browser from navigating to a file dropped outside the zone
+        ['dragover','drop'].forEach(function(ev){ window.addEventListener(ev, function(e){ if(!dropzone.contains(e.target)){ e.preventDefault(); } }); });
+    }
     if (uploadBtn){
         uploadBtn.addEventListener('click', function(){
-            if (!fileEl.files || !fileEl.files.length){ TigerDOM.notify(fb, 'Choose a .zip package to upload.', { type: 'alert' }); return; }
+            if (!pickedFile){ TigerDOM.notify(fb, 'Choose a .zip package to upload.', { type:'alert' }); return; }
             if (!confirm('Install this uploaded package? Its code will run in your app once active.')) { return; }
             var fd = new FormData();
             fd.append('module','system'); fd.append('service','modules'); fd.append('method','upload');
-            fd.append('archive', fileEl.files[0]);
+            fd.append('archive', pickedFile);
             TigerButton.run(this, function(){
                 return fetch('/api',{ method:'POST', headers:{ 'X-Requested-With':'XMLHttpRequest' }, body: fd }).then(function(r){ return r.json().catch(function(){ return {}; }); });
             }).then(function(res){
