@@ -185,9 +185,19 @@ class Tiger_Module_Installer
                 $out = []; $rc = 1;
                 exec('unzip -q ' . escapeshellarg($archivePath) . ' -d ' . escapeshellarg($into) . ' 2>&1', $out, $rc);
                 if ($rc === 0) { return; }
-                throw new RuntimeException('Unzip failed: ' . trim(implode("\n", $out)));
             }
-            throw new RuntimeException('No zip extractor available (ZipArchive/unzip).');
+            // PharData reads zip too (Phar is always loaded — tar.gz uses it), but it detects the
+            // zip format from a .zip extension, so hand it a .zip-named copy of the upload temp file.
+            try {
+                $zp = preg_match('/\.zip$/i', $archivePath) ? $archivePath : $archivePath . '.zip';
+                if ($zp !== $archivePath) { @copy($archivePath, $zp); }
+                (new PharData($zp))->extractTo($into, null, true);
+                if ($zp !== $archivePath) { @unlink($zp); }
+                return;
+            } catch (Throwable $e) {
+                // fall through to the error below
+            }
+            throw new RuntimeException('No zip extractor available (ZipArchive/unzip/Phar).');
         }
 
         // TAR.GZ (release tarballs)
