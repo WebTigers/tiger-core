@@ -28,10 +28,6 @@
     </div>
 </div>
 
-<div id="media-drop" class="border border-2 border-dashed rounded p-4 text-center text-body-secondary mb-3">
-    <i class="fa-solid fa-cloud-arrow-up fa-2x mb-2 d-block"></i>Drop files anywhere to upload
-</div>
-
 <div class="card">
     <div class="card-header bg-transparent">
         <div class="row g-2 align-items-center">
@@ -235,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // One upload event, broadcast to: (1) the List renderer — temp <tr>s with a thumb + bar;
     // (2) the Portfolio renderer — larger tiles with a bar; (3) a coordinator that toasts errors
     // and reconciles each view with the server-canonical rows on batch end. Same engine, three views.
-    var drop = document.getElementById('media-drop'), input = document.getElementById('media-input'),
+    var input = document.getElementById('media-input'),
         visEl = document.getElementById('media-vis'), listBody = document.querySelector('#media-table tbody');
     function kindOfMime(t){ t=t||'';
         if (/^image\//.test(t)) { return 'image'; } if (t==='application/pdf') { return 'pdf'; }
@@ -273,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         up.fromInput(input);
-        up.dropOnElement(drop, { activeClass: 'bg-body-secondary' });
         up.dropOnWindow({ label: 'Drop to upload', sublabel: 'images · video · PDFs · documents · archives' });
         document.getElementById('media-browse').addEventListener('click', function () { input.click(); });
 
