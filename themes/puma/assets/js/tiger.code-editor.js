@@ -19,6 +19,7 @@
   // App language -> CodeMirror mode (MIME/name). phtml = PHP-in-HTML.
   var MODES = {
     html: 'htmlmixed', htmlmixed: 'htmlmixed',
+    builder: 'htmlmixed',                        // GrapesJS export — HTML at heart
     phtml: 'application/x-httpd-php', php: 'application/x-httpd-php',
     markdown: 'markdown', md: 'markdown',
     css: 'css',

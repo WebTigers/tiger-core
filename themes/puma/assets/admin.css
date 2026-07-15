@@ -158,9 +158,12 @@ body {
     text-align:center;color:var(--bs-secondary-color)}
 
 /* --- CodeMirror editor (shared: code snippet editor + CMS page editor) --- */
-.CodeMirror { border: 1px solid var(--bs-border-color); border-radius: .375rem; height: auto; min-height: 440px; font-size: .9rem; }
+/* Vertically resizable: fixed default height + a drag grip; content scrolls inside. */
+.CodeMirror { border: 1px solid var(--bs-border-color); border-radius: .375rem; height: 440px; resize: vertical; overflow: hidden; font-size: .9rem; }
 .CodeMirror-focused { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .15); }
 .cm-toolbar { display: flex; gap: .3rem; align-items: center; }
+/* Find-bar highlights: all matches tinted; the current one is the editor's own selection. */
+.cm-find-hit { background: rgba(255, 208, 0, .28); border-radius: 2px; }
 
 /* --- CMS menu builder (drag-drop) — moved from modules/cms/views/scripts/menu/edit.phtml --- */
 .menu-builder .menu-tree { list-style:none; margin:0; padding:0; }

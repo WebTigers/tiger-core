@@ -48,9 +48,15 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
                         <?= $el('title') ?>
                     </div>
                     <div class="mb-0">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
                             <label class="form-label mb-0" for="<?= $this->escape($el('body')->getId()) ?>">Body</label>
-                            <div class="cm-toolbar">
+                            <div class="cm-toolbar flex-wrap">
+                                <div class="input-group input-group-sm" style="width:auto;">
+                                    <input type="search" id="cms-find" class="form-control" placeholder="Find…" autocomplete="off" spellcheck="false" style="max-width:150px;">
+                                    <span class="input-group-text px-2" id="cms-find-count" style="min-width:52px;justify-content:center;font-variant-numeric:tabular-nums;"></span>
+                                    <button type="button" class="btn btn-outline-secondary" id="cms-find-prev" title="Previous (Shift+Enter)"><i class="fa-solid fa-chevron-left"></i></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="cms-find-next" title="Next (Enter)"><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="cms-reformat" title="Reformat — pretty-print with nested indentation"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Reformat</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="cms-fold" title="Collapse all blocks"><i class="fa-solid fa-angles-up me-1"></i>Fold</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="cms-unfold" title="Expand all blocks"><i class="fa-solid fa-angles-down me-1"></i>Unfold</button>
@@ -205,6 +211,47 @@ document.addEventListener('DOMContentLoaded', function () {
             cm.scrollTo(pos.left, pos.top);
         });
     }
+
+    // Find bar — highlight all matches, show n/total, jump prev/next (auto-scroll), Word-style.
+    (function () {
+        var input = document.getElementById('cms-find'),
+            countEl = document.getElementById('cms-find-count'),
+            prevBtn = document.getElementById('cms-find-prev'),
+            nextBtn = document.getElementById('cms-find-next');
+        if (!input || !countEl || !cm) { return; }
+        var marks = [], hits = [], cur = -1, q = '';
+
+        function clear() { marks.forEach(function (m) { m.clear(); }); marks = []; hits = []; cur = -1; }
+        function count() { countEl.textContent = q ? (hits.length ? (cur + 1) + '/' + hits.length : '0/0') : ''; }
+        function run() {
+            clear(); q = input.value || '';
+            if (!q) { count(); return; }
+            var text = cm.getValue(), lt = text.toLowerCase(), lq = q.toLowerCase(), i = 0, n = q.length;
+            while ((i = lt.indexOf(lq, i)) !== -1) {
+                var from = cm.posFromIndex(i), to = cm.posFromIndex(i + n);
+                hits.push({ from: from, to: to });
+                marks.push(cm.markText(from, to, { className: 'cm-find-hit' }));
+                i += n;
+            }
+            if (hits.length) { go(0); } else { count(); }
+        }
+        function go(idx) {
+            if (!hits.length) { return; }
+            cur = (idx % hits.length + hits.length) % hits.length;
+            var h = hits[cur];
+            cm.setSelection(h.from, h.to);              // the current match = the editor's selection
+            cm.scrollIntoView({ from: h.from, to: h.to }, 80);
+            count();
+        }
+        var t;
+        input.addEventListener('input', function () { clearTimeout(t); t = setTimeout(run, 150); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); go(cur + (e.shiftKey ? -1 : 1)); }
+            else if (e.key === 'Escape') { input.value = ''; clear(); count(); cm.focus(); }
+        });
+        prevBtn.addEventListener('click', function () { go(cur - 1); input.focus(); });
+        nextBtn.addEventListener('click', function () { go(cur + 1); input.focus(); });
+    })();
 
     function clearErrors() {
         fb.innerHTML = '';
