@@ -126,7 +126,6 @@ document.addEventListener('DOMContentLoaded', function () {
         service: { module: 'cms', service: 'page', action: 'datatable' },
         order: [[5, 'desc']],
         language: { search: '', searchPlaceholder: 'Search content…' },
-        layout: { topStart: 'search', topEnd: 'pageLength' },   // stock DataTables search, top-left where it's expected
         // Toolbar filters ride along on every request (server-side scoping).
         extraData: function () {
             return { status: fStatus.value, type: fType.value };
