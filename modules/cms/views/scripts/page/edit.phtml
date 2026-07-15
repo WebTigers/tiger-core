@@ -185,15 +185,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             var f = fmt ? fmt.value : 'html', src = cm.getValue(), out;
             try {
-                if (f === 'html' || f === 'phtml') {
-                    out = window.html_beautify(src, { indent_size: 2, preserve_newlines: true, max_preserve_newlines: 2, wrap_line_length: 0, unformatted: ['pre', 'textarea', 'code'] });
-                } else if (f === 'css') {
+                if (f === 'css') {
                     out = window.css_beautify(src, { indent_size: 2 });
                 } else if (f === 'js') {
                     out = window.js_beautify(src, { indent_size: 2 });
-                } else {
-                    TigerDOM.toast('Reformat applies to HTML, PHTML, CSS, or JS.', { type: 'info' });
+                } else if (f === 'markdown') {
+                    TigerDOM.toast('Reformat doesn’t apply to Markdown.', { type: 'info' });
                     return;
+                } else {
+                    // html, phtml, builder (GrapesJS export) — all HTML at heart.
+                    out = window.html_beautify(src, { indent_size: 2, preserve_newlines: true, max_preserve_newlines: 2, wrap_line_length: 0, unformatted: ['pre', 'textarea', 'code'] });
                 }
             } catch (e) {
                 TigerDOM.toast('Could not reformat — check the markup.', { type: 'error' });
