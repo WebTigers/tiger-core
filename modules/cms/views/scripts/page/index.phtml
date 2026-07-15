@@ -21,77 +21,94 @@
     <a href="/cms/page/edit" class="btn btn-primary"><i class="fa-solid fa-plus me-2"></i>New Page</a>
 </div>
 
-<?php if (!empty($this->themeTemplates)): ?>
-<div class="card mb-4">
-    <div class="card-header bg-transparent d-flex flex-wrap align-items-center gap-2">
-        <i class="fa-solid fa-swatchbook text-primary"></i>
-        <span class="fw-semibold">Theme templates</span>
-        <?php if ($this->themeName): ?><span class="badge text-bg-light"><?= $this->escape($this->themeName) ?></span><?php endif; ?>
-        <span class="badge text-bg-secondary-subtle text-secondary-emphasis"><?= count($this->themeTemplates) ?></span>
-        <span class="small text-body-secondary ms-auto">Pages the active theme serves from files — <strong>Customize</strong> makes an editable copy that overrides the file. The theme file is never changed.</span>
-    </div>
-    <div class="card-body">
-        <div class="mb-3"><input type="search" id="tpl-search" class="form-control form-control-sm" placeholder="Search <?= count($this->themeTemplates) ?> templates…"></div>
-        <div id="tpl-grid" class="row g-3"></div>
-        <div class="text-center mt-3">
-            <button type="button" id="tpl-more" class="btn btn-sm btn-outline-secondary" hidden>Show more</button>
-            <div id="tpl-empty" class="small text-body-secondary" hidden>No templates match.</div>
+<ul class="nav nav-tabs mb-3" id="cms-content-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-pages-btn" data-bs-toggle="tab" data-bs-target="#tab-pages" type="button" role="tab" aria-controls="tab-pages" aria-selected="true"><i class="fa-solid fa-file-lines me-2"></i>Pages</button>
+    </li>
+    <?php if (!empty($this->themeTemplates)): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-templates-btn" data-bs-toggle="tab" data-bs-target="#tab-templates" type="button" role="tab" aria-controls="tab-templates" aria-selected="false"><i class="fa-solid fa-swatchbook me-2"></i>Theme Templates <span class="badge text-bg-secondary-subtle text-secondary-emphasis ms-1"><?= count($this->themeTemplates) ?></span></button>
+    </li>
+    <?php endif; ?>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="tab-pages" role="tabpanel" aria-labelledby="tab-pages-btn">
+        <div class="card">
+            <div class="card-header bg-transparent">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-sm-auto">
+                        <label class="form-label small text-body-secondary mb-1" for="cms-filter-status">Status</label>
+                        <select id="cms-filter-status" class="form-select form-select-sm">
+                            <option value="">All statuses</option>
+                            <option value="published">Published</option>
+                            <option value="draft">Draft</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-auto">
+                        <label class="form-label small text-body-secondary mb-1" for="cms-filter-type">Type</label>
+                        <select id="cms-filter-type" class="form-select form-select-sm">
+                            <option value="">All types</option>
+                            <option value="page">Page</option>
+                            <option value="layout">Layout</option>
+                            <option value="partial">Partial</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" id="cms-filter-clear" class="btn btn-sm btn-outline-secondary" title="Clear filters">
+                            <i class="fa-solid fa-filter-circle-xmark me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="cms-pages-table" class="table table-hover align-middle" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Slug / Key</th>
+                                <th>Lang</th>
+                                <th>Status</th>
+                                <th>Updated</th>
+                                <th class="text-end" data-orderable="false">Actions</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+
+    <?php if (!empty($this->themeTemplates)): ?>
+    <div class="tab-pane fade" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn">
+        <div class="card">
+            <div class="card-body">
+                <p class="text-body-secondary small mb-3">
+                    <?php if ($this->themeName): ?><span class="badge text-bg-light me-1"><?= $this->escape($this->themeName) ?></span><?php endif; ?>
+                    Pages the active theme serves from files — <strong>Customize</strong> makes an editable copy that overrides the file. The theme file is never changed.
+                </p>
+                <div class="mb-3"><input type="search" id="tpl-search" class="form-control form-control-sm" placeholder="Search <?= count($this->themeTemplates) ?> templates…"></div>
+                <div id="tpl-grid" class="row g-3"></div>
+                <div class="text-center mt-3">
+                    <button type="button" id="tpl-more" class="btn btn-sm btn-outline-secondary" hidden>Show more</button>
+                    <div id="tpl-empty" class="small text-body-secondary" hidden>No templates match.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
+
+<?php if (!empty($this->themeTemplates)): ?>
 <script>
 window.CMS_THEME_TEMPLATES = <?= json_encode(array_map(static function ($t) {
     return ['slug' => $t['slug'], 'title' => $t['title'], 'layout' => $t['layout'], 'page_id' => $t['page_id']];
 }, $this->themeTemplates), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 <?php endif; ?>
-
-<div class="card">
-    <div class="card-header bg-transparent">
-        <div class="row g-2 align-items-end">
-            <div class="col-6 col-sm-auto">
-                <label class="form-label small text-body-secondary mb-1" for="cms-filter-status">Status</label>
-                <select id="cms-filter-status" class="form-select form-select-sm">
-                    <option value="">All statuses</option>
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                </select>
-            </div>
-            <div class="col-6 col-sm-auto">
-                <label class="form-label small text-body-secondary mb-1" for="cms-filter-type">Type</label>
-                <select id="cms-filter-type" class="form-select form-select-sm">
-                    <option value="">All types</option>
-                    <option value="page">Page</option>
-                    <option value="layout">Layout</option>
-                    <option value="partial">Partial</option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="button" id="cms-filter-clear" class="btn btn-sm btn-outline-secondary" title="Clear filters">
-                    <i class="fa-solid fa-filter-circle-xmark me-1"></i>Clear
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table id="cms-pages-table" class="table table-hover align-middle" style="width:100%;">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Type</th>
-                        <th>Slug / Key</th>
-                        <th>Lang</th>
-                        <th>Status</th>
-                        <th>Updated</th>
-                        <th class="text-end" data-orderable="false">Actions</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-    </div>
-</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
