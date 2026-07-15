@@ -38,7 +38,10 @@ body { margin: 0; display: flex; flex-direction: column; overflow: hidden; }
 /* The preset (grapesjs-preset-webpage) RUNTIME-injects a hardcoded brown — e.g.
    .gjs-one-bg{background-color:#463a3c} — so the :root var override above can't reach it. Hit the
    real surfaces directly; !important beats the preset's injected <style>. */
-.gjs-one-bg { background-color: var(--bs-body-bg, #23272e) !important; }
+.gjs-one-bg    { background-color: var(--bs-body-bg, #23272e) !important; }   /* was #463a3c brown */
+.gjs-two-color { color: var(--bs-body-color, #c9ced8) !important; }          /* was #b9a5a6 mauve text/icons */
+.gjs-three-bg  { background-color: var(--bs-primary, #0d6efd) !important; }  /* was #804f7b purple accent */
+.gjs-four-color{ color: #ffffff !important; }                                /* was #d97aa6 pink accent */
 .gjs-category-title, .gjs-layer-title, .gjs-block-category .gjs-title,
 .gjs-sm-sector-title, .gjs-trait-category .gjs-title {
     background-color: var(--bs-tertiary-bg, #2a2f37) !important;
