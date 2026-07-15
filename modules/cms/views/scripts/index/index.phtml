@@ -1,0 +1,228 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * The /cms landing page — the WordPress-audience variant of the public landing.
+ * Where "/" sells the foundation to developers, "/cms" sells the escape route to
+ * WordPress users: outcomes, not internals. Same PUMA public layout + --bs-* tokens,
+ * so it restyles live with the theme (light/dark) and skin — no bespoke CSS.
+ */
+$this->title = 'Tiger CMS — everything WordPress does, without the plugin roulette';
+
+// The pain a WordPress operator already feels — problems get the danger accent.
+$pains = [
+    ['fa-gauge-high',        'Slow, even with caching',            "You've stacked three caching plugins and it's still 600ms to first byte. On WordPress, speed is a plugin you rent — never something the platform just gives you."],
+    ['fa-shield-virus',      'A new CVE every week',                'Security is a pile of plugins — a firewall, a login limiter, a malware scanner — each one more surface to patch. The one you forget to update is the breach.'],
+    ['fa-plug-circle-xmark', 'Update roulette',                     'One plugin update collides with another and the whole site white-screens. You update on a Friday afternoon and quietly pray.'],
+    ['fa-wallet',            'Paying twice for the same thing',     'The same premium plugins, licensed again on every site you run. The bill grows with every client — for features that should just be there.'],
+    ['fa-scale-unbalanced',  'Licensing drama',                     'GPL forced onto everything you build, ownership fights playing out in the headlines, and a market where your $99 plugin is $5 the next morning.'],
+    ['fa-boxes-stacked',     '60,000 plugins, none vouched for',    'Every feature is a third-party gamble — on quality, on whether it gets abandoned, on whether it survives the next core update.'],
+];
+
+// The head-to-head. [row label, WordPress reality, Tiger reality]
+$compare = [
+    ['Page speed',          '200–800 ms — with a caching plugin doing the heavy lifting',   '~10 ms, straight from the platform — no cache plugin required'],
+    ['Security',            'A stack of plugins: firewall, login limiter, malware scanner',  'Auth, roles, brute-force lockout, 2FA, and an audit log in the core'],
+    ['Updates',             'A plugin update can white-screen the entire site',              'Your content is isolated from framework updates — nothing to break'],
+    ['Running many sites',  'One install per site (or a fragile multisite)',                 'Multi-tenant by default — many sites, one install, separate branding'],
+    ['Users & roles',       'Another plugin to add memberships and permissions',             'Roles and permissions built in, per site, enforced everywhere'],
+    ['Languages',           'A translation plugin (WPML, Polylang) bolted on',               'Built-in translation, edited live, with no deploy'],
+    ['Plugin cost',         'Per site, every year, forever',                                 'Included — marketplace modules are licensed on the creator\'s terms'],
+    ['Your code\'s license','GPL — forced onto your themes and plugins',                     'Your license. Proprietary if you want — your code stays yours'],
+    ['Add-on quality',      '60,000 plugins of wildly varying quality',                      'A curated, reviewed marketplace with real licensing'],
+    ['Hosting',             'Needs capable hosting + a caching layer to feel fast',          'Flies on a $5 shared / cPanel host'],
+];
+
+// The platform's features, in a WordPress user's language — outcomes, not architecture.
+$features = [
+    ['fa-building',    'Run every site from one install',   'Multi-tenant from the ground up — each site its own branding, content, and users. One place to sign in, one place to update.'],
+    ['fa-user-shield', 'User roles, no plugin',             'Admins, editors, viewers — real permissions built in, per site, enforced everywhere. Not a bolt-on you hope was configured right.'],
+    ['fa-bolt',        'Install and start',                 'No build tools, no setup marathon — one-click and cPanel-friendly. Then you\'re writing pages, not wiring plugins together.'],
+    ['fa-language',    "Speak your customers' language",    'Translation is built in. Add a language, edit any string live, reach a new market — no plugin, no deploy, no export.'],
+    ['fa-gauge-high',  'Fast without trying',               '~10 ms pages on cheap hosting, no caching plugin in sight. Speed is the default here, not an upgrade you go install.'],
+    ['fa-store',       'A marketplace that respects everyone','Curated, reviewed modules with real licensing — creators keep their rights, you get quality you can trust.'],
+    ['fa-box-open',    'Your content stays yours',          'Pages, posts, and media are portable data you own — change the look without breaking the site. No theme lock-in.'],
+    ['fa-lock',        'Secure out of the box',             'Password policy, brute-force lockout, database sessions, 2FA, and an audit log — the security stack, included, not assembled.'],
+];
+?>
+<!-- Hero -->
+<section class="py-5">
+    <div class="container text-center py-lg-5">
+        <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2" style="font-size:1.6em;">
+            Tiger CMS · the modern WordPress alternative
+        </span>
+        <h1 class="display-4 fw-bold mb-3">Everything WordPress<sup style="font-size:.5em; top:-.7em;">&reg;</sup> does.<br class="d-none d-md-inline"> None of the plugin roulette.</h1>
+        <p class="lead text-secondary mx-auto mb-4" style="max-width: 720px;">
+            Tiger runs your sites — pages, blog, users, media, menus, and translation — from one fast,
+            secure install. No caching plugins to make it quick. No security plugins to keep it safe.
+            No update that white-screens everything on a Tuesday.
+        </p>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+            <a href="#compare" class="btn btn-primary btn-lg px-4">See how it compares</a>
+            <a href="#migrate" class="btn btn-outline-secondary btn-lg px-4">Bring your content</a>
+        </div>
+        <p class="small text-secondary mt-3 mb-0">
+            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>
+            Flip <strong>light/dark</strong> or the <strong>skin</strong> in the header — this page restyles live, no reload.
+        </p>
+    </div>
+</section>
+
+<!-- The pain — "sound familiar?" -->
+<section class="py-5" style="background: var(--bs-tertiary-bg);">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Sound familiar?</h2>
+            <p class="text-secondary mb-0">If you run WordPress, you live this every week. You don't have to.</p>
+        </div>
+        <div class="row g-4">
+<?php foreach ($pains as $p): ?>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-3 bg-danger-subtle text-danger-emphasis mb-3" style="width:48px;height:48px;">
+                            <i class="fa-solid <?= $p[0] ?> fs-5"></i>
+                        </div>
+                        <h3 class="h6 fw-semibold"><?= $this->escape($p[1]) ?></h3>
+                        <p class="small text-secondary mb-0"><?= $this->escape($p[2]) ?></p>
+                    </div>
+                </div>
+            </div>
+<?php endforeach; ?>
+        </div>
+    </div>
+</section>
+
+<!-- Comparison table -->
+<section id="compare" class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2">Head to head</span>
+            <h2 class="fw-bold">WordPress vs. Tiger</h2>
+            <p class="text-secondary mx-auto mb-0" style="max-width:640px;">
+                Same job — running your website — done two very different ways. One rents you every
+                capability as a plugin; the other ships them in the box.
+            </p>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr class="border-bottom">
+                        <th scope="col" class="w-25"></th>
+                        <th scope="col" class="text-secondary fw-semibold">
+                            <i class="fa-brands fa-wordpress me-2"></i>WordPress
+                        </th>
+                        <th scope="col" class="text-primary-emphasis fw-bold">
+                            <i class="fa-solid fa-paw me-2"></i>Tiger
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+<?php foreach ($compare as $row): ?>
+                    <tr>
+                        <th scope="row" class="fw-semibold text-body"><?= $this->escape($row[0]) ?></th>
+                        <td class="text-secondary">
+                            <i class="fa-solid fa-xmark text-danger me-2"></i><?= $this->escape($row[1]) ?>
+                        </td>
+                        <td class="text-body">
+                            <i class="fa-solid fa-check text-success me-2"></i><?= $this->escape($row[2]) ?>
+                        </td>
+                    </tr>
+<?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-secondary text-center mt-4 mb-0" style="font-size:.7rem; line-height:1.45;">
+            ~10&thinsp;ms measured (single warm request, 2&#8209;vCPU box, PHP&nbsp;8 + OPcache). WordPress
+            figures reflect typical uncached page generation and the common plugin stack — not a controlled
+            benchmark; results vary by workload, hosting, and configuration.
+        </p>
+    </div>
+</section>
+
+<!-- Features, reframed -->
+<section class="py-5" style="background: var(--bs-tertiary-bg);">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">What you get, in plain terms</h2>
+            <p class="text-secondary mb-0">The capabilities you bolt onto WordPress with plugins — already here, already working.</p>
+        </div>
+        <div class="row g-4">
+<?php foreach ($features as $f): ?>
+            <div class="col-md-6 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis mb-3" style="width:48px;height:48px;">
+                            <i class="fa-solid <?= $f[0] ?> fs-5"></i>
+                        </div>
+                        <h3 class="h6 fw-semibold"><?= $this->escape($f[1]) ?></h3>
+                        <p class="small text-secondary mb-0"><?= $this->escape($f[2]) ?></p>
+                    </div>
+                </div>
+            </div>
+<?php endforeach; ?>
+        </div>
+    </div>
+</section>
+
+<!-- Migration -->
+<section id="migrate" class="py-5">
+    <div class="container">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <span class="badge rounded-pill text-bg-warning-subtle text-warning-emphasis mb-3 px-3 py-2">
+                    <i class="fa-solid fa-road me-1"></i>On the roadmap
+                </span>
+                <h2 class="fw-bold mb-3">Bring your content. Leave the mess behind.</h2>
+                <p class="text-secondary mb-3">
+                    Your posts, pages, media, and menus are <em>yours</em> — and a WordPress migration tool
+                    is on the way to bring them across cleanly. You won't be cloning the plugin sprawl;
+                    you'll be rescuing the content that matters and rebuilding it on a platform that's
+                    faster, safer, and actually yours.
+                </p>
+                <p class="text-secondary mb-0">
+                    Nobody switching from Android to iPhone expects the same screens. They expect their
+                    photos, contacts, and messages to come along — and the new phone to be better. Same idea.
+                </p>
+            </div>
+            <div class="col-lg-5">
+                <div class="card border-0 border-start border-primary border-4 shadow-sm">
+                    <div class="card-body p-4">
+                        <h3 class="h6 fw-bold mb-3">What comes across</h3>
+                        <ul class="list-unstyled small text-secondary mb-0">
+                            <li class="mb-2"><i class="fa-solid fa-check text-success me-2"></i>Pages &amp; posts — as portable content you own</li>
+                            <li class="mb-2"><i class="fa-solid fa-check text-success me-2"></i>Media library — your images and files</li>
+                            <li class="mb-2"><i class="fa-solid fa-check text-success me-2"></i>Menus &amp; navigation structure</li>
+                            <li class="mb-0"><i class="fa-solid fa-check text-success me-2"></i>Users &amp; authors</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5">
+    <div class="container">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body p-4 p-lg-5">
+                <h2 class="fw-bold mb-3">See it for yourself</h2>
+                <p class="text-secondary mb-4">
+                    Read the docs, browse the code, and when you're ready, a fresh site is one command away.
+                </p>
+                <div class="bg-body-tertiary border rounded-3 d-inline-block px-4 py-3 mb-4 text-start font-monospace small">
+                    <span class="text-secondary">$</span> composer create-project webtigers/tiger my-site --stability=beta
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a href="/docs" class="btn btn-primary btn-lg px-4">
+                        <i class="fa-solid fa-book me-2"></i>Read the docs
+                    </a>
+                    <a href="https://github.com/WebTigers/Tiger" class="btn btn-outline-secondary btn-lg px-4" target="_blank" rel="noopener">
+                        <i class="fa-brands fa-github me-2"></i>View on GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
