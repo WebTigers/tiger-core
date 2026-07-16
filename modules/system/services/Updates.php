@@ -123,8 +123,17 @@ class System_Service_Updates extends Tiger_Service_Service
 
         if ($u['type'] === 'core') {
             $step('resolve', true, "TigerCore {$u['installed']} → {$u['latest']}");
-            // The real no-shell path: atomically swap in a pre-resolved vendored release ZIP — when
-            // the host can do it AND a release ZIP is published for the target version.
+
+            // Composer host (dev / VPS / any shell host): actually RUN composer — the update APPLIES,
+            // it doesn't just advise. This is the right path wherever Composer genuinely runs.
+            if ($u['method'] === 'composer' && Tiger_Update_Composer::possible()) {
+                $res = Tiger_Update_Composer::update(['package' => $u['repository'], 'target' => $u['latest']]);
+                return ['slug' => $u['slug'], 'name' => $u['name'], 'ok' => !empty($res['ok']),
+                        'version' => $res['version'] ?? null, 'log' => array_merge($log, $res['log'])];
+            }
+
+            // No-shell host (the CMS user on shared hosting): atomically swap in a pre-resolved vendored
+            // release ZIP — when the host can extract+swap AND a release ZIP is published for the target.
             if (Tiger_Update_Core::possible()) {
                 $rel = Tiger_Update_Core::resolveRelease($u['latest']);
                 if ($rel) {
@@ -132,14 +141,12 @@ class System_Service_Updates extends Tiger_Service_Service
                     return ['slug' => $u['slug'], 'name' => $u['name'], 'ok' => !empty($res['ok']),
                             'version' => $res['version'] ?? null, 'log' => array_merge($log, $res['log'])];
                 }
-                $step('advise', true, 'No pre-built release ZIP is published for ' . $u['latest'] . ' yet — '
-                    . ($u['method'] === 'composer'
-                        ? 'run `composer update webtigers/tiger-core` (CLI) meanwhile.'
-                        : 'the one-click core-swap engine is ready and activates the moment a release ZIP ships.'));
+                $step('advise', true, 'No pre-built release ZIP is published for ' . $u['latest']
+                    . ' yet — the one-click core-swap engine is ready and activates the moment a release ZIP ships.');
             } else {
-                $step('advise', true, $u['method'] === 'composer'
-                    ? 'This host can\'t self-swap vendor/ (not writable, or no zip/phar extractor). Run `composer update webtigers/tiger-core` on a machine that can.'
-                    : 'This host can\'t self-swap vendor/ (needs a writable vendor/ + ext-zip or ext-phar), and has no Composer — see UPDATING.md.');
+                $step('advise', true, 'This host can\'t self-update the platform: Composer isn\'t runnable here '
+                    . 'and there\'s no ext-zip/phar + writable vendor/ for the swap. Update via Composer on a '
+                    . 'machine that can, or see UPDATING.md.');
             }
             return ['slug' => $u['slug'], 'name' => $u['name'], 'ok' => true, 'advisory' => true, 'log' => $log];
         }
