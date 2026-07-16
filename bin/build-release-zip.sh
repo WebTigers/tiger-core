@@ -54,6 +54,10 @@ VER_FILE="$WORK/vendor/webtigers/tiger-core/library/Tiger/Version.php"
 GOT="$(grep -oE "VERSION\s*=\s*'[^']+'" "$VER_FILE" | grep -oE "'[^']+'" | tr -d "'")"
 echo "  resolved tiger-core: ${GOT}"
 
+# Strip VCS metadata: a package's DIST never has .git — it only appears on a source install (a
+# just-tagged version whose dist zipball isn't ready). Removing it matches the dist + trims the bundle.
+find "$WORK/vendor" -type d -name '.git' -prune -exec rm -rf {} + 2>/dev/null || true
+
 mkdir -p "$OUT"; ABS_OUT="$(cd "$OUT" && pwd)"
 ZIP="${ABS_OUT}/tiger-core-vendored-${VERSION}.zip"
 rm -f "$ZIP" "$ZIP.sha256"
