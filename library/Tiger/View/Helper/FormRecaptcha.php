@@ -79,6 +79,8 @@ class Tiger_View_Helper_FormRecaptcha extends Zend_View_Helper_Abstract
                 . '},true);});});}'
                 . 'if(window.grecaptcha)bind();else{var i=setInterval(function(){if(window.grecaptcha){clearInterval(i);bind();}},200);}'
                 . '})();</script>';
+        // Optionally hide the floating badge (with the required legal notice in its place).
+        $html .= Tiger_Recaptcha::badgeCss() . Tiger_Recaptcha::legalNotice();
         return $html;
     }
 

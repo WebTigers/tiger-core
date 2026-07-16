@@ -38,6 +38,17 @@ class System_Service_Settings extends Tiger_Service_Service
             $cfg->set($g, '', 'tiger.session.autologout.seconds', (string) max(30, (int) $v['autologout_seconds']));
             $cfg->set($g, '', 'tiger.session.autologout.action', $v['autologout_action'] === 'lock' ? 'lock' : 'logout');
 
+            // reCAPTCHA tab — shared writer (encrypts the secret; blank secret keeps the current one).
+            Tiger_Recaptcha::saveSettings([
+                'enabled'    => !empty($v['recaptcha_enabled']) ? 1 : 0,
+                'version'    => $v['recaptcha_version'],
+                'site_key'   => $v['recaptcha_site_key'],
+                'secret_key' => $v['recaptcha_secret_key'],
+                'min_score'  => $v['recaptcha_min_score'] === '' ? 0.5 : $v['recaptcha_min_score'],
+                'fail_open'  => !empty($v['recaptcha_fail_open']) ? 1 : 0,
+                'hide_badge' => !empty($v['recaptcha_hide_badge']) ? 1 : 0,
+            ]);
+
             $this->_success([], 'system.settings.saved', '/system/settings');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');

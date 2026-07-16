@@ -37,15 +37,25 @@ class System_SettingsController extends Tiger_Controller_Admin_Action
         }
         $al = (new Tiger_Service_Authentication())->autologoutConfig();
 
+        $rc = Tiger_Recaptcha::settings();
+
         $form = new System_Form_Settings();
         $form->populate([
-            'session_ttl'        => $ttlAuthed,
-            'autologout_enabled' => $al['enabled'] ? 1 : 0,
-            'autologout_seconds' => $al['seconds'],
-            'autologout_action'  => $al['action'],
+            'session_ttl'          => $ttlAuthed,
+            'autologout_enabled'   => $al['enabled'] ? 1 : 0,
+            'autologout_seconds'   => $al['seconds'],
+            'autologout_action'    => $al['action'],
+            'recaptcha_enabled'    => $rc['enabled'],
+            'recaptcha_version'    => $rc['version'],
+            'recaptcha_site_key'   => $rc['site_key'],
+            'recaptcha_min_score'  => $rc['min_score'],
+            'recaptcha_fail_open'  => $rc['fail_open'],
+            'recaptcha_hide_badge' => $rc['hide_badge'],
+            // secret is never prefilled — masked; blank on save keeps the current value
         ]);
 
-        $this->view->title = 'System Settings — Tiger Admin';
-        $this->view->form  = $form;
+        $this->view->title     = 'System Settings — Tiger Admin';
+        $this->view->form      = $form;
+        $this->view->hasSecret = $rc['has_secret'];
     }
 }

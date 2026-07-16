@@ -2,20 +2,23 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
- * System Settings — session lifetime + auto-logout. ViewHelper-only form (the view owns
- * markup). Saving is an /api call to System_Service_Settings; the JSON response drives the
- * feedback. One "Session & Security" card for now; add tabs here when System grows more
- * sections (mail, logging, locale).
+ * System Settings — tabbed: Session & Security · Email SMTP (stub) · reCAPTCHA. One ViewHelper-only
+ * form spanning the tabs; one Save posts to System_Service_Settings (/api) and the JSON drives the
+ * feedback. reCAPTCHA writes tiger.recaptcha.* (secret encrypted at rest); the same controls are
+ * surfaced by the TigerShield Security screen via the shared Tiger_Recaptcha::saveSettings().
  */
 $form = $this->form;
 $el = function ($name) use ($form) { return $form->getElement($name); };
 $alEnabled = !empty($el('autologout_enabled')->getValue());
 $alAction  = (string) $el('autologout_action')->getValue() ?: 'logout';
+$rcVersion = (string) $el('recaptcha_version')->getValue() ?: 'v2';
+$rcEnabled = !empty($el('recaptcha_enabled')->getValue());
+$hasSecret = !empty($this->hasSecret);
 ?>
 <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
         <h1 class="h3 mb-1">System</h1>
-        <p class="text-body-secondary mb-0">Platform configuration — sessions and security.</p>
+        <p class="text-body-secondary mb-0">Platform configuration — sessions, email, and reCAPTCHA.</p>
     </div>
     <div class="text-nowrap">
         <button type="button" id="sys-settings-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
@@ -24,55 +27,152 @@ $alAction  = (string) $el('autologout_action')->getValue() ?: 'logout';
 
 <div id="sys-settings-feedback"></div>
 
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-session-btn" data-bs-toggle="tab" data-bs-target="#tab-session" type="button" role="tab"><i class="fa-solid fa-shield-halved me-2"></i>Session &amp; Security</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-smtp-btn" data-bs-toggle="tab" data-bs-target="#tab-smtp" type="button" role="tab"><i class="fa-solid fa-envelope me-2"></i>Email SMTP</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-recaptcha-btn" data-bs-toggle="tab" data-bs-target="#tab-recaptcha" type="button" role="tab"><i class="fa-solid fa-user-check me-2"></i>reCAPTCHA</button>
+    </li>
+</ul>
+
 <form id="sys-settings-form" onsubmit="return false;" novalidate>
     <?= $el('_csrf') ?>
-    <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="card">
-                <div class="card-header fw-semibold"><i class="fa-solid fa-shield-halved me-2"></i>Session &amp; Security</div>
-                <div class="card-body">
-                    <div class="mb-4">
-                        <label class="form-label" for="set-session-ttl">Maximum session timeout <span class="text-body-secondary fw-normal">(seconds)</span></label>
-                        <div class="input-group" style="max-width:24rem;">
-                            <?= $el('session_ttl') ?>
-                            <span class="input-group-text">sec</span>
+    <div class="tab-content">
+
+        <!-- Session & Security -->
+        <div class="tab-pane fade show active" id="tab-session" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-shield-halved me-2"></i>Session &amp; Security</div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <label class="form-label" for="set-session-ttl">Maximum session timeout <span class="text-body-secondary fw-normal">(seconds)</span></label>
+                                <div class="input-group" style="max-width:24rem;">
+                                    <?= $el('session_ttl') ?>
+                                    <span class="input-group-text">sec</span>
+                                </div>
+                                <div class="form-text mt-1"><i class="fa-regular fa-clock me-1"></i><span id="set-session-ttl-h" class="fw-semibold text-body">—</span></div>
+                                <div class="form-text">How long a standard user's session stays valid while idle — the hard backstop, enforced even with the tab closed. Admin roles use a separate, shorter tier.</div>
+                            </div>
+
+                            <hr>
+
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="set-autologout-enabled" name="autologout_enabled" value="1" <?= $alEnabled ? 'checked' : '' ?>>
+                                <label class="form-check-label fw-semibold" for="set-autologout-enabled">Auto-logout on inactivity</label>
+                                <div class="form-text">Proactively sign the user out (or lock the screen) after a period of no interaction. Server-authoritative: the browser polls for time-left every minute, and the clock only resets on genuine activity.</div>
+                            </div>
+
+                            <fieldset id="set-autologout-opts" class="ps-1 <?= $alEnabled ? '' : 'opacity-50' ?>">
+                                <div class="mb-3">
+                                    <label class="form-label" for="set-autologout-seconds">Log out after <span class="text-body-secondary fw-normal">(seconds of inactivity)</span></label>
+                                    <div class="input-group" style="max-width:24rem;">
+                                        <?= $el('autologout_seconds') ?>
+                                        <span class="input-group-text">sec</span>
+                                    </div>
+                                    <div class="form-text mt-1"><i class="fa-regular fa-hourglass-half me-1"></i><span id="set-autologout-seconds-h" class="fw-semibold text-body">—</span></div>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label d-block">When it fires</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="autologout_action" id="al-act-logout" value="logout" <?= $alAction !== 'lock' ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="al-act-logout">Full logout <span class="text-body-secondary">— end the session, return to sign-in</span></label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="autologout_action" id="al-act-lock" value="lock" <?= $alAction === 'lock' ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="al-act-lock">Lock screen <span class="text-body-secondary">— keep the session, re-enter password to resume</span></label>
+                                    </div>
+                                </div>
+                            </fieldset>
                         </div>
-                        <div class="form-text mt-1"><i class="fa-regular fa-clock me-1"></i><span id="set-session-ttl-h" class="fw-semibold text-body">—</span></div>
-                        <div class="form-text">How long a standard user's session stays valid while idle — the hard backstop, enforced even with the tab closed. Admin roles use a separate, shorter tier.</div>
                     </div>
-
-                    <hr>
-
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="set-autologout-enabled" name="autologout_enabled" value="1" <?= $alEnabled ? 'checked' : '' ?>>
-                        <label class="form-check-label fw-semibold" for="set-autologout-enabled">Auto-logout on inactivity</label>
-                        <div class="form-text">Proactively sign the user out (or lock the screen) after a period of no interaction. Server-authoritative: the browser polls for time-left every minute, and the clock only resets on genuine activity.</div>
-                    </div>
-
-                    <fieldset id="set-autologout-opts" class="ps-1 <?= $alEnabled ? '' : 'opacity-50' ?>">
-                        <div class="mb-3">
-                            <label class="form-label" for="set-autologout-seconds">Log out after <span class="text-body-secondary fw-normal">(seconds of inactivity)</span></label>
-                            <div class="input-group" style="max-width:24rem;">
-                                <?= $el('autologout_seconds') ?>
-                                <span class="input-group-text">sec</span>
-                            </div>
-                            <div class="form-text mt-1"><i class="fa-regular fa-hourglass-half me-1"></i><span id="set-autologout-seconds-h" class="fw-semibold text-body">—</span></div>
-                        </div>
-                        <div class="mb-0">
-                            <label class="form-label d-block">When it fires</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="autologout_action" id="al-act-logout" value="logout" <?= $alAction !== 'lock' ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="al-act-logout">Full logout <span class="text-body-secondary">— end the session, return to sign-in</span></label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="autologout_action" id="al-act-lock" value="lock" <?= $alAction === 'lock' ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="al-act-lock">Lock screen <span class="text-body-secondary">— keep the session, re-enter password to resume</span></label>
-                            </div>
-                        </div>
-                    </fieldset>
                 </div>
             </div>
         </div>
+
+        <!-- Email SMTP (stub) -->
+        <div class="tab-pane fade" id="tab-smtp" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-envelope me-2"></i>Email &amp; SMTP</div>
+                        <div class="card-body">
+                            <div class="text-center text-body-secondary py-4">
+                                <i class="fa-solid fa-screwdriver-wrench fa-2x mb-3 d-block"></i>
+                                <p class="mb-1 fw-semibold text-body">Under construction</p>
+                                <p class="mb-0">Mail transport, SMTP host/port/TLS, auth, and the From identity are
+                                driven by config today (<code>mail.*</code>) and read live by <code>Tiger_Mail</code> —
+                                config, not code, so an admin screen slots in cleanly here. Coming soon.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- reCAPTCHA -->
+        <div class="tab-pane fade" id="tab-recaptcha" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-user-check me-2"></i>Google reCAPTCHA</div>
+                        <div class="card-body">
+                            <p class="text-body-secondary small mb-3">Get a key pair at <a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">google.com/recaptcha/admin</a>. Used by forms (signup, login) and TigerShield's captcha gating.</p>
+
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="set-rc-enabled" name="recaptcha_enabled" value="1" <?= $rcEnabled ? 'checked' : '' ?>>
+                                <label class="form-check-label fw-semibold" for="set-rc-enabled">Enable reCAPTCHA</label>
+                            </div>
+
+                            <div class="mb-3" style="max-width:28rem;">
+                                <label class="form-label" for="set-rc-version">Version</label>
+                                <?= $el('recaptcha_version') ?>
+                                <div class="form-text">v2 shows a checkbox; v3 is invisible and scores each request.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="set-rc-site">Site key <span class="text-body-secondary fw-normal">(public)</span></label>
+                                <?= $el('recaptcha_site_key') ?>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="set-rc-secret">Secret key <span class="text-body-secondary fw-normal">(stored encrypted)</span></label>
+                                <?php $sec = $el('recaptcha_secret_key'); $sec->setAttrib('placeholder', $hasSecret ? '•••••••• — leave blank to keep the current key' : 'Paste your secret key'); ?>
+                                <?= $sec ?>
+                                <div class="form-text"><?= $hasSecret ? 'A secret is configured. Enter a new one only to replace it.' : 'The secret is encrypted at rest — never stored in plain text.' ?></div>
+                            </div>
+
+                            <fieldset id="set-rc-v3" class="border rounded p-3 mb-1 <?= $rcVersion === 'v3' ? '' : 'd-none' ?>">
+                                <legend class="float-none fs-6 fw-semibold px-1 w-auto">v3 options</legend>
+                                <div class="mb-3" style="max-width:14rem;">
+                                    <label class="form-label" for="set-rc-score">Minimum score <span class="text-body-secondary fw-normal">(0–1)</span></label>
+                                    <?= $el('recaptcha_min_score') ?>
+                                    <div class="form-text">Requests scoring below this are treated as failed. 0.5 is a sensible default.</div>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="set-rc-hidebadge" name="recaptcha_hide_badge" value="1" <?= !empty($el('recaptcha_hide_badge')->getValue()) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="set-rc-hidebadge">Hide the reCAPTCHA badge</label>
+                                    <div class="form-text">Hides the floating badge via CSS. Google permits this <em>only if</em> the reCAPTCHA legal notice is shown instead — which Tiger adds automatically next to the protected form.</div>
+                                </div>
+                            </fieldset>
+
+                            <hr>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="set-rc-failopen" name="recaptcha_fail_open" value="1" <?= !empty($el('recaptcha_fail_open')->getValue()) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="set-rc-failopen">Fail open on a reCAPTCHA outage</label>
+                                <div class="form-text">If Google can't be reached, <strong>on</strong> = let requests through (availability), <strong>off</strong> = block them.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </form>
 
@@ -86,6 +186,10 @@ document.addEventListener('DOMContentLoaded', function () {
         fb.innerHTML = '';
         form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
         var fd = new URLSearchParams(new FormData(form));
+        // Unchecked switches don't submit — send explicit "0" so a toggle-off persists.
+        ['autologout_enabled', 'recaptcha_enabled', 'recaptcha_fail_open', 'recaptcha_hide_badge'].forEach(function (k) {
+            if (!fd.has(k)) { fd.set(k, '0'); }
+        });
         fd.set('module', 'system'); fd.set('service', 'settings'); fd.set('method', 'save');
         TigerButton.run(btn, function () {
             return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
@@ -133,6 +237,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (alToggle && alOpts) {
         var sync = function () { alOpts.classList.toggle('opacity-50', !alToggle.checked); };
         alToggle.addEventListener('change', sync); sync();
+    }
+
+    // Show the v3-only options only when v3 is selected.
+    var rcVer = document.getElementById('set-rc-version');
+    var rcV3  = document.getElementById('set-rc-v3');
+    if (rcVer && rcV3) {
+        var syncV3 = function () { rcV3.classList.toggle('d-none', rcVer.value !== 'v3'); };
+        rcVer.addEventListener('change', syncV3); syncV3();
     }
 });
 </script>
