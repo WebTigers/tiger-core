@@ -48,7 +48,7 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
                         <i class="fa-solid fa-chevron-<?= $coll ? 'down' : 'up' ?>"></i>
                     </button>
                 </div>
-                <div class="card-body dash-body<?= $coll ? ' d-none' : '' ?>">
+                <div class="card-body dash-body"<?= $coll ? ' style="display:none"' : '' ?>>
                     <?= Tiger_Dashboard::renderBody($w) ?>
                 </div>
             </div>
@@ -93,13 +93,15 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
         window.addEventListener('resize', debounce(function () { grid.refreshItems().layout(); }, 150));
 
+        // Seed each body's open/closed state for TigerDOM (server renders collapsed ones display:none).
+        el.querySelectorAll('.dash-body').forEach(function (body) { body.__tgOpen = (body.style.display !== 'none'); });
+
         function persist() {
             var order = grid.getItems().map(function (it) { return it.getElement().getAttribute('data-id'); });
             var collapsed = {};
             el.querySelectorAll('.dash-item').forEach(function (it) {
-                if (it.querySelector('.dash-body').classList.contains('d-none')) {
-                    collapsed[it.getAttribute('data-id')] = true;
-                }
+                var body = it.querySelector('.dash-body');
+                if (body && body.__tgOpen === false) { collapsed[it.getAttribute('data-id')] = true; }
             });
             var fd = new URLSearchParams();
             fd.set('module', 'system'); fd.set('service', 'dashboard'); fd.set('method', 'saveLayout');
@@ -109,19 +111,30 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
 
         grid.on('dragReleaseEnd', persist);
 
-        // Collapse / expand a widget (delegated to the grid).
+        // Collapse / expand a widget — animated via TigerDOM (the house reveal primitive), repacking the
+        // Muuri grid each frame so the masonry reflows smoothly as the card resizes.
         el.addEventListener('click', function (e) {
             var btn = e.target.closest('.dash-collapse');
             if (!btn) { return; }
-            var item = btn.closest('.dash-item');
-            var body = item.querySelector('.dash-body');
-            var icon = btn.querySelector('i');
-            body.classList.toggle('d-none');
-            var collapsed = body.classList.contains('d-none');
-            icon.className = 'fa-solid fa-chevron-' + (collapsed ? 'down' : 'up');
+            var item   = btn.closest('.dash-item');
+            var body   = item.querySelector('.dash-body');
+            var icon   = btn.querySelector('i');
             var mItems = grid.getItems(item);
-            if (mItems.length) { grid.refreshItems(mItems).layout(); }
-            persist();
+            var willOpen = !body.__tgOpen;
+            icon.className = 'fa-solid fa-chevron-' + (willOpen ? 'up' : 'down');
+
+            if (!window.TigerDOM) {                              // graceful fallback (no animation)
+                body.style.display = willOpen ? '' : 'none'; body.__tgOpen = willOpen;
+                if (mItems.length) { grid.refreshItems(mItems).layout(); }
+                persist(); return;
+            }
+            var animating = true;
+            (function tick() { if (!animating) { return; } if (mItems.length) { grid.refreshItems(mItems).layout(); } requestAnimationFrame(tick); })();
+            TigerDOM.toggle(body).then(function () {
+                animating = false;
+                if (mItems.length) { grid.refreshItems(mItems).layout(); }
+                persist();
+            });
         });
 
         grid.layout();
