@@ -41,8 +41,7 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         ?>
         <div class="dash-item" data-id="<?= $id ?>" data-w="<?= $wide ?>"<?= (int) ($w['refresh'] ?? 0) > 0 ? ' data-refresh="' . (int) $w['refresh'] . '"' : '' ?>>
             <div class="card shadow-sm h-100">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-grip-vertical text-body-secondary dash-drag" title="Drag to rearrange"></i>
+                <div class="card-header dash-handle d-flex align-items-center gap-2" title="Drag to rearrange">
                     <i class="fa-solid <?= $icon ?> text-primary"></i>
                     <span class="fw-semibold flex-grow-1 text-truncate"><?= $title ?></span>
                     <button type="button" class="btn btn-sm btn-link p-0 text-body-secondary dash-collapse" aria-label="Collapse widget">
@@ -64,8 +63,10 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         @media (min-width: 1200px) { .dash-item { width: 33.333%; } .dash-item[data-w="2"] { width: 66.666%; } .dash-item[data-w="3"], .dash-item[data-w="4"] { width: 100%; } }
         @media (min-width: 1600px) { .dash-item { width: 25%; }     .dash-item[data-w="2"] { width: 50%; } .dash-item[data-w="3"] { width: 75%; } .dash-item[data-w="4"] { width: 100%; } }
         .dash-item .card { margin: 0; }
-        .dash-drag { cursor: grab; }
-        .muuri-item-dragging { z-index: 3; cursor: grabbing; }
+        .dash-handle { cursor: move; user-select: none; }
+        .dash-collapse { cursor: pointer; }
+        .muuri-item-dragging { z-index: 3; }
+        .muuri-item-dragging .dash-handle { cursor: grabbing; }
         .muuri-item-releasing { z-index: 2; }
         .muuri-item-hidden { z-index: 0; }
         @media (prefers-reduced-motion: reduce) { .dash-item { transition: none !important; } }
@@ -80,8 +81,13 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         var grid = new Muuri(el, {
             items: '.dash-item',
             dragEnabled: true,
-            dragHandle: '.dash-drag',
-            layout: { fillGaps: false, rounding: true }
+            dragHandle: '.dash-handle',                 // the whole card header is the handle
+            layout: { fillGaps: false, rounding: true },
+            // Don't start a drag when the click is on the collapse toggle inside the header.
+            dragStartPredicate: function (item, e) {
+                if (e.target && e.target.closest && e.target.closest('.dash-collapse')) { return false; }
+                return Muuri.ItemDrag.defaultStartPredicate(item, e);
+            }
         });
 
         function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
