@@ -27,6 +27,20 @@ class Tiger_Location_Adapter_Nominatim extends Tiger_Location_Adapter_Abstract
         return [self::CAP_SUGGEST, self::CAP_GEOCODE, self::CAP_REVERSE];
     }
 
+    public function label(): string
+    {
+        return 'Nominatim (OpenStreetMap)';
+    }
+
+    public function fields(): array
+    {
+        return [
+            ['key' => 'endpoint', 'label' => 'Endpoint', 'type' => 'text', 'placeholder' => 'https://nominatim.openstreetmap.org'],
+            ['key' => 'email', 'label' => 'Contact email', 'type' => 'text',
+             'help' => 'Optional — OSM asks for a contact email at higher request volumes.'],
+        ];
+    }
+
     /**
      * Autocomplete a partial address via Nominatim search.
      *

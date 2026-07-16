@@ -38,6 +38,22 @@ class Tiger_Location_Adapter_IpApi extends Tiger_Location_Adapter_Abstract
         return [self::CAP_IP];
     }
 
+    public function label(): string
+    {
+        return 'ip-api.com';
+    }
+
+    public function fields(): array
+    {
+        return [
+            ['key' => 'endpoint', 'label' => 'Endpoint', 'type' => 'text',
+             'placeholder' => self::DEFAULT_ENDPOINT,
+             'help' => 'Free tier is HTTP-only + non-commercial + rate-limited (~45/min). Add a Pro key below for HTTPS + higher limits.'],
+            ['key' => 'key', 'label' => 'API key (Pro)', 'type' => 'secret',
+             'help' => 'Only needed for the paid ip-api Pro tier; leave blank for free/dev use.'],
+        ];
+    }
+
     /**
      * Resolve an IP to an approximate Tiger_Location_Place, or null when the provider can't
      * place it (private/invalid IP, rate-limit, network error, …).

@@ -49,9 +49,43 @@ class System_Service_Settings extends Tiger_Service_Service
                 'hide_badge' => !empty($v['recaptcha_hide_badge']) ? 1 : 0,
             ]);
 
+            // Location tab — provider selection + each adapter's own fields (secrets encrypted). The form
+            // fields are dynamic per adapter, so they ride on $params directly (not the static form).
+            if (class_exists('Tiger_Location') && method_exists('Tiger_Location', 'saveSettings')
+                && array_key_exists('location_ip_provider', $params)) {
+                Tiger_Location::saveSettings([
+                    'ip_provider'      => $params['location_ip_provider'] ?? null,
+                    'address_provider' => $params['location_address_provider'] ?? null,
+                    'cache_ttl'        => $params['location_cache_ttl'] ?? null,
+                    'adapters'         => (isset($params['location_adapter']) && is_array($params['location_adapter'])) ? $params['location_adapter'] : [],
+                ]);
+            }
+
             $this->_success([], 'system.settings.saved', '/system/settings');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
         }
+    }
+
+    /**
+     * Live IP-geolocation test for the Location tab's "Test" button. Uses the selected provider with the
+     * form's current field values (so a just-typed key is testable without saving). Defaults to the
+     * caller's own IP. Returns the lookup result as data (ok + country/city/label, or an error message).
+     *
+     * @param  array $params ip?, provider, config[field]
+     * @return void
+     */
+    public function locationTest(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+        if (!class_exists('Tiger_Location') || !method_exists('Tiger_Location', 'test')) {
+            $this->_error('core.api.error.general'); return;
+        }
+        $ip = trim((string) ($params['ip'] ?? ''));
+        if ($ip === '') { $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? ''); }
+        $provider = (string) ($params['provider'] ?? '');
+        $config   = (isset($params['config']) && is_array($params['config'])) ? $params['config'] : [];
+
+        $this->_success(Tiger_Location::test($ip, $provider, $config));
     }
 }

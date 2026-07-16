@@ -48,6 +48,30 @@ abstract class Tiger_Location_Adapter_Abstract implements Tiger_Location_Adapter
         return in_array($capability, $this->capabilities(), true);
     }
 
+    /**
+     * A human label for the provider picker (default: the class suffix). Override for a nice name.
+     *
+     * @return string
+     */
+    public function label(): string
+    {
+        $p = strrpos(static::class, '_');
+        return $p !== false ? substr(static::class, $p + 1) : static::class;
+    }
+
+    /**
+     * The adapter's SETTABLE config fields, for the admin Location screen — so a module's new adapter
+     * surfaces its own settings with zero UI code. Each field: ['key'=>, 'label'=>, 'type'=>'text'|'secret',
+     * optional 'placeholder'/'help']. Values live under tiger.location.adapters.<name>.<key>; a 'secret'
+     * field is stored encrypted at rest. Default: none.
+     *
+     * @return array<int,array>
+     */
+    public function fields(): array
+    {
+        return [];
+    }
+
     // Unsupported by default — concrete adapters override what they can do.
 
     /**

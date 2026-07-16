@@ -37,6 +37,11 @@ $hasSecret = !empty($this->hasSecret);
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="tab-recaptcha-btn" data-bs-toggle="tab" data-bs-target="#tab-recaptcha" type="button" role="tab"><i class="fa-solid fa-user-check me-2"></i>reCAPTCHA</button>
     </li>
+    <?php if (!empty($this->location)): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-location-btn" data-bs-toggle="tab" data-bs-target="#tab-location" type="button" role="tab"><i class="fa-solid fa-location-dot me-2"></i>Location</button>
+    </li>
+    <?php endif; ?>
 </ul>
 
 <form id="sys-settings-form" onsubmit="return false;" novalidate>
@@ -173,6 +178,79 @@ $hasSecret = !empty($this->hasSecret);
             </div>
         </div>
 
+        <!-- Location -->
+        <?php if (!empty($this->location)): $loc = $this->location;
+            $ipAdapters   = array_filter($loc['adapters'], function ($a) { return in_array('ip', $a['caps'], true); });
+            $addrAdapters = array_filter($loc['adapters'], function ($a) { return in_array('geocode', $a['caps'], true) || in_array('suggest', $a['caps'], true); });
+            $renderFields = function ($a, $vals) {
+                if (empty($a['fields'])) { echo '<p class="small text-body-secondary mb-0">No settings for this provider.</p>'; return; }
+                foreach ($a['fields'] as $f):
+                    $k = $f['key']; $type = $f['type'] ?? 'text'; $fv = $vals[$k] ?? [];
+                    $name = 'location_adapter[' . htmlspecialchars($a['name'], ENT_QUOTES) . '][' . htmlspecialchars($k, ENT_QUOTES) . ']'; ?>
+                    <div class="mb-3">
+                        <label class="form-label small"><?= htmlspecialchars($f['label']) ?><?php if ($type === 'secret'): ?> <span class="text-body-secondary">(encrypted)</span><?php endif; ?></label>
+                        <?php if ($type === 'secret'): ?>
+                        <input type="password" name="<?= $name ?>" class="form-control form-control-sm" autocomplete="new-password" placeholder="<?= !empty($fv['has']) ? '•••••••• — leave blank to keep' : htmlspecialchars($f['placeholder'] ?? '') ?>">
+                        <?php else: ?>
+                        <input type="text" name="<?= $name ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($fv['value'] ?? '') ?>" placeholder="<?= htmlspecialchars($f['placeholder'] ?? '') ?>">
+                        <?php endif; ?>
+                        <?php if (!empty($f['help'])): ?><div class="form-text small"><?= htmlspecialchars($f['help']) ?></div><?php endif; ?>
+                    </div>
+                <?php endforeach;
+            }; ?>
+        <div class="tab-pane fade" id="tab-location" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card mb-4">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-map-location-dot me-2"></i>IP geolocation</div>
+                        <div class="card-body">
+                            <div class="mb-3" style="max-width:24rem">
+                                <label class="form-label" for="loc-ip-provider">Provider</label>
+                                <select id="loc-ip-provider" name="location_ip_provider" class="form-select">
+                                    <?php foreach ($ipAdapters as $a): ?><option value="<?= htmlspecialchars($a['name'], ENT_QUOTES) ?>" <?= $loc['ip_provider'] === $a['name'] ? 'selected' : '' ?>><?= htmlspecialchars($a['label']) ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <?php foreach ($ipAdapters as $a): ?>
+                            <div class="loc-ip-fields" data-provider="<?= htmlspecialchars($a['name'], ENT_QUOTES) ?>" <?= $loc['ip_provider'] === $a['name'] ? '' : 'style="display:none"' ?>><?php $renderFields($a, $loc['values'][$a['name']] ?? []); ?></div>
+                            <?php endforeach; ?>
+                            <hr>
+                            <label class="form-label small">Test a lookup</label>
+                            <div class="input-group input-group-sm" style="max-width:28rem">
+                                <input type="text" id="loc-test-ip" class="form-control" placeholder="IP address (blank = your IP)">
+                                <button type="button" id="loc-test-btn" class="btn btn-outline-secondary"><i class="fa-solid fa-bolt me-1"></i>Test</button>
+                            </div>
+                            <div id="loc-test-result" class="small mt-2"></div>
+                        </div>
+                    </div>
+                    <?php if ($addrAdapters): ?>
+                    <div class="card mb-4">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-map-pin me-2"></i>Address autocomplete &amp; geocoding</div>
+                        <div class="card-body">
+                            <div class="mb-3" style="max-width:24rem">
+                                <label class="form-label" for="loc-addr-provider">Provider</label>
+                                <select id="loc-addr-provider" name="location_address_provider" class="form-select">
+                                    <?php foreach ($addrAdapters as $a): ?><option value="<?= htmlspecialchars($a['name'], ENT_QUOTES) ?>" <?= $loc['address_provider'] === $a['name'] ? 'selected' : '' ?>><?= htmlspecialchars($a['label']) ?></option><?php endforeach; ?>
+                                </select>
+                            </div>
+                            <?php foreach ($addrAdapters as $a): ?>
+                            <div class="loc-addr-fields" data-provider="<?= htmlspecialchars($a['name'], ENT_QUOTES) ?>" <?= $loc['address_provider'] === $a['name'] ? '' : 'style="display:none"' ?>><?php $renderFields($a, $loc['values'][$a['name']] ?? []); ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-database me-2"></i>Cache</div>
+                        <div class="card-body">
+                            <label class="form-label small" for="loc-cache-ttl">Lookup cache lifetime <span class="text-body-secondary">(seconds)</span></label>
+                            <div class="input-group input-group-sm" style="max-width:16rem"><input type="text" id="loc-cache-ttl" name="location_cache_ttl" class="form-control" inputmode="numeric" value="<?= (int) $loc['cache_ttl'] ?>"><span class="input-group-text">sec</span></div>
+                            <div class="form-text">An IP's location doesn't change — caching means the provider is hit at most once per IP per this window, never on a normal request. <code>0</code> disables it.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
     </div>
 </form>
 
@@ -245,6 +323,42 @@ document.addEventListener('DOMContentLoaded', function () {
     if (rcVer && rcV3) {
         var syncV3 = function () { rcV3.classList.toggle('d-none', rcVer.value !== 'v3'); };
         rcVer.addEventListener('change', syncV3); syncV3();
+    }
+
+    // Location: show only the selected provider's config fields.
+    function bindProvider(selectId, groupClass) {
+        var sel = document.getElementById(selectId);
+        if (!sel) { return; }
+        var groups = document.querySelectorAll('.' + groupClass);
+        var sync = function () { groups.forEach(function (g) { g.style.display = (g.getAttribute('data-provider') === sel.value) ? '' : 'none'; }); };
+        sel.addEventListener('change', sync); sync();
+    }
+    bindProvider('loc-ip-provider', 'loc-ip-fields');
+    bindProvider('loc-addr-provider', 'loc-addr-fields');
+
+    // Location: live "Test" lookup (sends the selected provider + its current field values).
+    var locTestBtn = document.getElementById('loc-test-btn');
+    if (locTestBtn) {
+        locTestBtn.addEventListener('click', function () {
+            var out      = document.getElementById('loc-test-result');
+            var provider = document.getElementById('loc-ip-provider').value;
+            var fd = new URLSearchParams();
+            fd.set('module', 'system'); fd.set('service', 'settings'); fd.set('method', 'locationTest');
+            fd.set('ip', document.getElementById('loc-test-ip').value);
+            fd.set('provider', provider);
+            document.querySelectorAll('.loc-ip-fields[data-provider="' + provider + '"] input').forEach(function (inp) {
+                var m = inp.name.match(/\[[^\]]+\]\[([^\]]+)\]/);
+                if (m && inp.value !== '') { fd.set('config[' + m[1] + ']', inp.value); }
+            });
+            out.className = 'small mt-2 text-body-secondary'; out.textContent = 'Testing…';
+            TigerButton.run(this, function () {
+                return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            }).then(function (res) {
+                var d = (res && res.data) || {};
+                if (d.ok) { out.className = 'small mt-2 text-success'; out.textContent = '✓ ' + (d.label || (d.city ? d.city + ', ' : '') + (d.country || '?')); }
+                else { out.className = 'small mt-2 text-danger'; out.textContent = '✗ ' + (d.error || 'Lookup failed.'); }
+            }).catch(function () { out.className = 'small mt-2 text-danger'; out.textContent = 'Network error.'; });
+        });
     }
 });
 </script>

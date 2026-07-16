@@ -54,6 +54,21 @@ class Tiger_Location_Adapter_Aws extends Tiger_Location_Adapter_Abstract
         return [self::CAP_SUGGEST, self::CAP_GEOCODE, self::CAP_REVERSE];
     }
 
+    public function label(): string
+    {
+        return 'AWS Location Service';
+    }
+
+    public function fields(): array
+    {
+        return [
+            ['key' => 'region', 'label' => 'AWS region', 'type' => 'text', 'placeholder' => 'us-east-1'],
+            ['key' => 'place_index', 'label' => 'Place Index name', 'type' => 'text'],
+            ['key' => 'key', 'label' => 'Access key ID', 'type' => 'secret', 'help' => 'Prefer an IAM role / env vars; only set here if you must.'],
+            ['key' => 'secret', 'label' => 'Secret access key', 'type' => 'secret'],
+        ];
+    }
+
     /**
      * Autocomplete a partial address. Returns Tiger_Location_Place[] of lightweight suggestions
      * (label + optional PlaceId to feed a follow-up geocode). Empty on any error.
