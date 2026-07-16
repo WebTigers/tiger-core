@@ -113,9 +113,18 @@ class Tiger_Module_Installer
                 throw new RuntimeException('application/modules is not writable.');
             }
 
-            // Swap into place; keep a backup until we're done.
+            // Swap into place; keep a backup until we're done. The backup goes in a `modules-backup/`
+            // sibling of modules/ — NEVER inside modules/ itself: ZF1's module scan treats every
+            // subdir of modules/ as a module, so a leftover ".bak" there (if cleanup fails — e.g. the
+            // web user can't delete files the original install owns) would try to bootstrap a class
+            // that doesn't exist and brick the whole app. Outside modules/, a stray backup is inert.
             $backup = null;
-            if (is_dir($target)) { $backup = $target . '.bak-' . getmypid(); @rename($target, $backup); }
+            if (is_dir($target)) {
+                $backupDir = dirname(self::modulesDir()) . '/modules-backup';
+                @mkdir($backupDir, 0775, true);
+                $backup = $backupDir . '/' . $slug . '.bak-' . getmypid();
+                @rename($target, $backup);
+            }
             if (!@rename($root, $target)) {
                 self::_rcopy($root, $target);
             }

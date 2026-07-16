@@ -29,9 +29,20 @@ class Tiger_Application_Resource_Modules extends Zend_Application_Resource_Modul
      */
     public function init()
     {
+        $front   = Zend_Controller_Front::getInstance();
+        $default = $front->getDefaultModule();
+
+        // Defensive: a stray NON-module directory in modules/ (e.g. a leftover ".bak" backup from an
+        // interrupted update) makes ZF1's scan try to bootstrap a class that doesn't exist and brick
+        // the ENTIRE app. A real module's name is a slug ([a-z0-9_-]); anything with other characters
+        // (a dot, a space) isn't a module, so drop it from the map before the scan can trip on it.
+        foreach (array_keys($front->getControllerDirectory()) as $name) {
+            if ((string) $name !== $default && preg_match('/[^a-z0-9_-]/i', (string) $name)) {
+                $front->removeControllerDirectory($name);
+            }
+        }
+
         try {
-            $front = Zend_Controller_Front::getInstance();
-            $default = $front->getDefaultModule();
             foreach ((new Tiger_Model_Module())->inactiveSlugs() as $slug) {
                 $slug = (string) $slug;
                 // never strip the default (core) namespace; the protected set is enforced by the
