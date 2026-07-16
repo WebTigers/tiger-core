@@ -76,10 +76,10 @@
     fired = true;
     clearInterval(tickTimer);
     clearTimeout(pollTimer);
-    // /auth/logout ends the session server-side and redirects to /auth/login/out/1;
+    // /logout ends the session server-side and shows the signed-out card;
     // /auth/lock arms the screen lock. (Never redirect straight to the login page — that
     // would leave the session alive.)
-    window.location.href = ((force || action) === 'lock') ? '/auth/lock' : '/auth/logout';
+    window.location.href = ((force || action) === 'lock') ? '/auth/lock' : '/logout';
   }
 
   // Enter the committed final countdown: show the modal and STOP polling.

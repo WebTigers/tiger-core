@@ -95,14 +95,17 @@ class AuthController extends Tiger_Controller_Action
     }
 
     /**
-     * Destroy the session and return to the sign-in screen with a confirmation.
+     * GET /logout (alias) or /auth/logout — destroy the session and render a friendly
+     * "you have been logged out" card (auth layout), with links back to /login or home.
+     * A confirmation PAGE rather than a redirect, so the user gets a clear stopping point.
      *
      * @return void
      */
     public function logoutAction()
     {
         (new Tiger_Service_Authentication())->logout();
-        $this->_helper->redirector->gotoUrl('/auth/login/out/1');
+        $this->_helper->layout()->setLayout('auth');
+        $this->view->title = 'Signed out — Tiger';
     }
 
     /**

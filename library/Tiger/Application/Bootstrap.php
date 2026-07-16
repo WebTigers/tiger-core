@@ -81,6 +81,24 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Friendly auth aliases: `/login` -> AuthController::login and `/logout` -> ::logout.
+     * Static (exact-path) routes into the default-namespace AuthController — much easier for
+     * users to remember than /auth/login. The canonical /auth/* paths keep working unchanged.
+     */
+    protected function _initAuthAliases()
+    {
+        $this->bootstrap('frontController');
+        $router = $this->getResource('frontController')->getRouter();
+
+        $router->addRoute('tiger_login', new Zend_Controller_Router_Route_Static(
+            'login', ['module' => 'default', 'controller' => 'auth', 'action' => 'login']
+        ));
+        $router->addRoute('tiger_logout', new Zend_Controller_Router_Route_Static(
+            'logout', ['module' => 'default', 'controller' => 'auth', 'action' => 'logout']
+        ));
+    }
+
+    /**
      * AUTHORIZATION: build the ACL (Tiger_Acl_Acl loads roles/resources/rules from
      * ini + DB) and register the unbypassable gate (Tiger_Controller_Plugin_
      * Authorization) on the front controller. Runs after frontController so the
