@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}   # build from the exact released tag
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -29,4 +31,5 @@ jobs:
       - name: Attach it to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.zip dist/*.zip.sha256 -R "${{ github.repository }}"
+        # --clobber so a re-run (or a hand-attached asset) is overwritten instead of failing on a dup.
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.zip dist/*.zip.sha256 --clobber -R "${{ github.repository }}"
