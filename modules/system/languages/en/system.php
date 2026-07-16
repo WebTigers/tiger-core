@@ -14,6 +14,7 @@ return [
     'system.error.protected'    => 'That module is protected and can\'t be deactivated.',
     'system.error.unknown'      => 'No such module.',
     'system.settings.saved'     => 'Settings saved.',
+    'system.dashboard.saved'    => 'Dashboard layout saved.',
     'system.update.done'          => 'Updates applied.',
     'system.update.none_selected' => 'Select at least one update to apply.',
     'system.acl.unavailable'      => 'The ACL engine isn\'t available in this request.',

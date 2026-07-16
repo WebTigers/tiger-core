@@ -1,9 +1,15 @@
 <?php
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
-/** Admin dashboard view — renders inside the PUMA 'admin' shell layout. */
-$orgCount  = (int) ($this->orgCount ?? 0);
-$userCount = (int) ($this->userCount ?? 0);
+/**
+ * Admin dashboard — a Muuri masonry grid of module-registered widgets (Tiger_Dashboard). The shell
+ * owns the card chrome (drag handle, collapse, sizing) and the layout; each widget owns only its body.
+ * Up to 4 responsive columns by width; drag to rearrange and collapse state persist per-user (option
+ * tier) over /api. Empty until a module registers a widget — nothing is hard-coded here.
+ */
+$widgets = isset($this->widgets) && is_array($this->widgets) ? $this->widgets : [];
+$tr = Zend_Registry::isRegistered('Zend_Translate') ? Zend_Registry::get('Zend_Translate') : null;
+$t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
 ?>
 <header class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
     <div>
@@ -18,60 +24,101 @@ $userCount = (int) ($this->userCount ?? 0);
     </nav>
 </header>
 
-<div class="row g-3">
-    <div class="col-12 col-sm-6 col-xl-4">
-        <a href="/admin/orgs" class="text-decoration-none text-reset">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center py-4">
-                    <i class="fa-solid fa-building text-primary fs-1"></i>
-                    <div class="display-6 fw-semibold mt-3"><?= $orgCount ?></div>
-                    <div class="text-secondary">Organizations</div>
-                    <div class="small mt-2 text-primary">Manage <i class="fa-solid fa-arrow-right-long"></i></div>
+<?php if (empty($widgets)): ?>
+    <div class="text-center text-body-secondary py-5">
+        <i class="fa-regular fa-window-restore fa-2x mb-3 d-block"></i>
+        <p class="mb-1 fw-semibold text-body">No dashboard widgets yet</p>
+        <p class="mb-0">Modules that provide a dashboard widget will appear here automatically once they're active.</p>
+    </div>
+<?php else: ?>
+    <div class="dash-grid" id="dash-grid">
+        <?php foreach ($widgets as $w):
+            $id    = htmlspecialchars($w['id'], ENT_QUOTES);
+            $title = htmlspecialchars($t($w['title']), ENT_QUOTES);
+            $icon  = htmlspecialchars($w['icon'] ?: 'fa-square', ENT_QUOTES);
+            $wide  = max(1, min(4, (int) ($w['width'] ?? 1)));
+            $coll  = !empty($w['collapsed']);
+        ?>
+        <div class="dash-item" data-id="<?= $id ?>" data-w="<?= $wide ?>"<?= (int) ($w['refresh'] ?? 0) > 0 ? ' data-refresh="' . (int) $w['refresh'] . '"' : '' ?>>
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-grip-vertical text-body-secondary dash-drag" title="Drag to rearrange"></i>
+                    <i class="fa-solid <?= $icon ?> text-primary"></i>
+                    <span class="fw-semibold flex-grow-1 text-truncate"><?= $title ?></span>
+                    <button type="button" class="btn btn-sm btn-link p-0 text-body-secondary dash-collapse" aria-label="Collapse widget">
+                        <i class="fa-solid fa-chevron-<?= $coll ? 'down' : 'up' ?>"></i>
+                    </button>
+                </div>
+                <div class="card-body dash-body<?= $coll ? ' d-none' : '' ?>">
+                    <?= Tiger_Dashboard::renderBody($w) ?>
                 </div>
             </div>
-        </a>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-4">
-        <a href="/admin/users" class="text-decoration-none text-reset">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center py-4">
-                    <i class="fa-solid fa-users text-success fs-1"></i>
-                    <div class="display-6 fw-semibold mt-3"><?= $userCount ?></div>
-                    <div class="text-secondary">Users</div>
-                    <div class="small mt-2 text-primary">Manage <i class="fa-solid fa-arrow-right-long"></i></div>
-                </div>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-4">
-        <a href="/admin/config" class="text-decoration-none text-reset">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body text-center py-4">
-                    <i class="fa-solid fa-gear text-info fs-1"></i>
-                    <div class="display-6 fw-semibold mt-3"><i class="fa-solid fa-sliders fs-3 align-middle"></i></div>
-                    <div class="text-secondary">Configuration</div>
-                    <div class="small mt-2 text-primary">Open <i class="fa-solid fa-arrow-right-long"></i></div>
-                </div>
-            </div>
-        </a>
-    </div>
-</div>
-
-<div class="card border-0 shadow-sm mt-4">
-    <div class="card-body">
-        <h2 class="h5">Theme demo</h2>
-        <p class="text-secondary mb-3">
-            Flip <strong>Browser / Light / Dark</strong> in the top bar — the whole shell restyles instantly via
-            Bootstrap's <code>data-bs-theme</code>, no reload. The language flag and the collapsible sidebar are live too.
-        </p>
-        <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-primary">Primary</button>
-            <button class="btn btn-outline-secondary">Secondary</button>
-            <button class="btn btn-success">Success</button>
-            <span class="badge text-bg-primary align-self-center">Badge</span>
-            <span class="badge text-bg-warning align-self-center">Warning</span>
         </div>
+        <?php endforeach; ?>
     </div>
-</div>
+
+    <style>
+        .dash-grid { position: relative; margin: 0 -.5rem; }
+        .dash-item { position: absolute; width: 100%; padding: .5rem; box-sizing: border-box; z-index: 1; }
+        @media (min-width: 768px)  { .dash-item { width: 50%; }     .dash-item[data-w="3"], .dash-item[data-w="4"] { width: 100%; } }
+        @media (min-width: 1200px) { .dash-item { width: 33.333%; } .dash-item[data-w="2"] { width: 66.666%; } .dash-item[data-w="3"], .dash-item[data-w="4"] { width: 100%; } }
+        @media (min-width: 1600px) { .dash-item { width: 25%; }     .dash-item[data-w="2"] { width: 50%; } .dash-item[data-w="3"] { width: 75%; } .dash-item[data-w="4"] { width: 100%; } }
+        .dash-item .card { margin: 0; }
+        .dash-drag { cursor: grab; }
+        .muuri-item-dragging { z-index: 3; cursor: grabbing; }
+        .muuri-item-releasing { z-index: 2; }
+        .muuri-item-hidden { z-index: 0; }
+        @media (prefers-reduced-motion: reduce) { .dash-item { transition: none !important; } }
+    </style>
+
+    <script src="<?= $this->asset($this->themeAssets . '/vendor/muuri/muuri.min.js') ?>"></script>
+    <script>
+    (function () {
+        var el = document.getElementById('dash-grid');
+        if (!el || !window.Muuri) { return; }
+
+        var grid = new Muuri(el, {
+            items: '.dash-item',
+            dragEnabled: true,
+            dragHandle: '.dash-drag',
+            layout: { fillGaps: false, rounding: true }
+        });
+
+        function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+        window.addEventListener('resize', debounce(function () { grid.refreshItems().layout(); }, 150));
+
+        function persist() {
+            var order = grid.getItems().map(function (it) { return it.getElement().getAttribute('data-id'); });
+            var collapsed = {};
+            el.querySelectorAll('.dash-item').forEach(function (it) {
+                if (it.querySelector('.dash-body').classList.contains('d-none')) {
+                    collapsed[it.getAttribute('data-id')] = true;
+                }
+            });
+            var fd = new URLSearchParams();
+            fd.set('module', 'system'); fd.set('service', 'dashboard'); fd.set('method', 'saveLayout');
+            fd.set('layout', JSON.stringify({ order: order, collapsed: collapsed }));
+            fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd }).catch(function () {});
+        }
+
+        grid.on('dragReleaseEnd', persist);
+
+        // Collapse / expand a widget (delegated to the grid).
+        el.addEventListener('click', function (e) {
+            var btn = e.target.closest('.dash-collapse');
+            if (!btn) { return; }
+            var item = btn.closest('.dash-item');
+            var body = item.querySelector('.dash-body');
+            var icon = btn.querySelector('i');
+            body.classList.toggle('d-none');
+            var collapsed = body.classList.contains('d-none');
+            icon.className = 'fa-solid fa-chevron-' + (collapsed ? 'down' : 'up');
+            var mItems = grid.getItems(item);
+            if (mItems.length) { grid.refreshItems(mItems).layout(); }
+            persist();
+        });
+
+        grid.layout();
+    })();
+    </script>
+<?php endif; ?>
