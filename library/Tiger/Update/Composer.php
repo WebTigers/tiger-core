@@ -74,6 +74,10 @@ class Tiger_Update_Composer
         @putenv('COMPOSER_MEMORY_LIMIT=-1');
         @putenv('COMPOSER_NO_INTERACTION=1');
         @set_time_limit(0);
+        // Managed hosting often has a vendor tree owned by a user other than the web user; git then
+        // aborts with "dubious ownership" (Composer survives it, but it looks alarming in the operator's
+        // log). Seed our HOME's gitconfig to trust any path so the update log stays clean.
+        @file_put_contents($composerHome . '/.gitconfig', "[safe]\n\tdirectory = *\n");
 
         // --with-all-dependencies so a required tigerzf/polyfill bump comes along; --no-dev for a
         // production-shaped tree; --no-scripts so a post-update hook can't fail the update mid-request.
