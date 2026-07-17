@@ -63,6 +63,14 @@ class Blog_IndexController extends Tiger_Controller_Action
         $this->view->article         = $article;
         $this->view->title           = $article['seo']['title'] !== '' ? $article['seo']['title'] : $post->title;
         $this->view->metaDescription = $article['seo']['description'] !== '' ? $article['seo']['description'] : $article['excerpt'];
+
+        // Contribute the article's SEO to the head registry (title/description/robots/canonical). An
+        // article renders via this controller (not PageDispatch), so it can't rely on Seo_Plugin_Head —
+        // it calls the resolver directly, guarded so the blog never hard-depends on the SEO module. The
+        // excerpt is the description fallback when the author set no SEO description.
+        if (class_exists('Seo_Service_Head')) {
+            Seo_Service_Head::forRow($post, $this->getRequest(), ['description' => $article['excerpt']]);
+        }
     }
 
     /**

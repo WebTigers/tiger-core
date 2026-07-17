@@ -41,16 +41,18 @@ class PageController extends Tiger_Controller_Action
             $decoded = is_array($page->meta) ? $page->meta : json_decode((string) $page->meta, true);
             if (is_array($decoded)) { $meta = $decoded; }
         }
-        $head    = (string) ($meta['head_html'] ?? '');
+        $head    = (string) ($meta['head_html'] ?? '');    // admin-authored raw <head> — the escape hatch
         $scripts = (string) ($meta['body_scripts'] ?? '');
-        $desc    = trim((string) ($meta['description'] ?? ''));
-        if ($desc !== '') {
-            $head = '<meta name="description" content="' . htmlspecialchars($desc, ENT_QUOTES) . '">' . "\n" . $head;
-        }
+        // The meta description (and other SEO) is no longer synthesized here — it lives in meta.seo and is
+        // rendered through the head registry by TigerSEO (Seo_Plugin_Head → headMeta/headLink).
 
         if (!empty($page->layout_key)) {
-            // Self-contained CMS layout owns the whole document — splice head/scripts into it.
-            if ($head !== '')    { $html = self::_injectBefore($html, '</head>', $head); }
+            // Self-contained CMS layout owns the whole document (it disables the theme layout, so the head
+            // registry the theme renders never reaches it) — splice the SEO head that Seo_Plugin_Head
+            // populated from meta.seo, plus the admin head_html, into its own </head>.
+            $seoHead = trim((string) $this->view->headMeta() . (string) $this->view->headLink());
+            $inject  = trim($seoHead . "\n" . $head);
+            if ($inject !== '')  { $html = self::_injectBefore($html, '</head>', $inject); }
             if ($scripts !== '') { $html = self::_injectBefore($html, '</body>', $scripts); }
             $this->_helper->layout()->disableLayout();
             $this->_helper->viewRenderer->setNoRender(true);

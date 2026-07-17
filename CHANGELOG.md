@@ -4,6 +4,26 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [Unreleased]
+
+### Added
+- **TigerSEO — Phase 1 (the head registry).** A new bundled `seo` module makes the data Tiger already
+  collects actually reach the `<head>`. Core hygiene: the public PUMA layout now renders through TigerZF's
+  own `headTitle`/`headMeta`/`headLink` placeholder containers (previously hardcoded `<title>` + a raw
+  `pageHead` echo, with no meta description ever emitted). `Seo_Service_Head` maps a page's unified
+  `meta.seo` onto those containers — **title, meta description, robots (`noindex`/`nofollow` only when
+  restricted), and canonical (explicit or self-referencing)** — reached by `Seo_Plugin_Head` for CMS pages
+  and a `class_exists`-guarded call from the blog article controller. Uninstall the module and the head
+  still renders, with less. (OG/Twitter, hreflang, sitemaps, JSON-LD are later phases.)
+- **Migrations can run PHP.** `Tiger_Db_Migrator` now executes a `fn($db)` step as well as an SQL string
+  (split by type, so a SQL string is never mistaken for a callable) — for DATA migrations SQL can't
+  express cleanly.
+
+### Changed
+- **Unified page SEO metadata onto `page.meta.seo`.** The CMS wrote a flat `meta.description`; the blog
+  already wrote nested `meta.seo`. The CMS now writes `meta.seo.description`, and migration `0032` moves
+  existing rows — one shape, not two (no tolerant reader kept around to preserve the split forever).
+
 ## [0.13.1-beta] — 2026-07-17
 
 ### Fixed

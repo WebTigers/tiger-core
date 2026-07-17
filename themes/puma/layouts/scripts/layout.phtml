@@ -22,7 +22,17 @@ $_lang = defined('LANG') ? LANG : 'en';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= $this->escape($this->title ?? ($this->siteName ?? 'Tiger')) ?></title>
+<?php
+    /* The head is a registry (TigerZF's own headTitle/headMeta/headLink), not a string. A module or
+       plugin (e.g. TigerSEO) may already have set the title/description/etc.; if nothing set the title,
+       seed it from the controller's $this->title (or the site name) so a <title> always renders here —
+       with or without an SEO module installed. */
+    if (!count($this->headTitle())) {
+        $this->headTitle($this->title ?? ($this->siteName ?? 'Tiger'));
+    }
+?>
+    <?= $this->headTitle() ?>
+    <?= $this->headMeta() ?>
 
     <!-- No-FOUC theme resolver: MUST run before the stylesheets below paint. -->
     <script src="<?= $this->asset($this->themeAssets . '/js/theme-init.js') ?>"></script>
@@ -39,7 +49,8 @@ $_lang = defined('LANG') ? LANG : 'en';
     <!-- Override playground — loads last so it wins the cascade. See themes/puma/assets/custom.css. -->
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 <?= $this->codeInject('head') ?>
-<?= $this->pageHead ?? '' ?><?php /* per-page head from the CMS page meta (admin-authored) */ ?>
+    <?= $this->headLink() ?><?php /* SEO/link registry: rel=canonical, hreflang, … (contributed, e.g. by TigerSEO) */ ?>
+<?= $this->pageHead ?? '' ?><?php /* per-page raw head from the CMS page meta (admin-authored) — the escape hatch */ ?>
 </head>
 <body>
 <?= $this->render('_partials/public-header.phtml') ?>

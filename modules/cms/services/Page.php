@@ -180,7 +180,12 @@ class Cms_Service_Page extends Tiger_Service_Service
                 if (is_array($decoded)) { $meta = $decoded; }
             }
         }
-        $meta['description']  = trim((string) ($v['meta_description'] ?? ''));
+        // SEO description lives under the unified `meta.seo` shape (same as blog articles); the flat
+        // legacy `meta.description` is dropped (migration 0032 moved existing rows). head_html/body_scripts
+        // stay flat — they're the raw admin-authored escape hatch, not SEO metadata.
+        if (!isset($meta['seo']) || !is_array($meta['seo'])) { $meta['seo'] = []; }
+        $meta['seo']['description'] = trim((string) ($v['meta_description'] ?? ''));
+        unset($meta['description']);
         $meta['head_html']    = (string) ($v['head_html'] ?? '');
         $meta['body_scripts'] = (string) ($v['body_scripts'] ?? '');
         $data['meta'] = json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

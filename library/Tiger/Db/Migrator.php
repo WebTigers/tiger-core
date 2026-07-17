@@ -64,8 +64,8 @@ class Tiger_Db_Migrator
                 continue;
             }
             $this->emit($log, "  migrating {$version}_{$m['name']} ...");
-            foreach ($m['up'] as $sql) {
-                $this->db->query($sql);
+            foreach ($m['up'] as $stmt) {
+                $this->run($stmt);
             }
             // Record only after every statement succeeded (see class caveat).
             $this->db->insert('tiger_migration', [
@@ -103,13 +103,32 @@ class Tiger_Db_Migrator
             }
             $m = $all[$version];
             $this->emit($log, "  rolling back {$version}_{$m['name']} ...");
-            foreach ($m['down'] as $sql) {
-                $this->db->query($sql);
+            foreach ($m['down'] as $stmt) {
+                $this->run($stmt);
             }
             $this->db->delete('tiger_migration', $this->db->quoteInto('version = ?', $version));
             $done[$version] = $m['name'];
         }
         return $done;
+    }
+
+    /**
+     * Run one migration step. A **string** is executed as SQL (the common case). A **callable**
+     * (a `function ($db) { … }` — anything non-string that's callable) is invoked with the DB adapter,
+     * for DATA migrations SQL can't express cleanly (e.g. transforming a JSON column across rows). The
+     * string-vs-callable split is by type, not `is_callable`, so a SQL string that happens to name a
+     * PHP function is never mistaken for one.
+     *
+     * @param  string|callable $stmt an SQL string, or fn(Zend_Db_Adapter_Abstract $db): void
+     * @return void
+     */
+    protected function run($stmt)
+    {
+        if (!is_string($stmt) && is_callable($stmt)) {
+            $stmt($this->db);
+            return;
+        }
+        $this->db->query($stmt);
     }
 
     /**
