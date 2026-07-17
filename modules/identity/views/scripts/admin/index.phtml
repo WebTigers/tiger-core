@@ -1,0 +1,124 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Site Identity — the site's name, tagline, logo, favicon, and social links. ViewHelper-only form
+ * (the view owns markup); logo + favicon use the platform media picker (Choose from the Media
+ * Library or upload). Saving is an /api call to Identity_Service_Identity; the JSON response drives
+ * the feedback. Semantic Bootstrap only — no bespoke CSS (keeps it reskinnable), per ADMIN.md.
+ */
+$form = $this->form;
+$el   = function ($name) use ($form) { return $form->getElement($name); };
+$va   = $this->themeAssets;
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Site Identity</h1>
+        <p class="text-body-secondary mb-0">Your site's name, logo, favicon, and social profiles — the brand that appears in browser tabs, search results, and social shares.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="identity-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="identity-feedback"></div>
+
+<form id="identity-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <div class="row g-4">
+
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header fw-semibold"><i class="fa-solid fa-fingerprint me-2"></i>Identity</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('site_name')->getId()) ?>">Site name</label>
+                        <?= $el('site_name') ?>
+                        <div class="form-text">Shown in the site header and browser tab, and used as the default page title and brand name in search results.</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('tagline')->getId()) ?>">Tagline</label>
+                        <?= $el('tagline') ?>
+                        <div class="form-text">A short line describing the site (optional).</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-header fw-semibold"><i class="fa-solid fa-image me-2"></i>Logo &amp; favicon</div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <?= $this->mediaField('logo_media_id', $this->logoId, ['kind' => 'image', 'label' => 'Logo']) ?>
+                        <div class="form-text">Used for your brand in search results (Organization schema) and available to themes.</div>
+                    </div>
+                    <div class="mb-0">
+                        <?= $this->mediaField('favicon_media_id', $this->faviconId, ['kind' => 'image', 'label' => 'Favicon']) ?>
+                        <div class="form-text">The little icon in the browser tab. Use a <strong>square</strong> image — 512&times;512 or larger is ideal; the browser scales it down to every size it needs.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header fw-semibold"><i class="fa-solid fa-share-nodes me-2"></i>Social profiles</div>
+                <div class="card-body">
+                    <p class="text-body-secondary small mb-3">Full URLs to your official profiles. These are published as your brand's verified links (schema.org <code>sameAs</code>) — leave any blank.</p>
+                    <div class="row g-3">
+                        <?php
+                        $socials = [
+                            'social_twitter'   => ['X / Twitter', 'fa-x-twitter'],
+                            'social_facebook'  => ['Facebook',    'fa-facebook'],
+                            'social_instagram' => ['Instagram',   'fa-instagram'],
+                            'social_linkedin'  => ['LinkedIn',    'fa-linkedin'],
+                            'social_youtube'   => ['YouTube',     'fa-youtube'],
+                            'social_github'    => ['GitHub',      'fa-github'],
+                        ];
+                        foreach ($socials as $name => $meta): ?>
+                            <div class="col-md-6">
+                                <label class="form-label" for="<?= $this->escape($el($name)->getId()) ?>"><i class="fa-brands <?= $meta[1] ?> me-2 text-body-secondary"></i><?= $this->escape($meta[0]) ?></label>
+                                <?= $el($name) ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<script src="<?= $this->asset($va . '/js/tiger.media-picker.js') ?>"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('identity-form');
+    var fb   = document.getElementById('identity-feedback');
+
+    document.getElementById('identity-save').addEventListener('click', function () {
+        var btn = this;
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'identity'); fd.set('service', 'identity'); fd.set('method', 'save');
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        })
+            .then(function (res) {
+                if (res && res.result === 1) { TigerDOM.notify(fb, 'Site identity saved.', { type: 'success' }); return; }
+                if (res && res.form) {
+                    Object.keys(res.form).forEach(function (field) {
+                        var input = form.querySelector('[name="' + field + '"]');
+                        if (input) { input.classList.add('is-invalid'); }
+                    });
+                }
+                var msgs = (res && res.messages) || [];
+                if (msgs.length) { msgs.forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class, replace: false }); }); }
+                else { TigerDOM.notify(fb, 'Please fix the highlighted fields.', { type: 'error' }); }
+            })
+            .catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+});
+</script>
