@@ -4,6 +4,15 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [Unreleased]
+
+### Added
+- **"Refresh directory" button in the Module Manager.** The registry index is cached ~3h, so a newly
+  published listing could take that long to appear under Modules → Add New. A refresh control now
+  re-fetches the catalog (and the sponsored overlay) on demand — `Tiger_Module_Registry::index()` /
+  `search()` / `available()` / `sponsored()` take a `$refresh` flag, threaded through
+  `System_Service_Modules::search` (`refresh` param) to the Browse view's button.
+
 ## [0.12.1-beta] — 2026-07-17
 
 ### Fixed

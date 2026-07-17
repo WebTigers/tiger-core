@@ -28,11 +28,12 @@ class Tiger_Module_Registry
     /**
      * True if the registry index is reachable (fetch or fresh cache).
      *
+     * @param  bool $refresh bypass the cache and re-fetch now
      * @return bool true if the index could be loaded
      */
-    public static function available()
+    public static function available($refresh = false)
     {
-        return self::index() !== null;
+        return self::index($refresh) !== null;
     }
 
     /**
@@ -40,15 +41,19 @@ class Tiger_Module_Registry
      * keywords/vendor/type. Each hit is enriched with curated placement (priority + a `sponsored`
      * badge) from the sponsored overlay, then ordered by $sort.
      *
-     * @param  string $query the search term ('' returns all modules)
-     * @param  string $sort  'featured' (default: sponsored priority, then title), 'title', or 'latest'
+     * @param  string $query   the search term ('' returns all modules)
+     * @param  string $sort    'featured' (default: sponsored priority, then title), 'title', or 'latest'
+     * @param  bool   $refresh bypass the cache and re-fetch the index (+ sponsor overlay) now
      * @return array the matching module entries
      */
-    public static function search($query, $sort = 'featured')
+    public static function search($query, $sort = 'featured', $refresh = false)
     {
-        $index = self::index();
+        $index = self::index($refresh);
         if (!$index) {
             return [];
+        }
+        if ($refresh) {
+            self::sponsored(true);   // re-fetch the placement overlay too, so a refresh is a full one
         }
         $modules = isset($index['modules']) && is_array($index['modules']) ? $index['modules'] : (array) $index;
         $q = strtolower(trim((string) $query));
@@ -172,15 +177,16 @@ class Tiger_Module_Registry
      * from data/sponsored.json alongside the index and cached like it (so placement updates need
      * no index recompile). Expired (`until` < today) or malformed entries are dropped. [] if none.
      *
+     * @param  bool $refresh bypass the per-request memo + file cache and re-fetch now
      * @return array the active sponsorship map
      */
-    public static function sponsored()
+    public static function sponsored($refresh = false)
     {
         static $mem = null;
-        if ($mem !== null) { return $mem; }
+        if ($mem !== null && !$refresh) { return $mem; }
 
         $cache = self::_cacheFile(self::CACHE_FILE_SPONS);
-        $body  = ($cache && is_file($cache) && (time() - filemtime($cache)) < self::CACHE_TTL)
+        $body  = (!$refresh && $cache && is_file($cache) && (time() - filemtime($cache)) < self::CACHE_TTL)
             ? (string) @file_get_contents($cache) : '';
         if ($body === '') {
             $fetched = Tiger_Module_Github::get(self::sponsoredUrl());
@@ -221,12 +227,13 @@ class Tiger_Module_Registry
     /**
      * The (cached) registry index array, or null if unreachable.
      *
+     * @param  bool $refresh bypass the cache and re-fetch now (the fresh copy is written back)
      * @return array|null the decoded index, or null if unreachable
      */
-    public static function index()
+    public static function index($refresh = false)
     {
         $cache = self::_cacheFile();
-        if ($cache && is_file($cache) && (time() - filemtime($cache)) < self::CACHE_TTL) {
+        if (!$refresh && $cache && is_file($cache) && (time() - filemtime($cache)) < self::CACHE_TTL) {
             $j = json_decode((string) @file_get_contents($cache), true);
             if (is_array($j)) { return $j; }
         }

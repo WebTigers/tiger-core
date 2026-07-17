@@ -124,16 +124,17 @@ class System_Service_Modules extends Tiger_Service_Service
     /**
      * Search the Vendor Registry (empty + available=false when the registry isn't reachable).
      *
-     * @param  array $params the /api payload (expects `q`)
+     * @param  array $params the /api payload (expects `q`; optional `sort`, `refresh`)
      * @return void
      */
     public function search(array $params): void
     {
         if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
-        $sort = (string) ($params['sort'] ?? 'featured');
+        $sort    = (string) ($params['sort'] ?? 'featured');
+        $refresh = !empty($params['refresh']);   // "Refresh directory" — bypass the 3h cache
         $this->_success([
-            'results'   => Tiger_Module_Registry::search((string) ($params['q'] ?? ''), $sort),
-            'available' => Tiger_Module_Registry::available(),
+            'results'   => Tiger_Module_Registry::search((string) ($params['q'] ?? ''), $sort, $refresh),
+            'available' => Tiger_Module_Registry::available(),   // reads the copy search() just refreshed
             'sort'      => $sort,
         ]);
     }

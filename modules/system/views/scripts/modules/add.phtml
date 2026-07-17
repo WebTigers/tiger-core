@@ -53,6 +53,7 @@ $registryHasData = !empty($this->registryHasData);
                             <option value="title">Title (A–Z)</option>
                             <option value="latest">Latest</option>
                         </select>
+                        <button type="button" class="btn btn-outline-secondary" id="mod-refresh" aria-label="Refresh directory" title="Refresh directory — re-fetch the catalog now (it's otherwise cached for a few hours)"><i class="fa-solid fa-arrows-rotate"></i></button>
                     </div>
                     <ul class="nav nav-pills mod-type-filter mb-3" id="mod-type-filter">
                         <li class="nav-item"><button type="button" class="nav-link active" data-type="">All</button></li>
@@ -290,11 +291,20 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
-    function runSearch(){
-        api('search',{q:searchEl.value.trim(), sort:(sortEl?sortEl.value:'featured')}).then(function(res){
+    function runSearch(refresh){
+        var data = { q:searchEl.value.trim(), sort:(sortEl?sortEl.value:'featured') };
+        if (refresh){ data.refresh = 1; }   // bypass the registry's ~3h cache
+        return api('search',data).then(function(res){
             if (res.result!==1) return;
             allResults=(res.data&&res.data.results)||[];
             renderResults();
+        });
+    }
+    var refreshEl = document.getElementById('mod-refresh');
+    if (refreshEl){
+        refreshEl.addEventListener('click', function(){
+            TigerButton.run(this, function(){ return runSearch(true); })
+                .then(function(){ if (window.TigerDOM && TigerDOM.toast){ TigerDOM.toast('Directory refreshed.', { type:'success' }); } });
         });
     }
     function card(m,i){
