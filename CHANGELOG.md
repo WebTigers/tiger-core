@@ -6,6 +6,19 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+### Added
+- **Site Identity — an admin screen for the site's brand.** A new first-party `identity` module adds a
+  **Site Identity** screen (under Settings) that finally surfaces the site **name** + **tagline** for
+  editing, plus a **logo** and **favicon** (chosen from the Media Library or uploaded, via the platform
+  media picker) and the **social profile URLs**. Everything writes to the config tier (live-override,
+  no deploy) — and it's wired to what already consumes it: the **favicon** is emitted into the head
+  (`rel="icon"` + `apple-touch-icon`, a single high-res square the browser scales — no derivative
+  soup), the **logo** feeds `Organization.logo` and the **socials** feed `Organization.sameAs` in the
+  JSON-LD. The screen has its **own ACL resource**, so access is grantable on its own — the seam for
+  letting each org's admin manage its own identity in a multi-tenant install. Config is written at
+  GLOBAL scope for now (the single site, guest-visible), isolated in one `_scope()` method so the
+  future multi-site module can flip it to per-org.
+
 ## [0.16.0-beta] — 2026-07-17
 
 ### Added
