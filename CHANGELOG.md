@@ -15,6 +15,114 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
   repo ships no changelog or the section isn't found. One source of truth — the `CHANGELOG.md` every
   Tiger repo already maintains (no separate release-notes file).
 
+## [0.11.1-beta] — 2026-07-16
+
+### Changed
+- **Module registry points at the renamed repos** — `Tiger_Module_Registry` now reads its index from
+  `WebTigers/TigerVendors` and its sponsored overlay from `WebTigers/TigerSponsors` (both renamed for
+  naming consistency, every repo `Tiger*`). Config-overridable via `tiger.modules.registry` /
+  `tiger.modules.sponsors`.
+
+## [0.11.0-beta] — 2026-07-16
+
+### Added
+- **Location settings screen** (System → Location) — selectable geocoding/IP adapters
+  (Nominatim / AWS Location / ip-api) with per-adapter fields, **secrets encrypted at rest**
+  (`Tiger_Crypto`), a per-provider+IP APCu cache, and a live "test" button. The `Tiger_Location` facade
+  is now admin-configurable with no deploy.
+- **Login: most-targeted accounts** — `Tiger_Model_Login::topFailures()` surfaces the accounts taking
+  the most failed sign-ins (feeds the security dashboard widget).
+
+### Changed
+- Dashboard widget collapse animates via `TigerDOM` (no `d-none` swap); the whole card header is the
+  drag handle, with a collapse toggle (security-plugin-style chrome).
+
+## [0.10.0-beta] — 2026-07-16
+
+### Added
+- **Dashboard widget platform API.** A module-registered widget registry (`Tiger_Dashboard`) renders on
+  an even-column, collapsible **Muuri** drag-drop grid, with each user's layout persisted in the lazy
+  scoped **option store** (`Tiger_Model_Option`, migration 0031 — on-demand per-user/entity state, not
+  eager config). Modules add a dashboard card from their Bootstrap with no core edit; TigerShield's
+  shield card is the first consumer.
+
+## [0.9.0-beta] — 2026-07-16
+
+### Added
+- **reCAPTCHA settings screen** (System) — a first-party admin surface over the reCAPTCHA controls, with
+  a shared `Tiger_Recaptcha` reader/writer so other screens (e.g. TigerShield) stay in lockstep. The
+  site key is public; the secret lives in `local.ini`.
+
+### Fixed
+- Release-ZIP CI hardening — `--clobber` the vendored-zip upload, pin the checkout to the tag, strip the
+  vendored `.git` from the artifact; the composer update path seeds a safe `gitconfig` so a `vendor/`
+  ownership mismatch stays quiet.
+
+## [0.8.1-beta] — 2026-07-16
+
+### Added
+- **The Updates screen actually applies the platform update** — Composer where it can run, an atomic
+  `vendor/`-ZIP swap where it can't (the no-shell / cPanel path).
+
+### Fixed
+- Update backups are kept **out of** `modules/`, and a stray directory can never brick boot.
+- `build-app-bundle` strips the vendored `.git` (a source-install artifact).
+
+## [0.8.0-beta] — 2026-07-16
+
+### Added
+- **Friendly `/login` + `/logout` aliases** and a signed-out confirmation page.
+
+## [0.7.1-beta] — 2026-07-15
+
+### Added
+- **Public `/cms` landing** — positioning Tiger as the modern WordPress alternative, with **two install
+  paths**: a one-file cPanel web installer and Composer. The installer downloads as a direct `.zip`
+  (no GitHub bounce); ships the web-installer design-of-record + the full-app bundle build script.
+
+### Changed
+- **`ext-sodium` is no longer required** — `Tiger_Crypto` bundles `paragonie/sodium_compat`, so
+  libsodium-dependent features (encryption at rest, TOTP) run on hosts without the extension.
+
+## [0.7.0-beta] — 2026-07-15
+
+A large release: installable themes, the CMS page builder, the Media Library, the Add-Module directory,
+and the Code Area all landed or were rebuilt. See [THEMES.md](THEMES.md), [MEDIA.md](MEDIA.md), and
+[CODE.md](CODE.md) for the design-of-record docs.
+
+### Added
+- **Installable themes (theme-as-a-module).** A theme shipped as a `theme-<name>` module resolves as the
+  active theme (path-based, no build); **file-based theme pages** (`content/*.phtml`) + **builder
+  components** with a self-describing `tiger:page` / `tiger:block` hint; per-page layout selection
+  (including `layout="none"` for a verbatim page); **context-aware resolution** (admin/auth fall back to
+  the base theme so a public theme can never break the back office); and Module-Manager **activation**
+  (preview → activate → asset symlink). Home falls back to the active theme's `content/index.phtml`.
+- **CMS page builder (GrapesJS).** A Bootstrap 5 block library, live menu blocks, a head/scripts editor,
+  a Tiger-palette reskin + uniform block icons, and Image/Video blocks wired to the Media Library. The
+  CMS code editor gains CodeMirror `htmlmixed` (color + folding), a resizable pane, a Word-style find
+  bar, and a one-click Reformat.
+- **Theme templates in the CMS** — surface the active theme's page templates with **fork-on-edit**
+  (customize a theme page without touching its file), split across Pages / Theme Templates tabs.
+- **Media Library, rebuilt on TigerUpload** — masonry portfolio, wider thumbnails + a Dimensions column,
+  a shared Edit modal (title/caption/alt/visibility), Copy-URL, one-click Delete, and full-page
+  drag-drop; plus **per-org filename obfuscation** (public/private) with a settings screen.
+- **Add-Module directory revamp** — tabs, upload + drag-drop install, a type filter, free/pro badges,
+  installed state, Muuri masonry, a full-height hero, a screenshot gallery + lightbox, and self-hosted /
+  YouTube / Vimeo video; themes preview + install via the registry (`theme.json`).
+- **Code Area + code modules** — discovery recognizes a `code` module (`module.json` + `snippets/`); a
+  module-snippet importer keeps files as the source of truth (never copied to the DB); a read-only
+  CodeMirror view-source modal.
+- **TigerUpload vendored** — a headless upload engine (one upload → N independent renderer subscribers);
+  the Add-Module upload and the Media Library both ride it.
+- Persisted **update history** + a version-tag CI assert.
+
+### Changed
+- **PUMA upgraded to Bootstrap 5.3.8** (readable, non-minified).
+- The sponsored-placement overlay moved to its own repo.
+
+### Fixed
+- PUMA: headings use `--bs-primary` (not an undefined var); a readable secondary in light mode.
+
 ## [0.6.0-beta] — 2026-07-12
 
 The first **vendored release** — this tag ships a pre-resolved `vendor/` ZIP (attached by CI) that
