@@ -6,6 +6,8 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+## [0.17.0-beta] — 2026-07-17
+
 ### Added
 - **Site Identity — an admin screen for the site's brand.** A new first-party `identity` module adds a
   **Site Identity** screen (under Settings) that finally surfaces the site **name** + **tagline** for
