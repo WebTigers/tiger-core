@@ -164,7 +164,8 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         // --- Customize: per-user widget visibility (WP "Screen Options" style) ------------------------
         var custBtn = document.getElementById('dash-customize');
         var modalEl = document.getElementById('dash-customize-modal');
-        var modal   = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
+        var modal   = null;   // created lazily on first click — Bootstrap's JS loads in the layout
+                              // footer, AFTER this inline script, so window.bootstrap isn't defined yet.
 
         function itemById(id) {
             var found = null;
@@ -236,8 +237,12 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
             grid.layout();
         }
 
-        if (custBtn && modal) {
-            custBtn.addEventListener('click', function () { buildPrefs(); modal.show(); });
+        if (custBtn && modalEl) {
+            custBtn.addEventListener('click', function () {
+                if (!modal && window.bootstrap) { modal = new bootstrap.Modal(modalEl); }
+                buildPrefs();
+                if (modal) { modal.show(); }
+            });
         }
         if (modalEl) {
             modalEl.addEventListener('change', function (e) {

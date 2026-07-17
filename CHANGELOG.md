@@ -4,6 +4,14 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [0.13.1-beta] — 2026-07-17
+
+### Fixed
+- **Dashboard "Customize" button did nothing.** The dashboard's inline script runs at parse time, but
+  Bootstrap's JS loads in the layout footer *after* it — so `new bootstrap.Modal()` was called against an
+  undefined `window.bootstrap`, leaving the modal null and the click handler unattached. Now the modal is
+  created lazily on first click (when Bootstrap is loaded), matching how every other admin view does it.
+
 ## [0.13.0-beta] — 2026-07-17
 
 ### Added
