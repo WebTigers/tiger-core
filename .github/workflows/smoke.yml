@@ -163,6 +163,16 @@ jobs:
             echo "FAIL  TigerSEO head tags missing"; fail=1
           fi
 
+          # JSON-LD site-identity graph — the page must carry a ld+json block with the Organization node
+          # (the schema Google reads for brand sitelinks). Also assert it stayed valid JSON.
+          if grep -q 'application/ld+json' page.html && grep -q '"Organization"' page.html; then
+            echo "PASS  TigerSEO JSON-LD (Organization graph) rendered"
+            php -r '$h=file_get_contents("page.html"); if(preg_match("#<script type=\"application/ld\+json\">(.*?)</script>#s",$h,$m)){exit(json_decode($m[1])!==null?0:1);} exit(1);' \
+              && echo "PASS  JSON-LD is valid JSON" || { echo "FAIL  JSON-LD did not parse"; fail=1; }
+          else
+            echo "FAIL  TigerSEO JSON-LD missing"; fail=1
+          fi
+
           # sitemap.xml + robots.txt are ROUTES (not files). The sitemap must list the seeded page (the
           # pages provider), and robots must point crawlers at the sitemap.
           check "sitemap.xml route"    200 "http://127.0.0.1:8000/sitemap.xml"

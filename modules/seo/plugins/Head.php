@@ -16,9 +16,16 @@ class Seo_Plugin_Head extends Zend_Controller_Plugin_Abstract
      */
     public function preDispatch(Zend_Controller_Request_Abstract $request)
     {
+        // Site-identity structured data (Organization + WebSite + SiteNavigationElement) — the same for
+        // every page, emitted once (the service latches). Independent of whether this is a CMS page, so
+        // it rides every public render; non-public layouts simply don't output the placeholder.
+        if (class_exists('Seo_Service_Schema')) {
+            Seo_Service_Schema::emitSite($request);
+        }
+
         $pageId = (string) $request->getParam('cms_page_id', '');
         if ($pageId === '') {
-            return;   // not a CMS page dispatch
+            return;   // not a CMS page dispatch — no per-page head to build
         }
         try {
             $page = (new Tiger_Model_Page())->findById($pageId);

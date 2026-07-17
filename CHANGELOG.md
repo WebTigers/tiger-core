@@ -6,6 +6,18 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+### Added
+- **TigerSEO — JSON-LD structured data (rich results / sitelinks layer).** Where the head meta/OG tags
+  describe one *page*, this describes the *site as an entity*: a single `<script type="application/ld+json">`
+  `@graph` carrying **Organization** (brand: name, logo via the media row with real dimensions, social
+  `sameAs`), **WebSite** (publisher → Organization; an optional **SearchAction**/sitelinks-searchbox when
+  `tiger.seo.schema.search_url` is set), and **SiteNavigationElement** (the primary menu, so Google can map
+  site structure → sitelinks). Emitted once per request by `Seo_Service_Schema` into a `tigerJsonLd` head
+  placeholder the public layout renders — no core edit, gone when the module is absent. Config-driven
+  (`tiger.site.name`/`.logo`, `tiger.seo.social.*`, `tiger.seo.schema.*`) and fail-soft: a missing name,
+  logo, or menu just omits that node. `<`/`>` are hex-escaped (`JSON_HEX_TAG`) so a value can never break
+  out of the `<script>`. (BreadcrumbList + Article are the next slice.)
+
 ## [0.15.0-beta] — 2026-07-17
 
 ### Added

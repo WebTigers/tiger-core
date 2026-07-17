@@ -50,6 +50,7 @@ $_lang = defined('LANG') ? LANG : 'en';
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/custom.css') ?>">
 <?= $this->codeInject('head') ?>
     <?= $this->headLink() ?><?php /* SEO/link registry: rel=canonical, hreflang, … (contributed, e.g. by TigerSEO) */ ?>
+<?= $this->placeholder('tigerJsonLd') ?><?php /* JSON-LD structured data: Organization/WebSite/SiteNavigation (TigerSEO) */ ?>
 <?= $this->pageHead ?? '' ?><?php /* per-page raw head from the CMS page meta (admin-authored) — the escape hatch */ ?>
 </head>
 <body>
