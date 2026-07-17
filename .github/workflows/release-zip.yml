@@ -3,6 +3,11 @@ name: Attach vendored release ZIP
 # When a TigerCore release is published, build the pre-resolved vendored ZIP (Composer-resolved
 # vendor/ tree) and attach it — that's the artifact the no-shell updater (Tiger_Update_Core) swaps
 # in. Dependency resolution happens here in CI, so a shared host only downloads + unpacks.
+#
+# GATED ON SMOKE: the vendored ZIP only builds + attaches if the smoke suite passes on the exact
+# released tag. A release that doesn't boot/migrate/serve gets no updater artifact (fails safe) and a
+# red release workflow. (Composer users are covered separately: main is smoke-green on every push, so
+# a tagged commit was already verified — see smoke.yml.)
 on:
   release:
     types: [published]
@@ -11,7 +16,16 @@ permissions:
   contents: write
 
 jobs:
+  # The gate: run the full smoke matrix against the released tag before anything is attached.
+  smoke:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/smoke.yml
+    with:
+      ref: ${{ github.event.release.tag_name }}
+
   vendored-zip:
+    needs: smoke                # skipped (→ no ZIP attached) if smoke fails
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
