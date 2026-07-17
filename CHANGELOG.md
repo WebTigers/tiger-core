@@ -6,6 +6,17 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+### Added
+- **TigerSEO — Article + BreadcrumbList JSON-LD (per-content rich results).** Completes the structured-
+  data layer: every CMS page now emits a **BreadcrumbList** (Home → each path segment, the leaf labelled
+  with the page's real title, intermediate segments humanized), and every **blog article** emits a
+  **BlogPosting** node (headline, description, feature image via the media row, `datePublished`/
+  `dateModified`, author as a `Person`, `publisher`→Organization, `isPartOf`→WebSite) alongside its own
+  breadcrumb. Emitted as additional `@graph` blocks that cross-reference the site graph by `@id`, on the
+  same `tigerJsonLd` head placeholder — the blog hands the schema builder its presented article (it never
+  learns "blog"), and CMS pages derive the trail from the request path. Fail-soft; single-segment/home
+  pages emit no breadcrumb. Smoke asserts the seeded page carries a valid BreadcrumbList.
+
 ## [0.17.0-beta] — 2026-07-17
 
 ### Added

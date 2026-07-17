@@ -163,15 +163,21 @@ jobs:
             echo "FAIL  TigerSEO head tags missing"; fail=1
           fi
 
-          # JSON-LD site-identity graph — the page must carry a ld+json block with the Organization node
-          # (the schema Google reads for brand sitelinks). Also assert it stayed valid JSON.
+          # JSON-LD — the page must carry the Organization node (brand/sitelinks) AND a BreadcrumbList
+          # (the seeded single-segment page yields Home → <title>). Every ld+json block must parse.
           if grep -q 'application/ld+json' page.html && grep -q '"Organization"' page.html; then
             echo "PASS  TigerSEO JSON-LD (Organization graph) rendered"
-            php -r '$h=file_get_contents("page.html"); if(preg_match("#<script type=\"application/ld\+json\">(.*?)</script>#s",$h,$m)){exit(json_decode($m[1])!==null?0:1);} exit(1);' \
-              && echo "PASS  JSON-LD is valid JSON" || { echo "FAIL  JSON-LD did not parse"; fail=1; }
           else
-            echo "FAIL  TigerSEO JSON-LD missing"; fail=1
+            echo "FAIL  TigerSEO JSON-LD (Organization) missing"; fail=1
           fi
+          if grep -q '"BreadcrumbList"' page.html; then
+            echo "PASS  TigerSEO JSON-LD BreadcrumbList rendered"
+          else
+            echo "FAIL  TigerSEO JSON-LD BreadcrumbList missing"; fail=1
+          fi
+          # validate EVERY ld+json block, not just the first
+          php -r '$h=file_get_contents("page.html"); preg_match_all("#<script type=\"application/ld\+json\">(.*?)</script>#s",$h,$m); if(!$m[1]){exit(1);} foreach($m[1] as $b){ if(json_decode($b)===null){exit(1);} } exit(0);' \
+            && echo "PASS  all JSON-LD blocks are valid JSON" || { echo "FAIL  a JSON-LD block did not parse"; fail=1; }
 
           # sitemap.xml + robots.txt are ROUTES (not files). The sitemap must list the seeded page (the
           # pages provider), and robots must point crawlers at the sitemap.

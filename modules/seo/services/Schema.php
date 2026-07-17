@@ -53,6 +53,61 @@ class Seo_Service_Schema
         }
     }
 
+    /**
+     * Emit a per-page BreadcrumbList derived from the URL path (Home → each path segment). The leaf's
+     * label is the page's own title (nicer than a humanized slug); intermediate segments humanize. A
+     * page one level deep or the homepage produces no breadcrumb (nothing to show but "Home").
+     *
+     * @param  Zend_Controller_Request_Abstract|null $request  the current request (path + base URL)
+     * @param  string                                $leafName the current page's title (leaf label)
+     * @return void
+     */
+    public static function emitPageBreadcrumb(?Zend_Controller_Request_Abstract $request, $leafName)
+    {
+        try {
+            $base = self::_base($request);
+            $path = $request && method_exists($request, 'getPathInfo') ? (string) $request->getPathInfo() : '';
+            $trail = self::_trail($path, (string) $leafName, $base);
+            if (count($trail) < 2) {
+                return;   // just "Home" — no breadcrumb worth emitting
+            }
+            self::_emit([self::_breadcrumbNode($trail, $base, $path)]);
+        } catch (Throwable $e) {
+            // fail-open
+        }
+    }
+
+    /**
+     * Emit an Article (BlogPosting) node + its BreadcrumbList for a blog article. Cross-references the
+     * site graph by @id (publisher → Organization, isPartOf → WebSite). Fail-soft: any missing piece is
+     * simply omitted.
+     *
+     * @param  object                                $row     the article `page` row (for updated_at)
+     * @param  array                                 $article the presented article (title/slug/excerpt/…)
+     * @param  Zend_Controller_Request_Abstract|null $request the current request
+     * @return void
+     */
+    public static function emitArticle($row, array $article, ?Zend_Controller_Request_Abstract $request = null)
+    {
+        try {
+            $base = self::_base($request);
+            if ($base === '') {
+                return;
+            }
+            $nodes = [self::_articleNode($row, $article, $base, $request)];
+
+            // The article's breadcrumb: Home → Blog → <title> (path-derived, leaf = the real title).
+            $path  = '/' . ltrim((string) ($article['url'] ?? ('/blog/' . ($article['slug'] ?? ''))), '/');
+            $trail = self::_trail($path, (string) ($article['title'] ?? ''), $base);
+            if (count($trail) >= 2) {
+                $nodes[] = self::_breadcrumbNode($trail, $base, $path);
+            }
+            self::_emit($nodes);
+        } catch (Throwable $e) {
+            // fail-open
+        }
+    }
+
     /** The brand entity: name, url, logo (real dimensions via the media row), and social `sameAs` links. */
     private static function _organization($base, $request)
     {
@@ -148,9 +203,120 @@ class Seo_Service_Schema
         ];
     }
 
+    /** A BlogPosting node — headline, image, dates, author, publisher/isPartOf → the site graph. */
+    private static function _articleNode($row, array $article, $base, $request)
+    {
+        $slug = trim((string) ($article['slug'] ?? ''), '/');
+        $url  = $base . '/blog/' . $slug;
+
+        $node = [
+            '@type'            => 'BlogPosting',
+            '@id'              => $url . '#article',
+            'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $url],
+            'headline'         => (string) ($article['title'] ?? ''),
+            'url'              => $url,
+            'isPartOf'         => ['@id' => $base . '/#website'],
+            'publisher'        => ['@id' => $base . '/#organization'],
+        ];
+
+        $seoDesc = isset($article['seo']['description']) ? trim((string) $article['seo']['description']) : '';
+        $desc    = $seoDesc !== '' ? $seoDesc : trim((string) ($article['excerpt'] ?? ''));
+        if ($desc !== '') {
+            $node['description'] = $desc;
+        }
+
+        // Image: the feature image, resolved through the media row for a real absolute URL + dimensions.
+        $imgRef = isset($article['feature']['id']) ? (string) $article['feature']['id'] : '';
+        $img    = self::_image($imgRef !== '' ? $imgRef : self::_config('seo.og_image', ''), $request);
+        if ($img) {
+            $node['image'] = array_filter([
+                '@type'  => 'ImageObject',
+                'url'    => $img['url'],
+                'width'  => $img['width'],
+                'height' => $img['height'],
+            ], static function ($v) { return $v !== null && $v !== ''; });
+        }
+
+        $pub = self::_iso8601($article['published_at'] ?? '');
+        $mod = self::_iso8601(is_object($row) && isset($row->updated_at) ? $row->updated_at : '');
+        if ($pub !== '') { $node['datePublished'] = $pub; }
+        $node['dateModified'] = $mod !== '' ? $mod : ($pub !== '' ? $pub : null);
+        if ($node['dateModified'] === null) { unset($node['dateModified']); }
+
+        $author = trim((string) ($article['author']['name'] ?? ''));
+        $node['author'] = $author !== ''
+            ? ['@type' => 'Person', 'name' => $author]
+            : ['@id' => $base . '/#organization'];
+
+        return $node;
+    }
+
+    /** A BreadcrumbList node from a [ ['name','url'], … ] trail (each an absolute ListItem). */
+    private static function _breadcrumbNode(array $trail, $base, $path)
+    {
+        $items = [];
+        $pos   = 1;
+        foreach ($trail as $step) {
+            $items[] = [
+                '@type'    => 'ListItem',
+                'position' => $pos++,
+                'name'     => (string) $step['name'],
+                'item'     => (string) $step['url'],
+            ];
+        }
+        return [
+            '@type'           => 'BreadcrumbList',
+            '@id'             => $base . '/' . ltrim((string) $path, '/') . '#breadcrumb',
+            'itemListElement' => $items,
+        ];
+    }
+
     // =====================================================================================
     //  Helpers
     // =====================================================================================
+
+    /**
+     * Build a breadcrumb trail from a URL path: Home + one step per path segment, each with the
+     * absolute URL to that point. The last segment's label is $leafName (the real page title) when
+     * given, else a humanized slug; intermediate segments always humanize.
+     *
+     * @param  string $path     the request path (e.g. /blog/my-post)
+     * @param  string $leafName the current page's title (leaf label; '' → humanize the slug)
+     * @param  string $base     the absolute site base (scheme://host)
+     * @return array            [ ['name','url'], … ] starting at Home
+     */
+    private static function _trail($path, $leafName, $base)
+    {
+        $segments = array_values(array_filter(explode('/', trim((string) $path, '/')), static function ($s) { return $s !== ''; }));
+        $trail    = [['name' => 'Home', 'url' => $base . '/']];
+        $acc      = '';
+        $n        = count($segments);
+        foreach ($segments as $i => $seg) {
+            $acc  .= '/' . $seg;
+            $isLast = ($i === $n - 1);
+            $name = ($isLast && trim((string) $leafName) !== '') ? trim((string) $leafName) : self::_humanize($seg);
+            $trail[] = ['name' => $name, 'url' => $base . $acc];
+        }
+        return $trail;
+    }
+
+    /** Turn a slug into a human label: "getting-started" → "Getting Started". */
+    private static function _humanize($slug)
+    {
+        $s = str_replace(['-', '_'], ' ', (string) $slug);
+        return ucwords(trim($s));
+    }
+
+    /** A DB DATETIME ('Y-m-d H:i:s') as an ISO-8601 string; '' if blank/unparseable. */
+    private static function _iso8601($datetime)
+    {
+        $datetime = trim((string) $datetime);
+        if ($datetime === '') {
+            return '';
+        }
+        $ts = strtotime($datetime);
+        return $ts !== false ? date('c', $ts) : '';
+    }
 
     /** Serialize the nodes as one `@graph` and append the ld+json <script> to the head placeholder. */
     private static function _emit(array $nodes)

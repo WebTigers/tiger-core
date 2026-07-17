@@ -74,6 +74,11 @@ class Blog_IndexController extends Tiger_Controller_Action
                 'og_image_id'  => isset($article['feature']['id']) ? (string) $article['feature']['id'] : '',
             ]);
         }
+        // Article (BlogPosting) + BreadcrumbList structured data — the blog owns its URL/shape, so it
+        // hands the SEO schema builder the presented article rather than the builder learning "blog".
+        if (class_exists('Seo_Service_Schema')) {
+            Seo_Service_Schema::emitArticle($post, $article, $this->getRequest());
+        }
     }
 
     /**
