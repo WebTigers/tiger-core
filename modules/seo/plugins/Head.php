@@ -31,6 +31,9 @@ class Seo_Plugin_Head extends Zend_Controller_Plugin_Abstract
             $page = (new Tiger_Model_Page())->findById($pageId);
             if ($page) {
                 Seo_Service_Head::forRow($page, $request);
+                if (class_exists('Seo_Service_Schema')) {
+                    Seo_Service_Schema::emitPageBreadcrumb($request, (string) $page->title);
+                }
             }
         } catch (Throwable $e) {
             // fail-open — a broken SEO lookup must never take down a page render
