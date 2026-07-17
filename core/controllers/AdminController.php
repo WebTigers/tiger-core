@@ -24,8 +24,11 @@ class AdminController extends Tiger_Controller_Admin_Action
         parent::init();
     }
 
-    /** Per-user dashboard layout lives in the lazy option tier under this key. */
+    /** Per-user dashboard layout (order + collapsed) lives in the lazy option tier under this key. */
     const LAYOUT_KEY = 'tiger.dashboard.layout';
+
+    /** Per-user widget visibility ({"hidden":[id,…]}) — which widgets the user has switched off. */
+    const PREFS_KEY = 'tiger.dashboard.prefs';
 
     /**
      * The dashboard — a grid of module-registered widgets (Tiger_Dashboard). ACL-filtered to the
@@ -40,14 +43,26 @@ class AdminController extends Tiger_Controller_Admin_Action
 
         $widgets = Tiger_Dashboard::allowed();               // registered + ACL-filtered for this role
 
-        // Apply the user's saved order + collapsed state from the lazy option tier (per-user).
+        // Per-user personalization from the lazy option tier: saved order + collapsed state, plus the
+        // set of widgets the user switched off (those render as a lightweight header shell, out of the
+        // grid — the body is NOT rendered, so a hidden widget costs no work; see the view + service).
         $layout = [];
+        $hidden = [];
         $uid    = self::_userId();
         if ($uid !== '') {
-            $saved = (new Tiger_Model_Option())->getJson(Tiger_Model_Option::SCOPE_USER, $uid, self::LAYOUT_KEY, []);
+            $opt   = new Tiger_Model_Option();
+            $saved = $opt->getJson(Tiger_Model_Option::SCOPE_USER, $uid, self::LAYOUT_KEY, []);
             if (is_array($saved)) { $layout = $saved; }
+            $prefs = $opt->getJson(Tiger_Model_Option::SCOPE_USER, $uid, self::PREFS_KEY, []);
+            if (is_array($prefs) && isset($prefs['hidden']) && is_array($prefs['hidden'])) { $hidden = $prefs['hidden']; }
         }
-        $this->view->widgets = self::_applyLayout($widgets, $layout);
+
+        $widgets   = self::_applyLayout($widgets, $layout);
+        $hiddenSet = array_flip(array_map('strval', $hidden));
+        foreach ($widgets as &$w) { $w['hidden'] = isset($hiddenSet[$w['id']]); }
+        unset($w);
+
+        $this->view->widgets = $widgets;
     }
 
     /** The current user id, or '' when unauthenticated. */

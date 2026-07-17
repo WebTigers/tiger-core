@@ -14,6 +14,7 @@
 class System_Service_Dashboard extends Tiger_Service_Service
 {
     const LAYOUT_KEY = 'tiger.dashboard.layout';
+    const PREFS_KEY  = 'tiger.dashboard.prefs';
 
     /**
      * Save the current user's dashboard layout. Fail-soft: an unparseable or oversized payload is
@@ -26,11 +27,7 @@ class System_Service_Dashboard extends Tiger_Service_Service
     {
         if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
 
-        $uid = '';
-        try {
-            $identity = Zend_Auth::getInstance()->getIdentity();
-            $uid = ($identity && !empty($identity->user_id)) ? (string) $identity->user_id : '';
-        } catch (Throwable $e) { /* fall through */ }
+        $uid = $this->_uid();
         if ($uid === '') { $this->_error('core.api.error.not_allowed'); return; }
 
         $raw = (string) ($params['layout'] ?? '');
@@ -61,6 +58,75 @@ class System_Service_Dashboard extends Tiger_Service_Service
             $this->_success([], 'system.dashboard.saved');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
+        }
+    }
+
+    /**
+     * Save the current user's widget VISIBILITY — which widgets they've switched off (WP "Screen
+     * Options" style). Fail-soft; only known widget ids are stored. An empty list means "show all".
+     *
+     * @param  array $params expects `hidden` — a JSON array ["id",…] of hidden widget ids
+     * @return void
+     */
+    public function saveWidgetPrefs(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+
+        $uid = $this->_uid();
+        if ($uid === '') { $this->_error('core.api.error.not_allowed'); return; }
+
+        $raw = (string) ($params['hidden'] ?? '');
+        if (strlen($raw) > 20000) { $this->_success([], 'system.dashboard.saved'); return; }
+        $hidden = $raw === '' ? [] : json_decode($raw, true);
+        if (!is_array($hidden)) { $this->_success([], 'system.dashboard.saved'); return; }
+
+        $known = [];
+        foreach (Tiger_Dashboard::all() as $w) { $known[$w['id']] = true; }
+        $clean = [];
+        foreach ($hidden as $id) {
+            $id = (string) $id;
+            if (isset($known[$id]) && !in_array($id, $clean, true)) { $clean[] = $id; }
+        }
+
+        try {
+            (new Tiger_Model_Option())->setJson(Tiger_Model_Option::SCOPE_USER, $uid, self::PREFS_KEY, ['hidden' => $clean]);
+            $this->_success([], 'system.dashboard.saved');
+        } catch (Throwable $e) {
+            $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
+        }
+    }
+
+    /**
+     * Render a single ALLOWED widget's body HTML on demand. Used when a hidden widget is switched back
+     * on, so the dashboard updates without a page reload (a hidden widget isn't rendered on first load,
+     * so its markup has to be fetched). ACL-scoped via Tiger_Dashboard::allowed() — you can only render
+     * a widget you're permitted to see.
+     *
+     * @param  array $params expects `id` — the widget id
+     * @return void
+     */
+    public function widgetBody(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+
+        $id = (string) ($params['id'] ?? '');
+        foreach (Tiger_Dashboard::allowed() as $w) {
+            if ($w['id'] === $id) {
+                $this->_success(['html' => Tiger_Dashboard::renderBody($w)]);
+                return;
+            }
+        }
+        $this->_error('core.api.error.not_allowed');
+    }
+
+    /** The current user id, or '' when unauthenticated. */
+    protected function _uid()
+    {
+        try {
+            $identity = Zend_Auth::getInstance()->getIdentity();
+            return ($identity && !empty($identity->user_id)) ? (string) $identity->user_id : '';
+        } catch (Throwable $e) {
+            return '';
         }
     }
 }

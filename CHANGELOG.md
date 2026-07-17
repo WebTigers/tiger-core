@@ -7,6 +7,13 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 ## [Unreleased]
 
 ### Added
+- **Customize the dashboard — hide/show widgets per user (WP "Screen Options" style).** A **Customize**
+  button (top-right, where the redundant breadcrumb was) opens a modal listing every widget the user can
+  see, each with an on/off switch. A hidden widget is **not rendered** (its body does no work) — it stays
+  in the page as a lightweight header shell out of the Muuri grid; switching it back on fetches its body
+  via `/api` (`System_Service_Dashboard::widgetBody`) and drops the card into the grid **live, no reload**.
+  The hidden set persists per-user in the lazy option tier (`tiger.dashboard.prefs`) alongside the
+  existing layout. Also **removed the dashboard breadcrumb**.
 - **"Refresh directory" button in the Module Manager.** The registry index is cached ~3h, so a newly
   published listing could take that long to appear under Modules → Add New. A refresh control now
   re-fetches the catalog (and the sponsored overlay) on demand — `Tiger_Module_Registry::index()` /

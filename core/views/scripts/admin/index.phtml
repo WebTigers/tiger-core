@@ -6,6 +6,11 @@
  * owns the card chrome (drag handle, collapse, sizing) and the layout; each widget owns only its body.
  * Up to 4 responsive columns by width; drag to rearrange and collapse state persist per-user (option
  * tier) over /api. Empty until a module registers a widget — nothing is hard-coded here.
+ *
+ * "Customize" (top-right) opens a modal to switch widgets on/off (WP "Screen Options" style). A hidden
+ * widget renders here as a header-only shell (d-none, its body NOT rendered — no work done), kept out of
+ * the Muuri grid; switching it back on fetches the body via /api (Dashboard::widgetBody) and drops the
+ * card into the grid live — no page reload. The hidden set persists per-user (tiger.dashboard.prefs).
  */
 $widgets = isset($this->widgets) && is_array($this->widgets) ? $this->widgets : [];
 $tr = Zend_Registry::isRegistered('Zend_Translate') ? Zend_Registry::get('Zend_Translate') : null;
@@ -16,12 +21,11 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         <h1 class="h3 mb-1">Dashboard</h1>
         <p class="text-secondary mb-0 small">Welcome to the Tiger admin.</p>
     </div>
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><a href="/admin" class="text-decoration-none"><i class="fa-solid fa-house"></i></a></li>
-            <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
-        </ol>
-    </nav>
+    <?php if (!empty($widgets)): ?>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="dash-customize">
+        <i class="fa-solid fa-sliders me-1"></i>Customize
+    </button>
+    <?php endif; ?>
 </header>
 
 <?php if (empty($widgets)): ?>
@@ -33,13 +37,14 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
 <?php else: ?>
     <div class="dash-grid" id="dash-grid">
         <?php foreach ($widgets as $w):
-            $id    = htmlspecialchars($w['id'], ENT_QUOTES);
-            $title = htmlspecialchars($t($w['title']), ENT_QUOTES);
-            $icon  = htmlspecialchars($w['icon'] ?: 'fa-square', ENT_QUOTES);
-            $wide  = max(1, min(4, (int) ($w['width'] ?? 1)));
-            $coll  = !empty($w['collapsed']);
+            $id     = htmlspecialchars($w['id'], ENT_QUOTES);
+            $title  = htmlspecialchars($t($w['title']), ENT_QUOTES);
+            $icon   = htmlspecialchars($w['icon'] ?: 'fa-square', ENT_QUOTES);
+            $wide   = max(1, min(4, (int) ($w['width'] ?? 1)));
+            $hidden = !empty($w['hidden']);
+            $coll   = !$hidden && !empty($w['collapsed']);
         ?>
-        <div class="dash-item" data-id="<?= $id ?>" data-w="<?= $wide ?>"<?= (int) ($w['refresh'] ?? 0) > 0 ? ' data-refresh="' . (int) $w['refresh'] . '"' : '' ?>>
+        <div class="dash-item<?= $hidden ? ' d-none' : '' ?>" data-id="<?= $id ?>" data-w="<?= $wide ?>"<?= (int) ($w['refresh'] ?? 0) > 0 ? ' data-refresh="' . (int) $w['refresh'] . '"' : '' ?>>
             <div class="card shadow-sm h-100">
                 <div class="card-header dash-handle d-flex align-items-center gap-2" title="Drag to rearrange">
                     <i class="fa-solid <?= $icon ?> text-primary"></i>
@@ -48,12 +53,31 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
                         <i class="fa-solid fa-chevron-<?= $coll ? 'down' : 'up' ?>"></i>
                     </button>
                 </div>
-                <div class="card-body dash-body"<?= $coll ? ' style="display:none"' : '' ?>>
-                    <?= Tiger_Dashboard::renderBody($w) ?>
+                <div class="card-body dash-body"<?= $coll ? ' style="display:none"' : '' ?><?= $hidden ? ' data-lazy="1"' : '' ?>>
+                    <?= $hidden ? '' : Tiger_Dashboard::renderBody($w) ?>
                 </div>
             </div>
         </div>
         <?php endforeach; ?>
+    </div>
+
+    <!-- Customize: switch widgets on/off (per-user). Lists every widget the user is allowed to see. -->
+    <div class="modal fade" id="dash-customize-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa-solid fa-sliders me-2"></i>Customize dashboard</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-body-secondary small mb-3">Turn widgets on or off. A hidden widget isn't rendered — switch it back on anytime.</p>
+                    <div class="list-group" id="dash-widget-prefs"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <style>
@@ -79,7 +103,7 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         if (!el || !window.Muuri) { return; }
 
         var grid = new Muuri(el, {
-            items: '.dash-item',
+            items: '.dash-item:not(.d-none)',               // hidden widgets stay in the DOM but out of the grid
             dragEnabled: true,
             dragHandle: '.dash-handle',                 // the whole card header is the handle
             layout: { fillGaps: false, rounding: true },
@@ -136,6 +160,95 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
                 persist();
             });
         });
+
+        // --- Customize: per-user widget visibility (WP "Screen Options" style) ------------------------
+        var custBtn = document.getElementById('dash-customize');
+        var modalEl = document.getElementById('dash-customize-modal');
+        var modal   = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
+
+        function itemById(id) {
+            var found = null;
+            el.querySelectorAll('.dash-item').forEach(function (it) { if (it.getAttribute('data-id') === id) { found = it; } });
+            return found;
+        }
+        function itemTitle(it) {
+            var s = it.querySelector('.dash-handle .text-truncate');
+            return s ? s.textContent : it.getAttribute('data-id');
+        }
+        function hiddenIds() {
+            var ids = [];
+            el.querySelectorAll('.dash-item.d-none').forEach(function (it) { ids.push(it.getAttribute('data-id')); });
+            return ids;
+        }
+        function persistPrefs() {
+            var fd = new URLSearchParams();
+            fd.set('module', 'system'); fd.set('service', 'dashboard'); fd.set('method', 'saveWidgetPrefs');
+            fd.set('hidden', JSON.stringify(hiddenIds()));
+            fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd }).catch(function () {});
+        }
+
+        // Build the on/off list from EVERY widget in the DOM (visible + the hidden d-none shells).
+        function buildPrefs() {
+            var list = document.getElementById('dash-widget-prefs');
+            if (!list) { return; }
+            list.innerHTML = '';
+            el.querySelectorAll('.dash-item').forEach(function (it) {
+                var on  = !it.classList.contains('d-none');
+                var row = document.createElement('label');
+                row.className = 'list-group-item d-flex align-items-center gap-3';
+                row.innerHTML = '<span class="form-check form-switch m-0"><input class="form-check-input dash-pref" type="checkbox" role="switch"' + (on ? ' checked' : '') + '></span>' +
+                                '<span class="flex-grow-1 text-truncate"></span>';
+                row.querySelector('.dash-pref').setAttribute('data-id', it.getAttribute('data-id'));
+                row.querySelector('.text-truncate').textContent = itemTitle(it);
+                list.appendChild(row);
+            });
+        }
+
+        function showWidget(it) {
+            it.classList.remove('d-none');
+            var body = it.querySelector('.dash-body');
+            var addToGrid = function () {
+                if (!grid.getItems(it).length) { grid.add(it, { layout: true }); }
+                body.__tgOpen = (body.style.display !== 'none');
+                grid.refreshItems(grid.getItems(it)).layout();
+            };
+            if (body && body.getAttribute('data-lazy') === '1') {   // never rendered on load → fetch it now
+                body.innerHTML = '<div class="text-center text-body-secondary py-3"><span class="spinner-border spinner-border-sm"></span></div>';
+                var fd = new URLSearchParams();
+                fd.set('module', 'system'); fd.set('service', 'dashboard'); fd.set('method', 'widgetBody');
+                fd.set('id', it.getAttribute('data-id'));
+                fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        body.innerHTML = (res && res.result === 1 && res.data && res.data.html) ? res.data.html : '<p class="text-body-secondary small mb-0">Couldn’t load this widget.</p>';
+                        body.removeAttribute('data-lazy');
+                        addToGrid();
+                    })
+                    .catch(function () { body.innerHTML = '<p class="text-body-secondary small mb-0">Couldn’t load this widget.</p>'; body.removeAttribute('data-lazy'); addToGrid(); });
+            } else {
+                addToGrid();
+            }
+        }
+        function hideWidget(it) {
+            var mItems = grid.getItems(it);
+            if (mItems.length) { grid.remove(mItems, { removeElements: false }); }
+            it.classList.add('d-none');
+            grid.layout();
+        }
+
+        if (custBtn && modal) {
+            custBtn.addEventListener('click', function () { buildPrefs(); modal.show(); });
+        }
+        if (modalEl) {
+            modalEl.addEventListener('change', function (e) {
+                var cb = e.target.closest('.dash-pref');
+                if (!cb) { return; }
+                var it = itemById(cb.getAttribute('data-id'));
+                if (!it) { return; }
+                if (cb.checked) { showWidget(it); } else { hideWidget(it); }
+                persistPrefs();
+            });
+        }
 
         grid.layout();
     })();
