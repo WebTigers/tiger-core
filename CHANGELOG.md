@@ -6,6 +6,17 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+## [0.19.0-beta] — 2026-07-17
+
+### Added
+- **Marketing pages + Solutions mega-menu.** The shipped marketing surface is now audience-segmented,
+  all static (part of every download): a lean new **home** (`/`) that positions Tiger broadly and points
+  at three audience paths; **`/vibe`** (the former home, repositioned as the SaaS-startup / vibe-coding
+  pitch); and a new **`/agency`** page (one client or a hundred, white-label per tenant). The header's
+  first nav item is a static **Solutions mega-menu** — a 2×2 card panel linking to `/cms`, `/agency`,
+  `/vibe`, and a placeholder. Pretty routes `/vibe` + `/agency` are static aliases into the core
+  `IndexController` (`_initMarketingAliases`).
+
 ## [0.18.0-beta] — 2026-07-17
 
 ### Added
