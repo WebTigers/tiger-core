@@ -206,10 +206,13 @@ class Blog_Model_Taxonomy extends Tiger_Model_Table
         return trim((string) $text, '-');
     }
 
-    /** org scope: tenant row overrides global (''), mirroring Tiger_Model_Page. */
+    /** org scope: tenant row overrides shared (''); a blank org means "the current site". Mirrors Tiger_Model_Page. */
     protected function _orgScope($orgId)
     {
         $orgId = (string) $orgId;
+        if ($orgId === '') {
+            $orgId = Tiger_Model_Org::siteOrgId();
+        }
         return $orgId !== '' ? [$orgId, ''] : [''];
     }
 }

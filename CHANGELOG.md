@@ -6,6 +6,19 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+### Changed
+- **`org_id` is now stamped on every tenant write, like `created_by`.** `Tiger_Model_Table` auto-stamps
+  `org_id` from the current org (`setOrg()`, wired from the authenticated membership in the Authorization
+  plugin) on any table that has the column — so content is *owned* instead of left at the empty default,
+  with no per-module boilerplate. An explicit `org_id` still wins; system/global writes (no org) keep `''`.
+  Fixes CMS pages + blog articles, which never stored `org_id`.
+- **Public read dispatch resolves the site org.** `Tiger_Model_Org::siteOrgId()` (configured
+  `tiger.site.org_id`, else the founding org) is what page/article dispatch scopes to; `_orgScope('')`
+  resolves to it, so a public read finds the site's own content, not just shared `''` rows. The read scope
+  stays `[org, '']`, so nothing 404s during the transition. This is the exact seam a future multi-site
+  module overrides per request host (`setSiteOrgId()`) — the base stays single-site and dumb.
+- Migration `0033` backfills legacy `page.org_id = ''` content to the site org.
+
 ### Added
 - **TigerSEO — Phase 1 (the head registry).** A new bundled `seo` module makes the data Tiger already
   collects actually reach the `<head>`. Core hygiene: the public PUMA layout now renders through TigerZF's

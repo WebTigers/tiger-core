@@ -145,6 +145,16 @@ jobs:
           check "login /login"         200 "http://127.0.0.1:8000/login"
           check "/api gateway alive"   200 "http://127.0.0.1:8000/api"
           check "unknown slug 404"     404 "http://127.0.0.1:8000/no-such-page-xyzzy"
+          check "org-scoped CMS page"  200 "http://127.0.0.1:8000/ci-smoke-page"
+
+          # The seeded page (org_id = the site org) must actually DISPATCH — its body has to render, not a
+          # 404 shell. This is the guard for the org_id write-stamp ↔ read-scope path: a mismatch 404s here.
+          curl -s "http://127.0.0.1:8000/ci-smoke-page" >page.html || true
+          if grep -q "CI_SMOKE_PAGE_OK" page.html; then
+            echo "PASS  org-scoped CMS page body dispatched"
+          else
+            echo "FAIL  org-scoped CMS page body not found (org write/read mismatch?)"; echo "  body: $(head -c 300 page.html)"; fail=1
+          fi
 
           # the /api gateway must answer with the JSON envelope contract (result key present), even for
           # an empty/refused message — proves the webservice layer is wired, not just returning a page.

@@ -95,6 +95,7 @@ class Tiger_Controller_Plugin_Authorization extends Zend_Controller_Plugin_Abstr
         }
 
         Tiger_Model_Table::setActor($identity->user_id);   // created_by/updated_by flow
+        Tiger_Model_Table::setOrg((string) ($identity->org_id ?? ''));   // org_id (tenant) flow
 
         $role = self::ROLE_AUTHENTICATED;
         if (!empty($identity->org_id)) {
