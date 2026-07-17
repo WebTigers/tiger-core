@@ -50,7 +50,7 @@ class Blog_IndexController extends Tiger_Controller_Action
      */
     public function viewAction()
     {
-        $post = $this->_posts->resolveArticle((string) $this->getParam('slug', ''), $this->_locale(), '');
+        $post = $this->_posts->resolveArticle((string) $this->getParam('slug', ''), $this->_locale(), Tiger_Model_Org::siteOrgId());
         if (!$post) {
             throw new Zend_Controller_Action_Exception('Article not found', 404);
         }

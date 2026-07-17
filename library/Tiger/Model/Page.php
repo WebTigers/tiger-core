@@ -233,9 +233,18 @@ class Tiger_Model_Page extends Tiger_Model_Table
         return ['total' => $total, 'filtered' => $filtered, 'rows' => $db->fetchAll($pageSel)];
     }
 
-    /** The org scope for a cascade lookup: [<org>, ''] (deduped; '' = global). */
+    /**
+     * The org scope for a cascade lookup: [<org>, ''] (deduped; '' = shared-across-sites fallback, which
+     * loses to a real org via `ORDER BY org_id DESC`). A blank org means "the current site" — it resolves
+     * to Tiger_Model_Org::siteOrgId() so a public read (which passes '') scopes to the site's own content
+     * now that content carries a real org_id, not just the shared '' rows.
+     */
     protected function _orgScope($orgId)
     {
-        return array_values(array_unique([(string) $orgId, '']));
+        $orgId = (string) $orgId;
+        if ($orgId === '') {
+            $orgId = Tiger_Model_Org::siteOrgId();
+        }
+        return array_values(array_unique([$orgId, '']));
     }
 }

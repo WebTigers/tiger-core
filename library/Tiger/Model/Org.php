@@ -23,6 +23,52 @@ class Tiger_Model_Org extends Tiger_Model_Table
     protected $_name    = 'org';
     protected $_primary = 'org_id';
 
+    /** @var string|null the current-site org id, resolved once per request */
+    private static $_siteOrgId = null;
+
+    /**
+     * The current site's org — the tenant that owns the PUBLIC site being served. Public read dispatch
+     * (CMS pages, blog articles) scopes to this; content writes are stamped from the authenticated org
+     * (Tiger_Model_Table::setOrg). Resolution: the configured `tiger.site.org_id` (recorded at install /
+     * settable in Site settings), else the **founding org** (the oldest) as a heuristic. NB: org hierarchy
+     * (`parent_org_id`) is future — right now every org is a root, so "root" isn't a distinguishing query;
+     * the site org is the platform's founding org. A multi-site module overrides this per request from the
+     * request host (setSiteOrgId). Cached per request.
+     *
+     * @return string the site org id, or '' if no org exists yet (a pre-install install)
+     */
+    public static function siteOrgId()
+    {
+        if (self::$_siteOrgId !== null) {
+            return self::$_siteOrgId;
+        }
+        $cfg = Zend_Registry::isRegistered('Zend_Config') ? Zend_Registry::get('Zend_Config') : null;
+        $t   = $cfg ? $cfg->get('tiger') : null;
+        $s   = $t ? $t->get('site') : null;
+        $id  = ($s && $s->get('org_id')) ? (string) $s->org_id : '';
+        if ($id === '') {
+            try {
+                $m   = new self();
+                $row = $m->fetchRow($m->activeSelect()->order('created_at ASC')->limit(1));   // the founding org
+                $id  = $row ? (string) $row->org_id : '';
+            } catch (Throwable $e) {
+                $id = '';
+            }
+        }
+        return self::$_siteOrgId = $id;
+    }
+
+    /**
+     * Override the current-site org (a multi-site module resolves this from the request host, early).
+     *
+     * @param  string $orgId
+     * @return void
+     */
+    public static function setSiteOrgId($orgId)
+    {
+        self::$_siteOrgId = (string) $orgId;
+    }
+
     /**
      * Find an org by its URL-safe slug (the human/route-facing identifier).
      *

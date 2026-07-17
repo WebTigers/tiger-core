@@ -46,7 +46,9 @@ class Tiger_Controller_Plugin_PageDispatch extends Zend_Controller_Plugin_Abstra
             return;   // the root belongs to IndexController (the landing)
         }
         $locale = defined('LANG') ? LANG : 'en';
-        $orgId  = '';   // global public pages for now (host->org mapping is future)
+        $orgId  = Tiger_Model_Org::siteOrgId();   // the org owning this public site (root org on a stock
+                                                  // install; a multi-site module resolves host->org). The
+                                                  // read scope is [org, ''], so shared '' content still shows.
 
         try {
             // Only real pages answer at the site root — articles/posts route under /blog.

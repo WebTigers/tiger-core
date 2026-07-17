@@ -76,6 +76,38 @@ abstract class Tiger_Model_Table extends Zend_Db_Table_Abstract
     }
 
     /**
+     * The "current org" — the tenant an insert is credited to, stamped into `org_id` the same way the
+     * actor is stamped into created_by/updated_by. Request-wide (static). The auth layer calls setOrg()
+     * per request with the user's active org; null leaves org_id at its column default ('' = platform/
+     * global — a system row, a shipped translation). The multi-site module overrides this per domain.
+     *
+     * @var string|null
+     */
+    private static $_org = null;
+
+    /**
+     * Set the current org (an org_id). Auth calls this per request from the active membership; a
+     * multi-site module overrides it from the request host. An explicitly passed org_id always wins.
+     *
+     * @param  string|null $orgId the acting org's id, or null for platform/global scope
+     * @return void
+     */
+    public static function setOrg($orgId)
+    {
+        self::$_org = $orgId;
+    }
+
+    /**
+     * The current org_id, or null in a platform/global context.
+     *
+     * @return string|null the acting org's id, or null
+     */
+    public static function org()
+    {
+        return self::$_org;
+    }
+
+    /**
      * Insert a row: mint the UUID PK, stamp created_at/updated_at and (if an actor
      * is set) created_by/updated_by. Any of these you pass explicitly wins.
      *
@@ -105,6 +137,13 @@ abstract class Tiger_Model_Table extends Zend_Db_Table_Abstract
             if ($this->_hasColumn('updated_by') && !array_key_exists('updated_by', $data)) {
                 $data['updated_by'] = $actor;
             }
+        }
+
+        // Tenant stamp: a row on an org_id table is credited to the current org, so content is owned
+        // rather than left at the '' default. Only when an org is set (an authenticated request) and the
+        // caller didn't pass org_id explicitly — system/global writes (no org) keep the column default.
+        if (self::$_org !== null && $this->_hasColumn('org_id') && !array_key_exists('org_id', $data)) {
+            $data['org_id'] = self::$_org;
         }
 
         parent::insert($data);
