@@ -6,6 +6,8 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+## [0.16.0-beta] — 2026-07-17
+
 ### Added
 - **TigerSEO — JSON-LD structured data (rich results / sitelinks layer).** Where the head meta/OG tags
   describe one *page*, this describes the *site as an entity*: a single `<script type="application/ld+json">`
