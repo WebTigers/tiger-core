@@ -4,6 +4,14 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses [SemVer](https://semver.org/)
 — while `0.x`, the public API (`@api`) may still shift between minor versions.
 
+## [0.12.1-beta] — 2026-07-17
+
+### Fixed
+- **`Tiger_Module_Github`: dropped the deprecated `curl_close()`.** On PHP 8+ the `CurlHandle` is freed
+  by GC when the handle leaves scope, so the call was already a no-op — and PHP 8.5 emits `E_DEPRECATED`
+  for it. Removing the dead line silences the notice (which the update checker's GitHub fetches were
+  tripping) with no behavior change on 8.1–8.5.
+
 ## [0.12.0-beta] — 2026-07-17
 
 ### Added
