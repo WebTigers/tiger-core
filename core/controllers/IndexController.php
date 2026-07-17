@@ -42,6 +42,27 @@ class IndexController extends Zend_Controller_Action
         $this->view->zendVersion  = Zend_Version::VERSION;
     }
 
+    /**
+     * `/vibe` — the SaaS-startup / "vibe coding" pitch (the former home page). A shipped marketing
+     * page; the view owns its content. Routed via _initMarketingAliases.
+     *
+     * @return void
+     */
+    public function vibeAction()
+    {
+        // view: index/vibe.phtml — nothing to wire; it's static marketing.
+    }
+
+    /**
+     * `/agency` — the agency story (one client or a hundred). A shipped marketing page.
+     *
+     * @return void
+     */
+    public function agencyAction()
+    {
+        // view: index/agency.phtml
+    }
+
     /** The configured home-page id (tiger.site.home_page), or '' for the built-in landing. */
     protected function _homePageId()
     {

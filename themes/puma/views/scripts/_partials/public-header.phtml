@@ -19,6 +19,14 @@
 $identity   = Zend_Auth::getInstance()->hasIdentity() ? Zend_Auth::getInstance()->getIdentity() : null;
 $authRegion = $this->placeholder('tigerHeaderAuth');
 ?>
+<style>
+/* Solutions mega-menu: a wide two-up card panel on desktop; stacks inside the collapsed nav on mobile. */
+.tiger-mega .mega-card { transition: background-color .12s ease, transform .12s ease; }
+.tiger-mega .mega-card:hover { background: var(--bs-tertiary-bg); }
+.tiger-mega .mega-card-ghost { border: 1px dashed var(--bs-border-color); }
+.tiger-mega .mega-card-ghost:hover { background: var(--bs-tertiary-bg); }
+@media (min-width: 992px) { .tiger-mega .dropdown-menu { width: 620px; } }
+</style>
 <nav class="navbar navbar-expand-lg border-bottom sticky-top" style="background: var(--bs-body-bg);">
     <div class="container">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
@@ -32,6 +40,58 @@ $authRegion = $this->placeholder('tigerHeaderAuth');
 
         <div class="collapse navbar-collapse" id="tigerNav">
             <ul class="navbar-nav mb-2 mb-lg-0">
+                <!-- Solutions: a static mega-menu — HTML injected into the first dropdown. -->
+                <li class="nav-item dropdown tiger-mega">
+                    <a class="nav-link dropdown-toggle" href="#" id="tigerSolutions" role="button" data-bs-toggle="dropdown" aria-expanded="false">Solutions</a>
+                    <div class="dropdown-menu border-0 shadow-lg p-3" aria-labelledby="tigerSolutions">
+                        <div class="row g-2">
+                            <div class="col-12 col-lg-6">
+                                <a class="mega-card d-block h-100 text-decoration-none text-body rounded-3 p-3" href="/cms">
+                                    <div class="d-flex gap-3">
+                                        <i class="fa-solid fa-wand-magic-sparkles text-primary fs-4 mt-1"></i>
+                                        <div>
+                                            <div class="fw-semibold">Build Killer Websites</div>
+                                            <div class="small text-secondary">No WordPress&reg; required</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <a class="mega-card d-block h-100 text-decoration-none text-body rounded-3 p-3" href="/agency">
+                                    <div class="d-flex gap-3">
+                                        <i class="fa-solid fa-people-group text-primary fs-4 mt-1"></i>
+                                        <div>
+                                            <div class="fw-semibold">Agency Friendly</div>
+                                            <div class="small text-secondary">Host hundreds of sites</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <a class="mega-card d-block h-100 text-decoration-none text-body rounded-3 p-3" href="/vibe">
+                                    <div class="d-flex gap-3">
+                                        <i class="fa-solid fa-rocket text-primary fs-4 mt-1"></i>
+                                        <div>
+                                            <div class="fw-semibold">Vibe SaaS Startups</div>
+                                            <div class="small text-secondary">A secure MVP in minutes, not days</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <a class="mega-card mega-card-ghost d-block h-100 text-decoration-none text-secondary rounded-3 p-3" href="#">
+                                    <div class="d-flex gap-3">
+                                        <i class="fa-solid fa-circle-plus fs-4 mt-1"></i>
+                                        <div>
+                                            <div class="fw-semibold">What else could go here&hellip;?</div>
+                                            <div class="small">Your next audience</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </li>
                 <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
                 <li class="nav-item"><a class="nav-link" href="/docs">Docs</a></li>
                 <li class="nav-item"><a class="nav-link" href="https://github.com/WebTigers/Tiger" target="_blank" rel="noopener">GitHub</a></li>

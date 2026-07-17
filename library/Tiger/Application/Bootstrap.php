@@ -99,6 +99,25 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Pretty aliases for the shipped marketing pages (IndexController actions): `/vibe` (SaaS-startup
+     * pitch — the former home) and `/agency` (the agency story). Static exact-path routes into the
+     * default-namespace IndexController, same pattern as the auth aliases. The canonical /index/*
+     * paths keep working; `/cms` is the CMS module's own public page (no alias needed).
+     */
+    protected function _initMarketingAliases()
+    {
+        $this->bootstrap('frontController');
+        $router = $this->getResource('frontController')->getRouter();
+
+        $router->addRoute('tiger_vibe', new Zend_Controller_Router_Route_Static(
+            'vibe', ['module' => 'default', 'controller' => 'index', 'action' => 'vibe']
+        ));
+        $router->addRoute('tiger_agency', new Zend_Controller_Router_Route_Static(
+            'agency', ['module' => 'default', 'controller' => 'index', 'action' => 'agency']
+        ));
+    }
+
+    /**
      * AUTHORIZATION: build the ACL (Tiger_Acl_Acl loads roles/resources/rules from
      * ini + DB) and register the unbypassable gate (Tiger_Controller_Plugin_
      * Authorization) on the front controller. Runs after frontController so the

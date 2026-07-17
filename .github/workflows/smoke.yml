@@ -143,9 +143,19 @@ jobs:
 
           check "landing /"            200 "http://127.0.0.1:8000/"
           check "login /login"         200 "http://127.0.0.1:8000/login"
+          check "marketing /vibe"      200 "http://127.0.0.1:8000/vibe"
+          check "marketing /agency"    200 "http://127.0.0.1:8000/agency"
           check "/api gateway alive"   200 "http://127.0.0.1:8000/api"
           check "unknown slug 404"     404 "http://127.0.0.1:8000/no-such-page-xyzzy"
           check "org-scoped CMS page"  200 "http://127.0.0.1:8000/ci-smoke-page"
+
+          # The home page must carry the Solutions mega-menu (its cards link to the marketing pages).
+          curl -s "http://127.0.0.1:8000/" >home.html || true
+          if grep -q 'tiger-mega' home.html && grep -q 'href="/vibe"' home.html && grep -q 'href="/agency"' home.html; then
+            echo "PASS  home carries the Solutions mega-menu + audience links"
+          else
+            echo "FAIL  home missing mega-menu / audience links"; fail=1
+          fi
 
           # The seeded page (org_id = the site org) must actually DISPATCH — its body has to render, not a
           # 404 shell. This is the guard for the org_id write-stamp ↔ read-scope path: a mismatch 404s here.

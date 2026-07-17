@@ -2,21 +2,30 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
- * Public landing page. Rendered inside the PUMA public layout (header + footer).
- * Bootstrap + --bs-* tokens, so it restyles live with the theme (light/dark) and the
- * active skin — the switchers in the header change this page with no reload.
+ * Public home page. Rendered inside the PUMA public layout (header + footer). Bootstrap +
+ * --bs-* tokens, so it restyles live with the theme (light/dark) and the active skin.
+ *
+ * A deliberately lean "surface the major points" home — a placeholder for a fuller redesign.
+ * It positions Tiger, points at the three audience pages (/cms, /vibe, /agency), and shows the
+ * core feature grid. The audience cards mirror the header's Solutions mega-menu.
  */
-$this->title = 'Tiger — a 1-click SaaS platform on TigerZF';
+$this->title = 'Tiger — one platform: sites, SaaS, and client work';
+
+$paths = [
+    ['fa-wand-magic-sparkles', 'Build killer websites', 'No WordPress&reg; required',      '/cms',    'A database-driven CMS with layouts, menus, versioning, and a visual builder — themeable, multi-tenant, fast.'],
+    ['fa-rocket',              'Vibe SaaS startups',     'A secure MVP in minutes, not days','/vibe',   'Auth, orgs, roles, and a clean /api from the first commit — so you and your AI pair ship product, not plumbing.'],
+    ['fa-people-group',        'Agency friendly',        'Host hundreds of sites',           '/agency', 'One install, many tenants. Jumpstart every client project and run them all from a single back office.'],
+];
 
 $features = [
-    ['fa-layer-group',    'Front-end agnostic',       'Server-rendered .phtml or any SPA (React, Vue, …) against one JSON /api. The core ships no UI framework — build the front end however you like.'],
-    ['fa-building',       'Multi-tenant by default',  'Orgs, users, and memberships out of the box. A user can be admin in one org and viewer in another — roles live on the membership.'],
-    ['fa-bolt',           'Zero build toolchain',     'No npm, no webpack, no Sass. composer install and the UI renders. Assets are vendored; a build tool only appears if a theme opts in.'],
-    ['fa-language',       'i18n with live overrides', 'Semantic keys, language-only locales, /es/ URLs. Change any string in production with no deploy — same for config.'],
-    ['fa-shield-halved',  'Auth & ACL included',      'Password policy, lockout, DB sessions, an audit log, and a deny-by-default ACL with live, per-tenant roles.'],
-    ['fa-cloud',          'Pluggable logging',        'Structured JSON logs to error_log, stderr, syslog — or straight to CloudWatch / GCP / Azure. Switch with one config line.'],
-    ['fa-palette',        'Live theming & skins',     'Light/dark and swappable skins that hot-swap with no reload — per user and per org. Try the switchers above ↑'],
-    ['fa-terminal',       'Batteries-included CLI',   'bin/tiger migrate, install:admin, make:module — scaffold a live module (controller + /api service + ACL) in seconds.'],
+    ['fa-layer-group',   'Front-end agnostic',      'Server-rendered .phtml or any SPA against one JSON /api. The core ships no UI framework.'],
+    ['fa-building',      'Multi-tenant by default', 'Orgs, users, and memberships out of the box — roles live on the membership, not the user.'],
+    ['fa-bolt',          'Zero build toolchain',    'No npm, no webpack, no Sass. composer install and the UI renders. Assets are vendored.'],
+    ['fa-shield-halved', 'Auth & ACL included',     'Password policy, lockout, DB sessions, an audit log, and a deny-by-default, per-tenant ACL.'],
+    ['fa-language',      'i18n + live overrides',   'Semantic keys, /es/ URLs, and any string or config changed in production with no deploy.'],
+    ['fa-gauge-high',    'Built for speed',         'A lean core — OPcache-tuned, tiny footprint. Flies on a $5 shared host, not just a big server.'],
+    ['fa-palette',       'Live theming & skins',    'Light/dark and swappable skins that hot-swap with no reload — per user and per org.'],
+    ['fa-terminal',      'Batteries-included CLI',  'bin/tiger migrate, install:admin, make:module — scaffold a live module in seconds.'],
 ];
 ?>
 <!-- Hero -->
@@ -25,11 +34,11 @@ $features = [
         <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2">
             Built on TigerZF · ZendFramework 1 for modern PHP
         </span>
-        <h1 class="display-4 fw-bold mb-3">Build the SaaS, not the plumbing.</h1>
-        <p class="lead text-secondary mx-auto mb-4" style="max-width: 700px;">
-            Tiger is a 1-click, multi-tenant SaaS foundation for PHP — auth, orgs, roles, theming,
-            i18n, and a clean <code>/api</code> — so you ship product from day one. Front-end
-            agnostic, zero build step.
+        <h1 class="display-4 fw-bold mb-3">One platform. Sites, SaaS, and client work.</h1>
+        <p class="lead text-secondary mx-auto mb-4" style="max-width: 720px;">
+            Tiger is a 1-click, multi-tenant foundation for PHP — auth, orgs, roles, a CMS, theming,
+            i18n, and a clean <code>/api</code>. Whether you're building a website, a SaaS, or a hundred
+            client sites, you start with product, not plumbing.
         </p>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
             <a href="https://github.com/WebTigers/Tiger" class="btn btn-primary btn-lg px-4" target="_blank" rel="noopener">
@@ -44,117 +53,29 @@ $features = [
     </div>
 </section>
 
-<!-- Positioning — who it's for -->
+<!-- Audience paths (mirror the Solutions mega-menu) -->
 <section class="pb-2">
     <div class="container">
         <div class="row g-4">
+<?php foreach ($paths as $p): ?>
             <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-rocket text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">Startup-friendly</h3>
-                        <p class="text-secondary small mb-0">
-                            Zero to a running, themed, multi-tenant app in one command — on a $0 stack if you
-                            want. No infra to stand up, no boilerplate to write. Spend your runway on product,
-                            not plumbing.
-                        </p>
+                <a href="<?= $p[3] ?>" class="card h-100 border-0 border-top border-primary border-3 shadow-sm text-decoration-none text-body">
+                    <div class="card-body p-4">
+                        <i class="fa-solid <?= $p[0] ?> text-primary fs-2 mb-3"></i>
+                        <h2 class="h5 fw-bold mb-1"><?= $p[1] ?></h2>
+                        <div class="small text-primary-emphasis fw-semibold mb-2"><?= $p[2] ?></div>
+                        <p class="text-secondary small mb-3"><?= $p[4] ?></p>
+                        <span class="small fw-semibold text-primary">Explore <i class="fa-solid fa-arrow-right ms-1"></i></span>
                     </div>
-                </div>
+                </a>
             </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-building-shield text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">Enterprise-class MVPs</h3>
-                        <p class="text-secondary small mb-0">
-                            Auth, role-based access, audit logging, multi-tenancy, i18n, and live config — the
-                            substrate enterprises spend months on — ship with your first commit. Your MVP is
-                            production-shaped out of the gate.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-robot text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">Structured for vibe coding</h3>
-                        <p class="text-secondary small mb-0">
-                            Predictable patterns, docs that live in the code, and an <code>AGENTS.md</code> your
-                            AI assistant reads before it writes. Describe what you want and let the conventions
-                            keep it clean — vibe code that doesn't rot.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Performance -->
-<section class="pb-5 pt-4">
-    <div class="container">
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-gauge-high text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">Built for speed</h3>
-                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">runs on</div>
-                        <div class="display-5 fw-bold text-primary mb-1">PHP&nbsp;8.x+</div>
-                        <p class="text-secondary small mb-0">
-                            A lean core with no per-request framework bloat — zero build step, tiny memory
-                            footprint, OPcache-tuned. Flies on a $5 shared host, not just a beefy server.
-                            Fast is the default, not an upgrade.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-stopwatch text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">The numbers don't lie</h3>
-                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">responds in</div>
-                        <div class="display-5 fw-bold text-primary mb-1">~10&thinsp;ms</div>
-                        <p class="text-secondary small mb-0">
-                            Steady at the median, the 95th, <em>and</em> the 99th percentile &mdash; the tail
-                            stays flat under load, not just on a quiet box. That's the raw cost of generating a
-                            real page, with no output cache and no tricks. Consistent, with zero errors.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100 border-0 border-top border-primary border-3 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <i class="fa-solid fa-ranking-star text-primary fs-2 mb-3"></i>
-                        <h3 class="h5 fw-bold">The competition</h3>
-                        <div class="small text-secondary text-uppercase mb-0" style="letter-spacing:.06em;">up to</div>
-                        <div class="display-5 fw-bold text-primary mb-1">3&ndash;10&times;</div>
-                        <p class="text-secondary small mb-0">
-                            faster than Laravel, Next.js, or Django&nbsp;+&nbsp;ORM at generating the same
-                            dynamic page &mdash; most of their time is framework plumbing, not your code. And
-                            Tiger does it on a $5 shared host those stacks can't even run on. Lean beats heavy.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12">
-                <p class="text-secondary text-center mt-3 mb-0" style="font-size:.7rem; line-height:1.45;">
-                    ~10&thinsp;ms measured (single warm request, 2&#8209;vCPU box, PHP&nbsp;8 + OPcache). Multipliers reflect
-                    typical per&#8209;request generation times for an equivalent dynamic page vs. mainstream framework
-                    defaults &mdash; not a controlled benchmark; results vary by workload and hardware.
-                </p>
-            </div>
+<?php endforeach; ?>
         </div>
     </div>
 </section>
 
 <!-- Features -->
-<section id="features" class="py-5" style="background: var(--bs-tertiary-bg);">
+<section id="features" class="py-5 mt-4" style="background: var(--bs-tertiary-bg);">
     <div class="container">
         <div class="text-center mb-5">
             <h2 class="fw-bold">Everything a SaaS needs, none of the busywork</h2>
@@ -174,92 +95,6 @@ $features = [
                 </div>
             </div>
 <?php endforeach; ?>
-        </div>
-    </div>
-</section>
-
-<!-- Webservices / API -->
-<section class="py-5">
-    <div class="container">
-        <div class="text-center mb-5">
-            <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2">
-                Webservices &mdash; the TIGER pattern
-            </span>
-            <h2 class="fw-bold">REST without the bloat</h2>
-            <p class="text-secondary mx-auto mb-0" style="max-width:640px;">
-                One endpoint. The message says where it's going. Add a method and it's live &mdash; no route
-                to design, no verb to argue about, no endpoint zoo to maintain.
-            </p>
-        </div>
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body d-flex gap-3 p-4">
-                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
-                            <i class="fa-solid fa-arrows-to-dot fs-5"></i>
-                        </div>
-                        <div>
-                            <h3 class="h6 fw-semibold mb-1">One endpoint, not 50</h3>
-                            <p class="small text-secondary mb-0">
-                                A single <code>/api</code>. The <code>module</code> + <code>service</code> +
-                                <code>method</code> ride in the message, so a new call is a new <em>method</em> &mdash;
-                                not a new route, a new controller, and a new version to babysit.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body d-flex gap-3 p-4">
-                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
-                            <i class="fa-solid fa-lock fs-5"></i>
-                        </div>
-                        <div>
-                            <h3 class="h6 fw-semibold mb-1">Secured by ACL</h3>
-                            <p class="small text-secondary mb-0">
-                                Every call is authorized <em>before</em> it runs &mdash; deny-by-default, resource =
-                                the service, privilege = the method. Auth isn't a check you can forget to write;
-                                it's the gateway you can't route around.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body d-flex gap-3 p-4">
-                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
-                            <i class="fa-solid fa-toggle-on fs-5"></i>
-                        </div>
-                        <div>
-                            <h3 class="h6 fw-semibold mb-1">Stateless or stateful</h3>
-                            <p class="small text-secondary mb-0">
-                                Ride the session for a first-party UI, or go token-based and stateless for a public
-                                API or a mobile client &mdash; the same services answer either way. Pick the model
-                                per surface, not per framework.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body d-flex gap-3 p-4">
-                        <div class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary-emphasis" style="width:48px;height:48px;">
-                            <i class="fa-solid fa-compass fs-5"></i>
-                        </div>
-                        <div>
-                            <h3 class="h6 fw-semibold mb-1">Discoverable by design</h3>
-                            <p class="small text-secondary mb-0">
-                                Because routing is data in the message, the API can describe itself &mdash; versioned
-                                services and an OpenAPI / Swagger catalog fall out of the pattern, not a bolt-on spec
-                                you keep in sync by hand.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </section>
