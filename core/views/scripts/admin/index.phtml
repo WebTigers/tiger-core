@@ -81,7 +81,8 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
     </div>
 
     <style>
-        .dash-grid { position: relative; margin: 0 -.5rem; }
+        .dash-grid { position: relative; margin: 0 -.5rem; opacity: 0; }
+        .dash-grid.dash-ready { opacity: 1; transition: opacity .4s ease; }
         .dash-item { position: absolute; width: 100%; padding: .5rem; box-sizing: border-box; z-index: 1; }
         @media (min-width: 768px)  { .dash-item { width: 50%; }     .dash-item[data-w="3"], .dash-item[data-w="4"] { width: 100%; } }
         @media (min-width: 1200px) { .dash-item { width: 33.333%; } .dash-item[data-w="2"] { width: 66.666%; } .dash-item[data-w="3"], .dash-item[data-w="4"] { width: 100%; } }
@@ -93,14 +94,23 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
         .muuri-item-dragging .dash-handle { cursor: grabbing; }
         .muuri-item-releasing { z-index: 2; }
         .muuri-item-hidden { z-index: 0; }
-        @media (prefers-reduced-motion: reduce) { .dash-item { transition: none !important; } }
+        @media (prefers-reduced-motion: reduce) { .dash-item { transition: none !important; } .dash-grid.dash-ready { transition: none; } }
     </style>
 
     <script src="<?= $this->asset($this->themeAssets . '/vendor/muuri/muuri.min.js') ?>"></script>
     <script>
     (function () {
         var el = document.getElementById('dash-grid');
-        if (!el || !window.Muuri) { return; }
+        if (!el) { return; }
+
+        // The grid starts at opacity 0 (CSS), so the browser never paints the pre-layout stack of
+        // absolutely-positioned tiles (the FOUC). We fade it in only once Muuri has arranged them.
+        // reveal() is idempotent; a 1s safety net guarantees the widgets show even if Muuri fails
+        // to load or init throws before the first layoutEnd.
+        var revealed = false;
+        function reveal() { if (revealed) { return; } revealed = true; el.classList.add('dash-ready'); }
+        setTimeout(reveal, 1000);
+        if (!window.Muuri) { reveal(); return; }
 
         var grid = new Muuri(el, {
             items: '.dash-item:not(.d-none)',               // hidden widgets stay in the DOM but out of the grid
@@ -255,6 +265,8 @@ $t  = function ($s) use ($tr) { return $tr ? $tr->translate($s) : $s; };
             });
         }
 
+        // Fade the grid in once the first layout settles (see reveal() above) — kills the FOUC.
+        grid.on('layoutEnd', function onFirstLayout() { grid.off('layoutEnd', onFirstLayout); reveal(); });
         grid.layout();
     })();
     </script>

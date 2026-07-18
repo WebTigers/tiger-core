@@ -561,6 +561,15 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
                     $this->_setNestedConfig($config, $row->config_key, $row->config_value);
                 }
             }
+            // USER tier — the most specific scope, applied last so it wins. Private per-user
+            // *overrides* of existing config (e.g. a personal admin-menu sort order). Lean by
+            // design: a user only accumulates rows for the few things they've personalized.
+            $userId = $this->_currentUserId();
+            if ($userId !== null) {
+                foreach ($model->getForScope(Tiger_Model_Config::SCOPE_USER, $userId) as $row) {
+                    $this->_setNestedConfig($config, $row->config_key, $row->config_value);
+                }
+            }
         } catch (Throwable $e) {
             // ini-only config (no DB / no config table yet)
         }
@@ -577,6 +586,13 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
         return ($identity && !empty($identity->org_id)) ? $identity->org_id : null;
     }
 
+    /** The authenticated user id (session), or null. */
+    protected function _currentUserId()
+    {
+        $identity = Zend_Auth::getInstance()->getIdentity();
+        return ($identity && !empty($identity->user_id)) ? $identity->user_id : null;
+    }
+
     /** Fold a dot-notation key ('tiger.skin') + value into a modifiable Zend_Config tree. */
     protected function _setNestedConfig(Zend_Config $config, $key, $value)
     {
@@ -590,5 +606,22 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
             $node = $node->{$part};
         }
         $node->{$parts[0]} = $value;
+    }
+
+    /**
+     * Consume module admin-nav config at bootstrap: discover every ACTIVE module's
+     * `configs/navigation.ini` into Tiger_Admin_Nav — the config-driven half of the nav registry
+     * (the code-driven half is module Bootstraps calling Tiger_Admin_Nav::register; both coexist).
+     * The sidebar partial reads Tiger_Admin_Nav::items() at render; this front-loads the .ini scan
+     * with the DB up, so deactivated modules are filtered out.
+     *
+     * @return void
+     */
+    protected function _initAdminNavigation()
+    {
+        $this->bootstrap('db');   // discover() filters by active module (Tiger_Model_Module)
+        if (class_exists('Tiger_Admin_Nav')) {
+            Tiger_Admin_Nav::discover();
+        }
     }
 }

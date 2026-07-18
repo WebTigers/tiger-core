@@ -89,6 +89,9 @@ body {
    open when a child is active). */
 .tiger-nav .has-children.open > .tiger-nav-children { display: block; }
 .tiger-nav .has-children.open > a .tiger-nav-caret { transform: rotate(180deg); }
+/* Admin sidebar drag-to-reorder (SortableJS): subtle chosen + placeholder styling during a drag. */
+.tiger-nav li.sortable-chosen { background: color-mix(in srgb, var(--bs-primary) 12%, transparent); }
+.tiger-nav li.sortable-ghost { opacity: .45; }
 
 /* --- Right aside ----------------------------------------------------------- */
 .tiger-sidebar-right {

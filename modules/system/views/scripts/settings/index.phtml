@@ -42,6 +42,11 @@ $hasSecret = !empty($this->hasSecret);
         <button class="nav-link" id="tab-location-btn" data-bs-toggle="tab" data-bs-target="#tab-location" type="button" role="tab"><i class="fa-solid fa-location-dot me-2"></i>Location</button>
     </li>
     <?php endif; ?>
+    <?php if (!empty($this->consent)): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-cookies-btn" data-bs-toggle="tab" data-bs-target="#tab-cookies" type="button" role="tab"><i class="fa-solid fa-cookie-bite me-2"></i>Cookies</button>
+    </li>
+    <?php endif; ?>
 </ul>
 
 <form id="sys-settings-form" onsubmit="return false;" novalidate>
@@ -244,6 +249,62 @@ $hasSecret = !empty($this->hasSecret);
                             <label class="form-label small" for="loc-cache-ttl">Lookup cache lifetime <span class="text-body-secondary">(seconds)</span></label>
                             <div class="input-group input-group-sm" style="max-width:16rem"><input type="text" id="loc-cache-ttl" name="location_cache_ttl" class="form-control" inputmode="numeric" value="<?= (int) $loc['cache_ttl'] ?>"><span class="input-group-text">sec</span></div>
                             <div class="form-text">An IP's location doesn't change — caching means the provider is hit at most once per IP per this window, never on a normal request. <code>0</code> disables it.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Cookies (GDPR consent) -->
+        <?php if (!empty($this->consent)): $c = $this->consent; ?>
+        <div class="tab-pane fade" id="tab-cookies" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-cookie-bite me-2"></i>Cookie consent</div>
+                        <div class="card-body">
+                            <p class="text-body-secondary small">When required, a consent banner asks visitors before any analytics/tracking cookies load. Trackers (like Google Analytics) stay off until the visitor accepts.</p>
+                            <?php
+                            $modes = [
+                                'off'    => ['Off', 'No banner. For sites with no consent requirement (e.g. non-EU).'],
+                                'auto'   => ['Auto — recommended', 'Show the banner only when tracking is actually active (e.g. Google Analytics is enabled). Silent when nothing is tracking.'],
+                                'always' => ['Always on', 'Always show the banner, even if no tracking is present.'],
+                            ];
+                            foreach ($modes as $val => $m): ?>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="consent_mode" id="consent-mode-<?= $val ?>" value="<?= $val ?>"<?= $c['mode'] === $val ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="consent-mode-<?= $val ?>">
+                                    <span class="fw-semibold"><?= $this->escape($m[0]) ?></span>
+                                    <span class="d-block small text-body-secondary"><?= $this->escape($m[1]) ?></span>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-comment-dots me-2"></i>Banner text</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label" for="consent-message">Message</label>
+                                <textarea class="form-control" id="consent-message" name="consent_message" rows="3"><?= $this->escape($c['message']) ?></textarea>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col">
+                                    <label class="form-label" for="consent-accept">Accept button</label>
+                                    <input type="text" class="form-control" id="consent-accept" name="consent_accept_label" value="<?= $this->escape($c['accept_label']) ?>">
+                                </div>
+                                <div class="col">
+                                    <label class="form-label" for="consent-reject">Decline button</label>
+                                    <input type="text" class="form-control" id="consent-reject" name="consent_reject_label" value="<?= $this->escape($c['reject_label']) ?>">
+                                </div>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label" for="consent-policy">Privacy policy URL <span class="text-body-secondary fw-normal">(optional)</span></label>
+                                <input type="text" class="form-control" id="consent-policy" name="consent_policy_url" value="<?= $this->escape($c['policy_url']) ?>" placeholder="/privacy">
+                            </div>
                         </div>
                     </div>
                 </div>

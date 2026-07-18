@@ -245,8 +245,10 @@ and `vendor/…/tiger-core/modules` (first-party) are registered.
 
 A module is **purely additive** — it plugs in by convention, touching no Core file:
 
-- **Config** — its `configs/*.ini` (`module.ini`, `routes.ini`, `acl.ini`, `navigation.ini`)
-  merge into the global config.
+- **Config** — its `configs/*.ini` are auto-discovered by convention, no wiring: `routes.ini` folds
+  into the config cascade (ROUTING.md); `acl.ini` is read by `Tiger_Acl_Acl`; and `navigation.ini`
+  is read by `Tiger_Admin_Nav` at bootstrap to add a top-level admin-sidebar item — the zero-code
+  path alongside the `Tiger_Admin_Nav::register()` code path (both coexist).
 - **Behavior** — it exposes `Module_Service_*` classes; the core `/api/:module/:service/:action`
   route hits one thin `ApiController` that resolves the target service by convention and returns
   JSON. **Thin controllers, fat services.**

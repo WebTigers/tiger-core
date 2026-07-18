@@ -6,6 +6,7 @@
  *
  * Data-driven, ACL-aware, active-state navigation. Feed it $this->nav; falls back
  * to a sensible default so the shell renders out of the box. Each item:
+ *   key       (string)  stable id — the drag-sort handle + config override key
  *   label     (string)  display text
  *   href      (string)  link target
  *   icon      (string)  Font Awesome class, top level only (e.g. 'fa-users')
@@ -19,26 +20,50 @@
  * The "Settings" tree's children come from Tiger_Admin_Settings — core registers CMS +
  * System, modules self-register their own page (see the registry). The role is read live
  * from the identity; ACL from the registry.
+ *
+ * PER-USER SORT: within each parent (the top-level list, or any submenu) siblings render in
+ * the order the user last dragged them — stored as `tiger.nav.<group>.<key>.sort` in the
+ * config table at USER scope (the cascade resolves the override automatically at bootstrap;
+ * saved by tiger.admin-nav.js -> System_Service_Nav::sort). No override = the natural default
+ * order, unchanged. `group` = 'root' for the top level, else the parent item's key.
  */
 // Core items, then any module-registered top-level items (Tiger_Admin_Nav), then Settings last.
 $nav = $this->nav ?? array_merge([
-    ['label' => 'Dashboard',     'href' => '/admin',        'icon' => 'fa-gauge-high', 'match' => '/admin'],
-    ['label' => 'Content',       'href' => '/cms/page',     'icon' => 'fa-file-lines', 'match' => '/cms/page', 'resource' => 'Cms_PageController'],
-    ['label' => 'Articles',      'href' => '/blog/post',    'icon' => 'fa-feather-pointed', 'match' => '/blog/post', 'resource' => 'Blog_PostController'],
-    ['label' => 'Menus',         'href' => '/cms/menu',     'icon' => 'fa-bars',       'match' => '/cms/menu', 'resource' => 'Cms_MenuController'],
-    ['label' => 'Media',         'href' => '/media',        'icon' => 'fa-photo-film', 'match' => '/media', 'resource' => 'Media_IndexController'],
-    ['label' => 'Users',         'href' => '/access/user',  'icon' => 'fa-users',      'match' => '/access/user', 'resource' => 'Access_UserController'],
-    ['label' => 'Organizations', 'href' => '/access/org',   'icon' => 'fa-building',   'match' => '/access/org',  'resource' => 'Access_OrgController'],
-    ['label' => 'Code',          'href' => '/code',         'icon' => 'fa-code',       'match' => '/code', 'resource' => 'Code_IndexController'],
-    ['label' => 'Modules',       'href' => '/system/modules', 'icon' => 'fa-puzzle-piece', 'match' => '/system/modules', 'resource' => 'System_ModulesController'],
+    ['key' => 'dashboard', 'label' => 'Dashboard',     'href' => '/admin',          'icon' => 'fa-gauge-high',      'match' => '/admin'],
+    ['key' => 'content',   'label' => 'Content',       'href' => '/cms/page',       'icon' => 'fa-file-lines',      'match' => '/cms/page',      'resource' => 'Cms_PageController'],
+    ['key' => 'articles',  'label' => 'Articles',      'href' => '/blog/post',      'icon' => 'fa-feather-pointed', 'match' => '/blog/post',     'resource' => 'Blog_PostController'],
+    ['key' => 'menus',     'label' => 'Menus',         'href' => '/cms/menu',       'icon' => 'fa-bars',            'match' => '/cms/menu',      'resource' => 'Cms_MenuController'],
+    ['key' => 'media',     'label' => 'Media',         'href' => '/media',          'icon' => 'fa-photo-film',      'match' => '/media',         'resource' => 'Media_IndexController'],
+    ['key' => 'users',     'label' => 'Users',         'href' => '/access/user',    'icon' => 'fa-users',           'match' => '/access/user',   'resource' => 'Access_UserController'],
+    ['key' => 'orgs',      'label' => 'Organizations', 'href' => '/access/org',     'icon' => 'fa-building',        'match' => '/access/org',    'resource' => 'Access_OrgController'],
+    ['key' => 'code',      'label' => 'Code',          'href' => '/code',           'icon' => 'fa-code',            'match' => '/code',          'resource' => 'Code_IndexController'],
+    ['key' => 'modules',   'label' => 'Modules',       'href' => '/system/modules', 'icon' => 'fa-puzzle-piece',    'match' => '/system/modules','resource' => 'System_ModulesController'],
 ], Tiger_Admin_Nav::items(), [
-    ['label' => 'Settings',      'icon' => 'fa-gear',       'children' => Tiger_Admin_Settings::pages()],
+    ['key' => 'settings',  'label' => 'Settings',      'icon' => 'fa-gear',         'children' => Tiger_Admin_Settings::pages()],
 ]);
 
 $acl  = Zend_Registry::isRegistered('Zend_Acl') ? Zend_Registry::get('Zend_Acl') : null;
 $idn  = Zend_Auth::getInstance()->getIdentity();
 $role = ($idn && !empty($idn->role)) ? $idn->role : 'guest';
 $path = rtrim(Zend_Controller_Front::getInstance()->getRequest()->getPathInfo(), '/');
+
+// The nav config subtree (holds any per-user sort overrides folded in by the cascade), or null.
+$config = Zend_Registry::isRegistered('Zend_Config') ? Zend_Registry::get('Zend_Config') : null;
+$navCfg = null;
+if ($config instanceof Zend_Config && $config->get('tiger') instanceof Zend_Config
+    && $config->get('tiger')->get('nav') instanceof Zend_Config) {
+    $navCfg = $config->get('tiger')->get('nav');
+}
+// A user's saved sort for an item within a group (tiger.nav.<group>.<key>.sort), or null.
+$overrideOrder = function ($group, $key) use ($navCfg) {
+    if (!$navCfg || $key === null || $key === '') { return null; }
+    $g = $navCfg->get($group);
+    if (!($g instanceof Zend_Config)) { return null; }
+    $k = $g->get($key);
+    if (!($k instanceof Zend_Config)) { return null; }
+    $s = $k->get('sort');
+    return ($s === null || $s === '') ? null : (int) $s;
+};
 
 // Hidden only when there IS an ACL, the resource is known to it, and the role is denied.
 $allowed = function ($item) use ($acl, $role) {
@@ -54,9 +79,24 @@ $isActive = function ($item) use ($path) {
     return $m !== '' && strpos($path, $m) === 0;
 };
 
-$render = function ($items, $depth = 0) use (&$render, $allowed, $isActive) {
+$render = function ($items, $depth = 0, $group = 'root') use (&$render, $allowed, $isActive, $overrideOrder) {
+    // Order siblings by the user's saved sort when present, else their natural incoming position —
+    // so the default layout is untouched until someone drags. Position is the stable tiebreak.
+    $ordered = [];
+    $pos = 0;
+    foreach ($items as $it) {
+        $ordered[] = ['it' => $it, 'pos' => $pos, 'ord' => $overrideOrder($group, $it['key'] ?? null)];
+        $pos++;
+    }
+    usort($ordered, function ($a, $b) {
+        $ao = $a['ord'] !== null ? $a['ord'] : $a['pos'];
+        $bo = $b['ord'] !== null ? $b['ord'] : $b['pos'];
+        return [$ao, $a['pos']] <=> [$bo, $b['pos']];
+    });
+
     $html = '';
-    foreach ($items as $item) {
+    foreach ($ordered as $row) {
+        $item = $row['it'];
         if (!$allowed($item)) { continue; }
 
         $hasChildKey = array_key_exists('children', $item);
@@ -70,11 +110,15 @@ $render = function ($items, $depth = 0) use (&$render, $allowed, $isActive) {
         $active  = $children ? $childActive : $isActive($item);
         $classes = trim(($active ? 'active ' : '') . ($children ? 'has-children ' : '') . ($childActive ? 'open' : ''));
 
-        $html .= '<li' . ($classes ? ' class="' . $classes . '"' : '') . '>';
+        $key  = isset($item['key']) ? (string) $item['key'] : '';
+        $data = $key !== '' ? ' data-key="' . htmlspecialchars($key) . '"' : '';
+        $html .= '<li' . ($classes ? ' class="' . $classes . '"' : '') . $data . '>';
         // Parent = toggle (expand/collapse, no navigation); leaf = link.
         $href = $children ? '#' : ($item['href'] ?? '#');
         $toggle = $children ? ' data-tiger-toggle="submenu"' : '';
-        $html .= '<a href="' . htmlspecialchars($href) . '"' . $toggle . '>';
+        // draggable="false": kill the browser's NATIVE link-drag, which otherwise fights SortableJS
+        // (making the drag flaky and wedging it after the first drop).
+        $html .= '<a href="' . htmlspecialchars($href) . '" draggable="false"' . $toggle . '>';
         if ($depth === 0) {
             $html .= '<i class="fa-solid ' . htmlspecialchars($item['icon'] ?? 'fa-circle') . ' fa-fw"></i>';
         }
@@ -82,7 +126,10 @@ $render = function ($items, $depth = 0) use (&$render, $allowed, $isActive) {
         if ($children) { $html .= '<i class="fa-solid fa-angle-down tiger-nav-caret tiger-nav-label"></i>'; }
         $html .= '</a>';
         if ($children) {
-            $html .= '<ul class="tiger-nav tiger-nav-children">' . $render($children, $depth + 1) . '</ul>';
+            // Children sort within their OWN parent group (this item's key) — never across parents.
+            $childGroup = $key !== '' ? $key : 'sub';
+            $html .= '<ul class="tiger-nav tiger-nav-children" data-nav-group="' . htmlspecialchars($childGroup) . '">'
+                   . $render($children, $depth + 1, $childGroup) . '</ul>';
         }
         $html .= '</li>';
     }
@@ -90,7 +137,7 @@ $render = function ($items, $depth = 0) use (&$render, $allowed, $isActive) {
 };
 ?>
 <nav class="tiger-nav-wrap" role="navigation" aria-label="Main">
-    <ul class="tiger-nav">
-        <?= $render($nav) ?>
+    <ul class="tiger-nav" data-nav-group="root">
+        <?= $render($nav, 0, 'root') ?>
     </ul>
 </nav>

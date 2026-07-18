@@ -162,8 +162,18 @@ abstract class Tiger_Service_Service
 
     protected function _formErrors(Zend_Form $form)
     {
-        $this->_response->result     = 0;
-        $this->_response->form       = $form->getMessages();
+        $this->_response->result = 0;
+        $errors = $form->getMessages();
+
+        // A CSRF failure isn't a "fix this field" error — the token is a hidden element, it times out
+        // per page render, and the only cure is a refresh (common after a long edit or an OAuth
+        // round-trip). Say that plainly (with a wink) instead of pointing at a field the user can't see.
+        if (isset($errors['_csrf'])) {
+            $this->_response->messages[] = new Tiger_Model_MessageObject('core.api.error.csrf', 'error');
+            return;
+        }
+
+        $this->_response->form       = $errors;
         $this->_response->messages[] = new Tiger_Model_MessageObject('core.api.error.form', 'error');
     }
 

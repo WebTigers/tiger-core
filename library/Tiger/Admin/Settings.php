@@ -63,6 +63,7 @@ class Tiger_Admin_Settings
         });
         return array_map(function ($p) {
             return [
+                'key'      => $p['key'],
                 'label'    => $p['label'],
                 'href'     => $p['href'],
                 'match'    => $p['match'],

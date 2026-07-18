@@ -86,12 +86,17 @@ $_hasAside = !empty($this->rightAside);
 <script src="<?= $this->asset($this->themeAssets . '/vendor/jquery/jquery.min.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/vendor/datatables/dataTables.min.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/vendor/datatables/dataTables.bootstrap5.min.js') ?>"></script>
+<!-- Chart.js (vendored, MIT) — the shared charting lib for dashboard widgets + reports. -->
+<script src="<?= $this->asset($this->themeAssets . '/vendor/chartjs/chart.umd.min.js') ?>"></script>
 <!-- Tiger's shared grid helper: /api-sourced DataTables + envelope unwrap. -->
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.datatable.js') ?>"></script>
 <?php endif; ?>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.dom.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.button.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
+<!-- Per-user drag-to-reorder for the admin sidebar (SortableJS, vendored). -->
+<script src="<?= $this->asset($this->themeAssets . '/js/vendor/Sortable.min.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.admin-nav.js') ?>" defer></script>
 <!-- Reusable "choose media" modal (TigerMediaPicker + the mediaField() helper). -->
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.media-picker.js') ?>" defer></script>
 <?php

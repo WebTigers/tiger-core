@@ -59,5 +59,6 @@ class System_SettingsController extends Tiger_Controller_Admin_Action
         $this->view->hasSecret = $rc['has_secret'];
         $this->view->location  = (class_exists('Tiger_Location') && method_exists('Tiger_Location', 'settings'))
             ? Tiger_Location::settings() : null;
+        $this->view->consent   = class_exists('Tiger_Consent') ? Tiger_Consent::settings() : null;
     }
 }

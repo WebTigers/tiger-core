@@ -1,0 +1,282 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Analytics settings — Google Analytics (GA4). Two tabs in one form: the tracking Tag (public-site
+ * measurement) and Reports (the in-app dashboard connection). ViewHelper-only form (the view owns
+ * markup); saving is an /api call to Analytics_Service_Analytics. The Connect button auto-saves the
+ * form first and only then hands off to the OAuth flow — no separate "Save, then Connect" step.
+ * Semantic Bootstrap only — no bespoke CSS (keeps it reskinnable), per ADMIN.md.
+ */
+$form = $this->form;
+$el   = function ($name) use ($form) { return $form->getElement($name); };
+$mode = ($this->ga['mode'] === 'byo') ? 'byo' : 'broker';
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Analytics</h1>
+        <p class="text-body-secondary mb-0">Connect Google Analytics 4 to measure your public site's traffic.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="analytics-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="analytics-feedback"></div>
+
+<?php if (!empty($this->flash)): ?>
+<div class="alert alert-<?= $this->flash['type'] === 'success' ? 'success' : ($this->flash['type'] === 'error' ? 'danger' : 'info') ?> d-flex align-items-center" role="alert">
+    <i class="fa-solid fa-<?= $this->flash['type'] === 'success' ? 'circle-check' : ($this->flash['type'] === 'error' ? 'circle-exclamation' : 'circle-info') ?> me-2"></i>
+    <?= $this->escape($this->flash['message']) ?>
+</div>
+<?php endif; ?>
+
+<form id="analytics-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="analytics-tab-tag-btn" data-bs-toggle="tab" data-bs-target="#analytics-tab-tag" type="button" role="tab" aria-controls="analytics-tab-tag" aria-selected="true"><i class="fa-solid fa-tag me-2"></i>Tracking tag</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab-reports-btn" data-bs-toggle="tab" data-bs-target="#analytics-tab-reports" type="button" role="tab" aria-controls="analytics-tab-reports" aria-selected="false">
+                <i class="fa-solid fa-chart-line me-2"></i>Reports &amp; dashboard
+                <?php if ($this->ga['connected']): ?><i class="fa-solid fa-circle-check text-success ms-1" title="Connected"></i><?php endif; ?>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom p-4 mb-4">
+        <div class="tab-pane fade show active" id="analytics-tab-tag" role="tabpanel" aria-labelledby="analytics-tab-tag-btn">
+            <h2 class="h6 fw-semibold mb-3"><i class="fa-brands fa-google me-2 text-primary"></i>Google Analytics 4</h2>
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="analytics-enabled" name="enabled" value="1"<?= $this->enabled ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="analytics-enabled">Enable Google Analytics</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('ga4_measurement_id')->getId()) ?>">Measurement ID</label>
+                        <?= $el('ga4_measurement_id') ?>
+                        <div class="form-text">Find it in GA under <em>Admin → Data Streams → your web stream</em>. It looks like <code>G-XXXXXXXXXX</code>.</div>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="analytics-exclude" name="exclude_signed_in" value="1"<?= $this->excludeSignedIn ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="analytics-exclude">Don't track signed-in staff</label>
+                        <div class="form-text">Skip visits from managers, admins, and developers so your own team doesn't skew the numbers.</div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="bg-body-tertiary rounded p-3 h-100">
+                        <h3 class="h6 fw-semibold"><i class="fa-solid fa-shield-halved me-2 text-primary"></i>Privacy &amp; consent</h3>
+                        <p class="small text-body-secondary mb-2">The tag loads only on your <strong>public</strong> pages — never in the admin.</p>
+                        <p class="small text-body-secondary mb-0">If you enable the <strong>cookie consent</strong> banner (Settings → Security → Cookies), Google Analytics will wait for the visitor's consent before it loads.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="analytics-tab-reports" role="tabpanel" aria-labelledby="analytics-tab-reports-btn">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h2 class="h6 fw-semibold mb-0"><i class="fa-solid fa-chart-line me-2 text-primary"></i>Reports &mdash; in-app dashboard</h2>
+                <?php if ($this->ga['connected']): ?>
+                    <span class="badge text-bg-success"><i class="fa-solid fa-plug-circle-check me-1"></i>Connected</span>
+                <?php else: ?>
+                    <span class="badge text-bg-secondary">Not connected</span>
+                <?php endif; ?>
+            </div>
+            <p class="small text-body-secondary mb-3">Pull your traffic into an in-app dashboard, right here in the admin.</p>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="property-id">GA4 property ID</label>
+                    <input type="text" class="form-control" id="property-id" name="property_id" value="<?= $this->escape($this->ga['property_id']) ?>" inputmode="numeric" placeholder="123456789">
+                    <div class="form-text">Admin → Property Settings (numeric, not <code>G-…</code>).</div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <label class="form-label d-block mb-2">Connection method</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="oauth_mode" id="oauth-mode-broker" value="broker"<?= $mode === 'broker' ? ' checked' : '' ?>>
+                    <label class="form-check-label" for="oauth-mode-broker">
+                        <strong>One-click</strong> <span class="badge rounded-pill text-bg-primary">Recommended</span>
+                        <span class="d-block small text-body-secondary">Connect with your Google account — WebTigers handles the OAuth setup. Nothing to register.</span>
+                    </label>
+                </div>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="radio" name="oauth_mode" id="oauth-mode-byo" value="byo"<?= $mode === 'byo' ? ' checked' : '' ?>>
+                    <label class="form-check-label" for="oauth-mode-byo">
+                        <strong>Use my own Google OAuth client</strong> <span class="text-body-secondary small">(advanced / self-hosted)</span>
+                        <span class="d-block small text-body-secondary">Register your own Google Cloud project — the connection never routes through WebTigers.</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="analytics-byo" class="mt-3<?= $mode === 'byo' ? '' : ' d-none' ?>">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="oauth-client-id">OAuth client ID</label>
+                        <input type="text" class="form-control" id="oauth-client-id" name="oauth_client_id" value="<?= $this->escape($this->ga['client_id']) ?>" autocomplete="off" placeholder="…apps.googleusercontent.com">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="oauth-client-secret">OAuth client secret</label>
+                        <input type="password" class="form-control" id="oauth-client-secret" name="oauth_client_secret" autocomplete="off" placeholder="<?= $this->ga['client_id'] !== '' ? '•••••• (leave blank to keep)' : 'GOCSPX-…' ?>">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label small mb-1">Authorized redirect URI <span class="text-body-secondary fw-normal">&mdash; add this to your Google OAuth client</span></label>
+                    <input type="text" class="form-control form-control-sm font-monospace" value="<?= $this->escape($this->ga['redirect_uri']) ?>" readonly onclick="this.select()">
+                </div>
+                <details class="mt-3 small">
+                    <summary class="text-primary" style="cursor:pointer;">How do I get these? (one-time Google setup)</summary>
+                    <ol class="text-body-secondary mt-2 mb-0 ps-3">
+                        <li>Google Cloud Console → create or pick a project.</li>
+                        <li>APIs &amp; Services → Library → enable the <strong>Google Analytics Data API</strong>.</li>
+                        <li>OAuth consent screen → External → add your Google account as a test user.</li>
+                        <li>Credentials → Create credentials → <strong>OAuth client ID</strong> → Web application → add the <em>Authorized redirect URI</em> above.</li>
+                        <li>Paste the client ID + secret here, add your GA4 property ID, then <strong>Connect</strong>.</li>
+                    </ol>
+                </details>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center mt-4">
+                <?php if ($this->ga['connected']): ?>
+                    <a href="/analytics/admin/dashboard" class="btn btn-primary"><i class="fa-solid fa-chart-line me-2"></i>View dashboard</a>
+                    <a href="/analytics/admin/disconnect" class="btn btn-outline-danger"><i class="fa-solid fa-plug-circle-xmark me-2"></i>Disconnect</a>
+                <?php else: ?>
+                    <button type="button" id="analytics-connect" class="btn btn-primary"><i class="fa-brands fa-google me-2"></i>Connect Google Analytics</button>
+                    <span class="small text-body-secondary">Saves your settings, then opens Google to authorize.</span>
+                <?php endif; ?>
+            </div>
+
+            <div class="mt-4 pt-3 border-top">
+                <a class="text-decoration-none fw-semibold" data-bs-toggle="collapse" href="#analytics-troubleshoot" role="button" aria-expanded="false" aria-controls="analytics-troubleshoot">
+                    <i class="fa-solid fa-wrench me-2"></i>Troubleshooting &amp; setup help
+                </a>
+                <div class="collapse mt-3" id="analytics-troubleshoot">
+                    <div class="mb-4">
+                        <h3 class="h6 fw-semibold">Test the connection</h3>
+                        <p class="small text-body-secondary mb-2">Runs a live check against Google and tells you exactly what's working — or what to fix.</p>
+                        <button type="button" id="analytics-test" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-plug-circle-check me-2"></i>Test connection</button>
+                        <div id="analytics-test-result" class="mt-3"></div>
+                    </div>
+
+                    <h3 class="h6 fw-semibold">Setting up Google Analytics</h3>
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <p class="small fw-semibold mb-1"><i class="fa-solid fa-1 me-1 text-primary"></i>Create a property &amp; web stream</p>
+                            <ol class="small text-body-secondary ps-3 mb-0">
+                                <li><a href="https://analytics.google.com" target="_blank" rel="noopener">Google Analytics</a> → <strong>Admin</strong> (gear, bottom-left).</li>
+                                <li><strong>Create → Property</strong>: name it, set time zone + currency → Next → Create.</li>
+                                <li>Add a <strong>Web</strong> data stream: your site URL + a stream name → <strong>Create stream</strong>.</li>
+                                <li>Copy the <strong>Measurement ID</strong> (<code>G-…</code>) into the <em>Tracking tag</em> tab, and the <strong>Property ID</strong> (see below) into the <em>Reports</em> tab.</li>
+                            </ol>
+                        </div>
+                        <div class="col-lg-6">
+                            <p class="small fw-semibold mb-1"><i class="fa-solid fa-2 me-1 text-primary"></i>Enable the reporting API <span class="text-body-secondary fw-normal">(own-client only)</span></p>
+                            <ol class="small text-body-secondary ps-3 mb-0">
+                                <li><a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener">Google Cloud Console</a> → <strong>APIs &amp; Services → Library</strong>.</li>
+                                <li>Search <strong>“Google Analytics Data API”</strong> → open it → <strong>Enable</strong>.</li>
+                                <li><strong>One-click connect doesn't need this</strong> — WebTigers' project already has it. It's only for the <em>own Google client</em> option.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info small mt-3 mb-0">
+                        <p class="fw-semibold mb-1"><i class="fa-solid fa-circle-info me-1"></i>Three numbers — don't mix them up</p>
+                        <ul class="mb-2 ps-3">
+                            <li><strong>Measurement ID</strong> <code>G-XXXXXXXXXX</code> — from the <em>web stream</em>. It's the <strong>tracking tag</strong> (Tracking tag tab) that records visits on your public site. <span class="text-success fw-semibold">Used.</span></li>
+                            <li><strong>Property ID</strong> — a plain number under <em>Admin → Property Settings</em>. It's what the <strong>Reports dashboard</strong> reads (Reports tab). <span class="text-success fw-semibold">Used.</span></li>
+                            <li><strong>Stream ID</strong> — a number shown <em>inside</em> the web stream's details. <span class="text-danger fw-semibold">Not used here</span> — the usual mix-up with the Property ID.</li>
+                        </ul>
+                        <p class="mb-0">So yes — you need the web stream, but for its <strong>Measurement ID</strong> (the tag), not its Stream ID. The Reports side wants the separate <strong>Property ID</strong>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('analytics-form');
+    var fb   = document.getElementById('analytics-feedback');
+
+    // Show the bring-your-own-client fields only when that method is selected.
+    var byo = document.getElementById('analytics-byo');
+    function syncByo() {
+        var on = document.getElementById('oauth-mode-byo');
+        if (byo) { byo.classList.toggle('d-none', !(on && on.checked)); }
+    }
+    form.querySelectorAll('input[name="oauth_mode"]').forEach(function (r) { r.addEventListener('change', syncByo); });
+
+    // Save the whole form (both tabs) over /api. Resolves true on success, false on a handled error
+    // (field errors highlighted, messages shown). Shared by the Save button and Connect.
+    function save(btn) {
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'analytics'); fd.set('service', 'analytics'); fd.set('method', 'save');
+        return TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) {
+            if (res && res.result === 1) { return true; }
+            if (res && res.form) {
+                Object.keys(res.form).forEach(function (field) {
+                    var input = form.querySelector('[name="' + field + '"]');
+                    if (input) { input.classList.add('is-invalid'); }
+                });
+            }
+            var msgs = (res && res.messages) || [];
+            if (msgs.length) { msgs.forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class, replace: false }); }); }
+            else { TigerDOM.notify(fb, 'Please fix the highlighted fields.', { type: 'error' }); }
+            return false;
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); return false; });
+    }
+
+    document.getElementById('analytics-save').addEventListener('click', function () {
+        save(this).then(function (ok) { if (ok) { TigerDOM.notify(fb, 'Analytics settings saved.', { type: 'success' }); } });
+    });
+
+    // Connect: save the form first (so the property ID + method the user just typed are persisted),
+    // then — only if the save succeeded — hand off to the OAuth flow. One click, no separate Save.
+    var connectBtn = document.getElementById('analytics-connect');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', function () {
+            var prop = form.querySelector('[name="property_id"]');
+            if (prop && prop.value.trim() === '') {
+                TigerDOM.notify(fb, 'Enter your GA4 property ID first — it tells us which property to report on.', { type: 'error' });
+                prop.classList.add('is-invalid');
+                prop.focus();
+                return;
+            }
+            save(this).then(function (ok) { if (ok) { window.location.href = '/analytics/admin/connect'; } });
+        });
+    }
+
+    // Troubleshooting: live "Test connection" — reports.test runs a real GA call and diagnoses it.
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+    var testBtn = document.getElementById('analytics-test');
+    if (testBtn) {
+        testBtn.addEventListener('click', function () {
+            var out = document.getElementById('analytics-test-result');
+            var fd  = new URLSearchParams({ module: 'analytics', service: 'reports', method: 'test' });
+            TigerButton.run(this, function () {
+                return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                    .then(function (r) { return r.json().catch(function () { return {}; }); });
+            }).then(function (res) {
+                var t = res && res.data && res.data.test;
+                if (!t) { out.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-circle-exclamation me-2"></i>Couldn’t run the test — please try again.</div>'; return; }
+                var kind = t.ok ? 'success' : (t.code === 'not_connected' ? 'secondary' : 'warning');
+                var icon = t.ok ? 'circle-check' : (t.code === 'not_connected' ? 'circle-info' : 'triangle-exclamation');
+                var html = '<div class="alert alert-' + kind + ' mb-0"><p class="mb-' + ((t.hint || t.detail) ? '2' : '0') + '"><i class="fa-solid fa-' + icon + ' me-2"></i>' + esc(t.message) + '</p>';
+                if (t.hint)   { html += '<p class="small mb-' + (t.detail ? '2' : '0') + '">' + esc(t.hint) + '</p>'; }
+                if (t.detail) { html += '<p class="small text-body-secondary mb-0"><code>' + esc(t.detail) + '</code></p>'; }
+                out.innerHTML = html + '</div>';
+            }).catch(function () { out.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-circle-exclamation me-2"></i>Network error — please try again.</div>'; });
+        });
+    }
+});
+</script>

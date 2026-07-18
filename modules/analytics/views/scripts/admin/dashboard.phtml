@@ -1,0 +1,171 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Analytics dashboard — in-app GA4 reports. Thin shell (per client/server): the data arrives over
+ * /api (Analytics_Service_Reports::summary) and Chart.js (vendored in the admin layout) draws it.
+ * Semantic Bootstrap only; the chart reads --bs-* tokens so it tracks the theme + skin.
+ *
+ * Empty/unavailable-data is a first-class state, not an error: the client renders a full ZEROED
+ * scaffold (0 tiles, a flat chart over the window, "No data yet" tables) and shows a calm INFO
+ * note — a fresh GA4 property with no traffic should look intentional, never a red failure.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Analytics</h1>
+        <p class="text-body-secondary mb-0">Your site's traffic over the last 28 days, from Google Analytics.</p>
+    </div>
+    <a href="/analytics/admin" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-gear me-2"></i>Settings</a>
+</div>
+
+<?php if (empty($this->connected)): ?>
+<div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="fa-solid fa-chart-line fs-1 text-body-secondary mb-3 d-block"></i>
+        <h2 class="h5">Not connected</h2>
+        <p class="text-body-secondary">Connect your Google Analytics account to see traffic reports here.</p>
+        <a href="/analytics/admin" class="btn btn-primary"><i class="fa-brands fa-google me-2"></i>Go to Analytics settings</a>
+    </div>
+</div>
+<?php else: ?>
+<div id="ga-feedback"></div>
+
+<div class="row g-3 mb-4">
+    <?php
+    $cards = [
+        ['ga-users',     'Active users',  'fa-users'],
+        ['ga-sessions',  'Sessions',      'fa-arrow-pointer'],
+        ['ga-views',     'Page views',    'fa-file-lines'],
+    ];
+    foreach ($cards as $c): ?>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 text-body-secondary small mb-1">
+                    <i class="fa-solid <?= $c[2] ?> text-primary"></i><?= $c[1] ?>
+                </div>
+                <div class="display-6 fw-bold" id="<?= $c[0] ?>"><span class="placeholder col-4"></span></div>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header fw-semibold bg-transparent"><i class="fa-solid fa-chart-area me-2"></i>Traffic</div>
+    <div class="card-body">
+        <div style="height:300px;"><canvas id="ga-chart"></canvas></div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header fw-semibold bg-transparent"><i class="fa-solid fa-ranking-star me-2"></i>Top pages</div>
+            <div class="table-responsive"><table class="table table-sm mb-0 align-middle"><tbody id="ga-pages"></tbody></table></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header fw-semibold bg-transparent"><i class="fa-solid fa-diagram-project me-2"></i>Top channels</div>
+            <div class="table-responsive"><table class="table table-sm mb-0 align-middle"><tbody id="ga-sources"></tbody></table></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var css = getComputedStyle(document.documentElement);
+    function tok(name, fb) { return (css.getPropertyValue(name) || fb).trim() || fb; }
+    var primary = tok('--bs-primary', '#0d6efd');
+    var muted   = tok('--bs-secondary-color', '#6c757d');
+    var grid    = tok('--bs-border-color', '#dee2e6');
+    function num(n) { return Math.round(n || 0).toLocaleString(); }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    function rows(el, data) {
+        if (!data || !data.length) { el.innerHTML = '<tr><td class="text-body-secondary small py-3">No data yet.</td></tr>'; return; }
+        el.innerHTML = data.map(function (r) {
+            return '<tr><td class="text-truncate" style="max-width:1px;">' + esc(r.label) + '</td>'
+                 + '<td class="text-end fw-semibold">' + num(r.value) + '</td></tr>';
+        }).join('');
+    }
+
+    // A zeroed summary so the whole dashboard renders (0 tiles, a flat chart over the window, empty
+    // tables) instead of gray boxes when there's no data yet or the API is momentarily unavailable.
+    function zeroSeries(days) {
+        var out = [], d = new Date();
+        d.setDate(d.getDate() - (days - 1));
+        for (var i = 0; i < days; i++) {
+            var mm = ('0' + (d.getMonth() + 1)).slice(-2), dd = ('0' + d.getDate()).slice(-2);
+            out.push({ date: d.getFullYear() + '-' + mm + '-' + dd, users: 0, views: 0 });
+            d.setDate(d.getDate() + 1);
+        }
+        return out;
+    }
+    function zeroSummary() { return { totals: [0, 0, 0], series: zeroSeries(28), top_pages: [], top_sources: [] }; }
+    function hasData(s) {
+        var t = s.totals || [];
+        return !!((t[0] || t[1] || t[2]) || (s.top_pages && s.top_pages.length)
+            || (s.series || []).some(function (p) { return p.users || p.views; }));
+    }
+
+    var chart = null;
+    function render(s) {
+        var t = s.totals || [];
+        document.getElementById('ga-users').textContent    = num(t[0]);
+        document.getElementById('ga-sessions').textContent = num(t[1]);
+        document.getElementById('ga-views').textContent    = num(t[2]);
+        rows(document.getElementById('ga-pages'),   s.top_pages);
+        rows(document.getElementById('ga-sources'), s.top_sources);
+
+        var series = s.series || [];
+        if (chart) { chart.destroy(); }
+        chart = new Chart(document.getElementById('ga-chart'), {
+            type: 'line',
+            data: {
+                labels: series.map(function (p) { return (p.date || '').slice(5); }),
+                datasets: [
+                    { label: 'Users', data: series.map(function (p) { return p.users; }),
+                      borderColor: primary, backgroundColor: 'rgba(13,110,253,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+                    { label: 'Page views', data: series.map(function (p) { return p.views; }),
+                      borderColor: muted, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: muted, boxWidth: 12, usePointStyle: true } } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: muted, maxTicksLimit: 8, autoSkip: true } },
+                    y: { grid: { color: grid }, ticks: { color: muted, precision: 0 }, beginAtZero: true, suggestedMax: 10 }
+                }
+            }
+        });
+    }
+
+    function note(msg) { TigerDOM.notify(document.getElementById('ga-feedback'), msg, { type: 'info' }); }
+
+    var fd = new URLSearchParams({ module: 'analytics', service: 'reports', method: 'summary', days: '28' });
+    fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (res) {
+            if (res && res.result === 1 && res.data && res.data.summary) {
+                render(res.data.summary);
+                if (!hasData(res.data.summary)) {
+                    note('No traffic recorded in the last 28 days yet — new data usually appears within a day of connecting.');
+                }
+                return;
+            }
+            // Couldn't load — still render the zero scaffold, and explain calmly (with the usual cause).
+            render(zeroSummary());
+            note('No Analytics data to show yet. If you just connected, it can take up to a day — otherwise make sure the Google Analytics Data API is enabled for your Google project.');
+        })
+        .catch(function () {
+            render(zeroSummary());
+            note('Couldn’t reach Analytics just now — showing zeros. Please try again shortly.');
+        });
+})();
+</script>
+<?php endif; ?>

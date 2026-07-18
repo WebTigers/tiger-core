@@ -13,6 +13,7 @@ return [
     'core.api.success'               => 'Done.',
     'core.api.error.general'         => 'Something went wrong. Please try again.',
     'core.api.error.form'            => 'Please correct the highlighted fields.',
+    'core.api.error.csrf'            => 'Oops — your security token expired. Please refresh the page to continue. (They time out on purpose; blame the security gremlins.)',
     'core.api.error.invalid_action'  => 'That action is not available.',
     'core.api.error.not_allowed'     => "You don't have permission to do that.",
     'core.api.error.login_required'  => 'Please sign in to continue.',
