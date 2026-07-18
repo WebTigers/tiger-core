@@ -21,6 +21,13 @@ $el   = function ($name) use ($form) { return $form->getElement($name); };
 
 <div id="analytics-feedback"></div>
 
+<?php if (!empty($this->flash)): ?>
+<div class="alert alert-<?= $this->flash['type'] === 'success' ? 'success' : ($this->flash['type'] === 'error' ? 'danger' : 'info') ?> d-flex align-items-center" role="alert">
+    <i class="fa-solid fa-<?= $this->flash['type'] === 'success' ? 'circle-check' : ($this->flash['type'] === 'error' ? 'circle-exclamation' : 'circle-info') ?> me-2"></i>
+    <?= $this->escape($this->flash['message']) ?>
+</div>
+<?php endif; ?>
+
 <form id="analytics-form" onsubmit="return false;" novalidate>
     <?= $el('_csrf') ?>
     <div class="row g-4">
@@ -56,6 +63,62 @@ $el   = function ($name) use ($form) { return $form->getElement($name); };
                         If you enable the <strong>cookie consent</strong> banner (Settings → Security → Cookies),
                         Google Analytics will wait for the visitor's consent before it loads.
                     </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold"><i class="fa-solid fa-chart-line me-2"></i>Reports &mdash; in-app dashboard</span>
+                    <?php if ($this->ga['connected']): ?>
+                        <span class="badge text-bg-success"><i class="fa-solid fa-plug-circle-check me-1"></i>Connected</span>
+                    <?php else: ?>
+                        <span class="badge text-bg-secondary">Not connected</span>
+                    <?php endif; ?>
+                </div>
+                <div class="card-body">
+                    <p class="small text-body-secondary mb-3">Pull your traffic into an in-app dashboard. You bring your own Google OAuth client &mdash; no third party in the middle.</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="oauth-client-id">OAuth client ID</label>
+                            <input type="text" class="form-control" id="oauth-client-id" name="oauth_client_id" value="<?= $this->escape($this->ga['client_id']) ?>" autocomplete="off" placeholder="…apps.googleusercontent.com">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="oauth-client-secret">OAuth client secret</label>
+                            <input type="password" class="form-control" id="oauth-client-secret" name="oauth_client_secret" autocomplete="off" placeholder="<?= $this->ga['configurable'] ? '•••••• (leave blank to keep)' : 'GOCSPX-…' ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="property-id">GA4 property ID</label>
+                            <input type="text" class="form-control" id="property-id" name="property_id" value="<?= $this->escape($this->ga['property_id']) ?>" inputmode="numeric" placeholder="123456789">
+                            <div class="form-text">Admin → Property Settings (numeric, not <code>G-…</code>).</div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label small mb-1">Authorized redirect URI <span class="text-body-secondary fw-normal">&mdash; add this to your Google OAuth client</span></label>
+                        <input type="text" class="form-control form-control-sm font-monospace" value="<?= $this->escape($this->ga['redirect_uri']) ?>" readonly onclick="this.select()">
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+                        <?php if ($this->ga['connected']): ?>
+                            <a href="/analytics/admin/disconnect" class="btn btn-outline-danger"><i class="fa-solid fa-plug-circle-xmark me-2"></i>Disconnect</a>
+                            <span class="small text-body-secondary"><i class="fa-solid fa-circle-check text-success me-1"></i>Ready &mdash; the reports dashboard arrives in the next update.</span>
+                        <?php else: ?>
+                            <a href="/analytics/admin/connect" class="btn btn-primary"><i class="fa-brands fa-google me-2"></i>Connect Google Analytics</a>
+                            <span class="small text-body-secondary">Save your credentials first, then connect.</span>
+                        <?php endif; ?>
+                    </div>
+                    <details class="mt-3 small">
+                        <summary class="text-primary" style="cursor:pointer;">How do I get these? (one-time Google setup)</summary>
+                        <ol class="text-body-secondary mt-2 mb-0 ps-3">
+                            <li>Google Cloud Console → create or pick a project.</li>
+                            <li>APIs &amp; Services → Library → enable the <strong>Google Analytics Data API</strong>.</li>
+                            <li>OAuth consent screen → External → add your Google account as a test user.</li>
+                            <li>Credentials → Create credentials → <strong>OAuth client ID</strong> → Web application → add the <em>Authorized redirect URI</em> above.</li>
+                            <li>Paste the client ID + secret here, add your GA4 property ID, <strong>Save</strong>, then <strong>Connect</strong>.</li>
+                        </ol>
+                    </details>
                 </div>
             </div>
         </div>

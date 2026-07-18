@@ -38,6 +38,16 @@ class Analytics_Service_Analytics extends Tiger_Service_Service
                 $cfg->set($scope, $scopeId, 'tiger.analytics.enabled',            !empty($params['enabled']) ? '1' : '0');
                 $cfg->set($scope, $scopeId, 'tiger.analytics.ga4.measurement_id',  $id);
                 $cfg->set($scope, $scopeId, 'tiger.analytics.exclude_signed_in',   !empty($params['exclude_signed_in']) ? '1' : '0');
+
+                // Reporting: the BYO Google OAuth client creds + GA4 property id (secret encrypted;
+                // blank secret keeps the current one). The Connect flow reads these afterward.
+                if (class_exists('Tiger_Google_Analytics')) {
+                    Tiger_Google_Analytics::saveOauthConfig(
+                        (string) ($params['oauth_client_id']     ?? ''),
+                        (string) ($params['oauth_client_secret'] ?? ''),
+                        (string) ($params['property_id']         ?? '')
+                    );
+                }
             });
             $this->_success([], 'analytics.saved');
         } catch (Throwable $e) {
