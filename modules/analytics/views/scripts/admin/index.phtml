@@ -1,0 +1,95 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Analytics settings — Google Analytics (GA4). ViewHelper-only form (the view owns markup). Saving is
+ * an /api call to Analytics_Service_Analytics; the JSON response drives the feedback. Semantic
+ * Bootstrap only — no bespoke CSS (keeps it reskinnable), per ADMIN.md.
+ */
+$form = $this->form;
+$el   = function ($name) use ($form) { return $form->getElement($name); };
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Analytics</h1>
+        <p class="text-body-secondary mb-0">Connect Google Analytics 4 to measure your public site's traffic.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="analytics-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-2"></i>Save</button>
+    </div>
+</div>
+
+<div id="analytics-feedback"></div>
+
+<form id="analytics-form" onsubmit="return false;" novalidate>
+    <?= $el('_csrf') ?>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header fw-semibold"><i class="fa-brands fa-google me-2"></i>Google Analytics 4</div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="analytics-enabled" name="enabled" value="1"<?= $this->enabled ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="analytics-enabled">Enable Google Analytics</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('ga4_measurement_id')->getId()) ?>">Measurement ID</label>
+                        <?= $el('ga4_measurement_id') ?>
+                        <div class="form-text">Find it in GA under <em>Admin → Data Streams → your web stream</em>. It looks like <code>G-XXXXXXXXXX</code>.</div>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="analytics-exclude" name="exclude_signed_in" value="1"<?= $this->excludeSignedIn ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="analytics-exclude">Don't track signed-in staff</label>
+                        <div class="form-text">Skip visits from managers, admins, and developers so your own team doesn't skew the numbers.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 bg-body-tertiary h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold"><i class="fa-solid fa-shield-halved me-2 text-primary"></i>Privacy &amp; consent</h2>
+                    <p class="small text-body-secondary mb-2">
+                        The tag loads only on your <strong>public</strong> pages — never in the admin.
+                    </p>
+                    <p class="small text-body-secondary mb-0">
+                        If you enable the <strong>cookie consent</strong> banner (Settings → Security → Cookies),
+                        Google Analytics will wait for the visitor's consent before it loads.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('analytics-form');
+    var fb   = document.getElementById('analytics-feedback');
+
+    document.getElementById('analytics-save').addEventListener('click', function () {
+        var btn = this;
+        fb.innerHTML = '';
+        form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'analytics'); fd.set('service', 'analytics'); fd.set('method', 'save');
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        })
+            .then(function (res) {
+                if (res && res.result === 1) { TigerDOM.notify(fb, 'Analytics settings saved.', { type: 'success' }); return; }
+                if (res && res.form) {
+                    Object.keys(res.form).forEach(function (field) {
+                        var input = form.querySelector('[name="' + field + '"]');
+                        if (input) { input.classList.add('is-invalid'); }
+                    });
+                }
+                var msgs = (res && res.messages) || [];
+                if (msgs.length) { msgs.forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class, replace: false }); }); }
+                else { TigerDOM.notify(fb, 'Please fix the highlighted fields.', { type: 'error' }); }
+            })
+            .catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+});
+</script>

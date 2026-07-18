@@ -22,6 +22,7 @@ $_lang = defined('LANG') ? LANG : 'en';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+<?= $this->placeholder('tigerTracking') ?><?php /* analytics / tracking tags (Analytics module), consent-gated — kept high in <head> */ ?>
 <?php
     /* The head is a registry (TigerZF's own headTitle/headMeta/headLink), not a string. A module or
        plugin (e.g. TigerSEO) may already have set the title/description/etc.; if nothing set the title,
