@@ -61,6 +61,17 @@ class System_Service_Settings extends Tiger_Service_Service
                 ]);
             }
 
+            // Cookies tab — GDPR consent mode + banner copy (shared writer; rides on $params).
+            if (class_exists('Tiger_Consent') && array_key_exists('consent_mode', $params)) {
+                Tiger_Consent::saveSettings([
+                    'mode'         => $params['consent_mode']         ?? null,
+                    'message'      => $params['consent_message']      ?? null,
+                    'accept_label' => $params['consent_accept_label'] ?? null,
+                    'reject_label' => $params['consent_reject_label'] ?? null,
+                    'policy_url'   => $params['consent_policy_url']   ?? null,
+                ]);
+            }
+
             $this->_success([], 'system.settings.saved', '/system/settings');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');

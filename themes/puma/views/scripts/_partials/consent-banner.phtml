@@ -1,0 +1,53 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * GDPR cookie-consent banner (PUMA). Self-checking: renders nothing unless Tiger_Consent says a
+ * banner is due (mode always|auto-with-tracking, and the visitor hasn't chosen yet). Accept writes
+ * the consent cookie and reloads so consent-gated trackers (GA, …) load; Decline writes a "none"
+ * cookie and dismisses. Bootstrap + --bs-* tokens, so it restyles with the theme + skin.
+ */
+if (!class_exists('Tiger_Consent') || !Tiger_Consent::showBanner()) {
+    return;
+}
+$c = Tiger_Consent::settings();
+?>
+<div id="tiger-consent" class="fixed-bottom p-3" role="dialog" aria-live="polite" aria-label="Cookie consent">
+    <div class="container">
+        <div class="card border-0 shadow-lg">
+            <div class="card-body d-flex flex-column flex-md-row align-items-md-center gap-3 p-3 p-md-4">
+                <div class="flex-grow-1 small text-body-secondary">
+                    <i class="fa-solid fa-cookie-bite text-primary me-2"></i>
+                    <?= $this->escape($c['message']) ?>
+<?php if ($c['policy_url'] !== ''): ?>
+                    <a href="<?= $this->escape($c['policy_url']) ?>" class="text-decoration-none">Learn more</a>.
+<?php endif; ?>
+                </div>
+                <div class="d-flex gap-2 flex-shrink-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-consent="reject"><?= $this->escape($c['reject_label']) ?></button>
+                    <button type="button" class="btn btn-primary btn-sm" data-consent="accept"><?= $this->escape($c['accept_label']) ?></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var bar = document.getElementById('tiger-consent');
+    if (!bar) { return; }
+    function setCookie(v) {
+        document.cookie = 'tiger_consent=' + v + '; path=/; max-age=31536000; SameSite=Lax';
+    }
+    bar.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-consent]');
+        if (!btn) { return; }
+        if (btn.getAttribute('data-consent') === 'accept') {
+            setCookie('all');
+            location.reload();          // reload so consent-gated tags (e.g. GA) load this visit
+        } else {
+            setCookie('none');
+            bar.parentNode.removeChild(bar);
+        }
+    });
+})();
+</script>

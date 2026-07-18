@@ -92,6 +92,68 @@ class Tiger_Consent
         return self::accepted($category);
     }
 
+    /** Has the visitor made a choice (accept OR reject)? True once the consent cookie exists. */
+    public static function decided()
+    {
+        return isset($_COOKIE[self::COOKIE]) && (string) $_COOKIE[self::COOKIE] !== '';
+    }
+
+    /** Should the consent banner show right now? (Consent is required and not yet decided.) */
+    public static function showBanner()
+    {
+        return self::required(null) && !self::decided();
+    }
+
+    /** Default banner copy, used when the operator hasn't customized it. */
+    const DEFAULTS = [
+        'message'      => 'We use cookies to analyze site traffic. You can accept or decline analytics cookies.',
+        'accept_label' => 'Accept',
+        'reject_label' => 'Decline',
+        'policy_url'   => '',
+    ];
+
+    /**
+     * The current cookie-consent settings (for the admin form + the banner).
+     *
+     * @return array mode, message, accept_label, reject_label, policy_url
+     */
+    public static function settings()
+    {
+        $get = static function ($key, $default) {
+            $v = trim((string) self::_config('consent.' . $key, ''));
+            return $v !== '' ? $v : $default;
+        };
+        return [
+            'mode'         => self::mode(),
+            'message'      => $get('message', self::DEFAULTS['message']),
+            'accept_label' => $get('accept_label', self::DEFAULTS['accept_label']),
+            'reject_label' => $get('reject_label', self::DEFAULTS['reject_label']),
+            'policy_url'   => $get('policy_url', self::DEFAULTS['policy_url']),
+        ];
+    }
+
+    /**
+     * Persist the cookie-consent settings to the config tier (GLOBAL scope). Shared writer, called
+     * from the System settings save (mirrors Tiger_Recaptcha::saveSettings).
+     *
+     * @param  array $data mode, message, accept_label, reject_label, policy_url
+     * @return void
+     */
+    public static function saveSettings(array $data)
+    {
+        $cfg  = new Tiger_Model_Config();
+        $g    = Tiger_Model_Config::SCOPE_GLOBAL;
+        $mode = strtolower(trim((string) ($data['mode'] ?? self::MODE_OFF)));
+        if (!in_array($mode, [self::MODE_OFF, self::MODE_AUTO, self::MODE_ALWAYS], true)) {
+            $mode = self::MODE_OFF;
+        }
+        $cfg->set($g, '', 'tiger.consent.mode',         $mode);
+        $cfg->set($g, '', 'tiger.consent.message',      trim((string) ($data['message'] ?? '')));
+        $cfg->set($g, '', 'tiger.consent.accept_label', trim((string) ($data['accept_label'] ?? '')));
+        $cfg->set($g, '', 'tiger.consent.reject_label', trim((string) ($data['reject_label'] ?? '')));
+        $cfg->set($g, '', 'tiger.consent.policy_url',   trim((string) ($data['policy_url'] ?? '')));
+    }
+
     /** Read a `tiger.<dotKey>` config value with a default. */
     private static function _config($dotKey, $default = '')
     {
