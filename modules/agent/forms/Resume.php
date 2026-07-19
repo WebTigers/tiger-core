@@ -12,6 +12,9 @@
  */
 class Agent_Form_Resume extends Tiger_Form
 {
+    /** Shares the agent CSRF token (salt 'Agent') so the single rendered token validates here too. */
+    protected function csrfSalt(): string { return 'Agent'; }
+
     protected function elements(): array
     {
         return [

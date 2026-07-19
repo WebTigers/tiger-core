@@ -80,7 +80,7 @@ class Tiger_Form extends Zend_Form
         // no session cookie, so it's CSRF-immune by construction and MUST skip the check — see the
         // per-mode design in WEBSERVICES.md §8. The gateway flags token requests via the registry.
         if ($this->csrf() && !(Zend_Registry::isRegistered('tiger.auth.stateless') && Zend_Registry::get('tiger.auth.stateless'))) {
-            $this->addElement('hash', '_csrf', ['salt' => static::class, 'timeout' => static::CSRF_TIMEOUT]);
+            $this->addElement('hash', '_csrf', ['salt' => $this->csrfSalt(), 'timeout' => static::CSRF_TIMEOUT]);
         }
 
         // Declarative schema: [type, name, options].
@@ -110,6 +110,20 @@ class Tiger_Form extends Zend_Form
     protected function csrf(): bool
     {
         return true;
+    }
+
+    /**
+     * The CSRF token's session salt. Defaults to the form class, so each form carries its own token.
+     * Override to return a SHARED salt across a set of related forms when one rendered token must
+     * satisfy several endpoints — e.g. an AJAX feature whose send / approve / resume are separate
+     * forms but the page renders only one token. (The token isn't single-use; it validates until it
+     * times out, so several endpoints can share it within a session.)
+     *
+     * @return string
+     */
+    protected function csrfSalt(): string
+    {
+        return static::class;
     }
 
     /** Translate a semantic key (returns the key itself when untranslated). */

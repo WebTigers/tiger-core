@@ -25,6 +25,10 @@ class Tiger_Agent_Loop
     /** Hard ceiling on model calls per turn (each read round-trip is one call). */
     const MAX_STEPS = 8;
 
+    /** Char cap on an /api action's returned payload fed back to the model (keeps a big read from
+     *  blowing the context; counts/head survive since most services put totals before the row array). */
+    const MAX_DATA_FEEDBACK = 6000;
+
     /** Mode ordering: a write auto-runs when the mode's rank exceeds the action's autoRank. */
     const MODE_ORDER = ['ask' => 0, 'auto' => 1, 'yolo' => 2];
 
@@ -267,7 +271,24 @@ class Tiger_Agent_Loop
         $parts = [];
         foreach ($entries as $e) {
             $head = strtoupper((string) ($e['type'] ?? '')) . ' [' . ($e['status'] ?? '') . '] ' . ($e['summary'] ?? '');
-            $body = isset($e['feedback']) && $e['feedback'] !== '' ? "\n" . $e['feedback'] : '';
+            $body = '';
+            if (isset($e['feedback']) && $e['feedback'] !== '') {
+                // Scout read tools (file/grep/tree/…) carry their content here.
+                $body = "\n" . $e['feedback'];
+            } elseif (isset($e['detail']['data']) && $e['detail']['data'] !== null && $e['detail']['data'] !== []) {
+                // An /api action's returned payload — the model needs the DATA (rows, counts, the new
+                // id), not just "the call succeeded". Forge stores it in detail.data (not feedback), so
+                // bridge it here or a read hands the model nothing to reason about. Capped for context.
+                $json = json_encode(
+                    $e['detail']['data'],
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR
+                );
+                if (is_string($json) && $json !== '' && $json !== 'null') {
+                    $body = "\nData: " . (strlen($json) > self::MAX_DATA_FEEDBACK
+                        ? substr($json, 0, self::MAX_DATA_FEEDBACK) . '… (truncated)'
+                        : $json);
+                }
+            }
             $parts[] = $head . $body;
         }
         return "[tool results — act on these, then continue or finish]\n\n" . implode("\n\n", $parts);

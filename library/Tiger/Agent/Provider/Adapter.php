@@ -28,4 +28,14 @@ interface Tiger_Agent_Provider_Adapter
      * @throws RuntimeException on a transport/API failure (the Loop turns it into a clean error)
      */
     public function complete($system, array $messages, $model, $apiKey);
+
+    /**
+     * The selectable models for this provider. With a key, fetch the LIVE list from the provider's
+     * models API (vendors change models constantly, so this is the source of truth); without a key,
+     * return the curated static fallback. Never throws — a failed fetch falls back to static.
+     *
+     * @param  string $apiKey optional BYO key for the live list
+     * @return array<int,array{id:string,label:string}>
+     */
+    public function models($apiKey = '');
 }

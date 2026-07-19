@@ -31,6 +31,7 @@ class Agent_AdminController extends Tiger_Controller_Admin_Action
         $this->view->connected    = Tiger_Agent::isConnected();
         $this->view->providers    = Tiger_Agent_Provider_Factory::options();
         $this->view->provider     = Tiger_Agent::provider();
+        $this->view->model        = Tiger_Agent::model();
         $this->view->modeMax      = Tiger_Agent::modeMax();
         $this->view->cryptoReady  = Tiger_Crypto::isConfigured();
     }
