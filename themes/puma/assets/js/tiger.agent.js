@@ -80,9 +80,15 @@
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
-    // Tiny, safe markdown: **bold**, `code`, and line breaks. No raw HTML passthrough.
+    // Tiny, safe markdown: **bold**, `code`, [text](/path) links, and line breaks. Everything is
+    // escaped first (no raw HTML passthrough); links are restricted to SAME-ORIGIN PATHS ("/…", not
+    // "//host" or a scheme) so the AI can never render an off-site or javascript: link.
     function mdLite(s) {
         return escapeHtml(s)
+            .replace(/\[([^\]]+)\]\((\/[^)\s]+)\)/g, function (m, text, href) {
+                if (href.indexOf('//') === 0) { return text; }   // reject protocol-relative
+                return '<a href="' + href + '" class="agent-link">' + text + '</a>';
+            })
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
             .replace(/`([^`]+)`/g, '<code>$1</code>')
             .replace(/\n/g, '<br>');
@@ -144,6 +150,24 @@
         scrollDown();
     }
 
+    // The agent suggested a page. Consistent with the approval model, the USER clicks to go —
+    // except in YOLO, where (like every other action) it just happens.
+    function handleNavigate(wrap, path) {
+        if (!path) { return; }
+        if (getMode() === 'yolo') {
+            status.textContent = 'Opening ' + path + '…';
+            setTimeout(function () { location.href = path; }, 800);
+            return;
+        }
+        var host = wrap || addBubble('assistant', '');
+        var chip = document.createElement('button');
+        chip.className = 'btn btn-sm btn-outline-primary mt-2 agent-nav';
+        chip.innerHTML = '<i class="fa-solid fa-arrow-right-long me-1"></i>Go to <code>' + escapeHtml(path) + '</code>';
+        chip.addEventListener('click', function () { location.href = path; });
+        host.appendChild(chip);
+        scrollDown();
+    }
+
     // ----- turn + approval ---------------------------------------------------
 
     function busy(on, msg) {
@@ -175,10 +199,7 @@
             if (d.conversation_id) { setActiveCid(d.conversation_id); }
             var wrap = addBubble('assistant', d.say || '');
             renderActions(wrap, d.actions, d.run_id);
-            if (d.navigate) {
-                status.textContent = 'Opening ' + d.navigate + '…';
-                setTimeout(function () { location.href = d.navigate; }, 800);
-            }
+            handleNavigate(wrap, d.navigate);
         }).catch(function () {
             busy(false);
             addBubble('assistant', 'Network error — please try again.');
@@ -202,14 +223,12 @@
     // Render a follow-up turn (the AI reporting back / continuing after an approval).
     function renderFollow(f) {
         if (!f) { return; }
+        var wrap = null;
         if (f.say || (f.actions && f.actions.length)) {
-            var wrap = addBubble('assistant', f.say || '');
+            wrap = addBubble('assistant', f.say || '');
             renderActions(wrap, f.actions, f.run_id);
         }
-        if (f.navigate) {
-            status.textContent = 'Opening ' + f.navigate + '…';
-            setTimeout(function () { location.href = f.navigate; }, 800);
-        }
+        handleNavigate(wrap, f.navigate);
     }
 
     // ----- history / threads -------------------------------------------------
