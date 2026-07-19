@@ -64,13 +64,17 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
         </div>
 
         <input type="text" name="kicker" class="ed-field ed-kicker" value="<?= $val('kicker') ?>"
-               placeholder="Kicker — a short label above the title" maxlength="120" autocomplete="off">
+               placeholder="Kicker — a short label above the title" maxlength="120" autocomplete="off"
+               data-agent-target="kicker" data-agent-label="Kicker" data-agent-kind="text">
         <input type="text" name="title" class="ed-field ed-title" value="<?= $val('title') ?>"
-               placeholder="Title" maxlength="255" autocomplete="off">
+               placeholder="Title" maxlength="255" autocomplete="off"
+               data-agent-target="title" data-agent-label="Title" data-agent-kind="text">
         <input type="text" name="subtitle" class="ed-field ed-subtitle" value="<?= $val('subtitle') ?>"
-               placeholder="Add a subtitle…" maxlength="255" autocomplete="off">
+               placeholder="Add a subtitle…" maxlength="255" autocomplete="off"
+               data-agent-target="subtitle" data-agent-label="Subtitle" data-agent-kind="text">
         <textarea name="preamble" class="ed-field ed-preamble" rows="2"
-               placeholder="A larger-font opening that draws the reader in…"><?= $val('preamble') ?></textarea>
+               placeholder="A larger-font opening that draws the reader in…"
+               data-agent-target="preamble" data-agent-label="Preamble" data-agent-kind="text"><?= $val('preamble') ?></textarea>
 
         <hr class="ed-hr">
 
@@ -92,7 +96,8 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
         </div>
 
         <div id="ed-body" class="ed-body" contenteditable="true"
-             data-placeholder="Tell your story…"><?= $body ?></div>
+             data-placeholder="Tell your story…"
+             data-agent-target="body" data-agent-label="Article body" data-agent-kind="html"><?= $body ?></div>
         <textarea name="body" id="ed-body-src" class="d-none"><?= $this->escape($body) ?></textarea>
         <textarea id="ed-body-code" class="d-none"></textarea>
     </div>
@@ -132,7 +137,7 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
         <hr>
         <div class="mb-3">
             <label class="form-label" for="post-excerpt">Excerpt</label>
-            <?= $el('excerpt') ?>
+            <?= $el('excerpt')->setAttrib('data-agent-target', 'excerpt')->setAttrib('data-agent-label', 'Excerpt')->setAttrib('data-agent-kind', 'text') ?>
             <div class="form-text">Shown in listings and social cards. Falls back to the subtitle.</div>
         </div>
         <div class="form-check form-switch mb-3">
@@ -154,7 +159,7 @@ $body = $form->getElement('body')->getValue();   // raw HTML into the contentEdi
                         </div>
                         <div class="mb-3">
                             <label class="form-label" for="post-seo-desc">Meta description</label>
-                            <?= $el('seo_description') ?>
+                            <?= $el('seo_description')->setAttrib('data-agent-target', 'seo_description')->setAttrib('data-agent-label', 'Meta description')->setAttrib('data-agent-kind', 'text') ?>
                         </div>
                         <div class="mb-0">
                             <label class="form-label" for="post-canonical">Canonical URL</label>

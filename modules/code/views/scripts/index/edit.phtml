@@ -44,11 +44,11 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label" for="code-name">Name</label>
-                        <?= $el('name') ?>
+                        <?= $el('name')->setAttrib('data-agent-target', 'name')->setAttrib('data-agent-label', 'Snippet name')->setAttrib('data-agent-kind', 'text') ?>
                     </div>
                     <div class="mb-0">
                         <label class="form-label" for="code-code" id="code-lang-label">Code</label>
-                        <?= $el('code') ?>
+                        <?= $el('code')->setAttrib('data-agent-target', 'code')->setAttrib('data-agent-label', 'Code')->setAttrib('data-agent-kind', 'code') ?>
                     </div>
                 </div>
             </div>

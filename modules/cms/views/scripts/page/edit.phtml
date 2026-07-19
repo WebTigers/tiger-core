@@ -45,7 +45,7 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label" for="<?= $this->escape($el('title')->getId()) ?>">Title</label>
-                        <?= $el('title') ?>
+                        <?= $el('title')->setAttrib('data-agent-target', 'title')->setAttrib('data-agent-label', 'Page title')->setAttrib('data-agent-kind', 'text') ?>
                     </div>
                     <div class="mb-0">
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
@@ -62,7 +62,7 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
                                 <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="cms-unfold" title="Expand all blocks"><i class="fa-solid fa-angles-down me-1"></i>Unfold</button>
                             </div>
                         </div>
-                        <?= $el('body') ?>
+                        <?= $el('body')->setAttrib('data-agent-target', 'body')->setAttrib('data-agent-label', 'Page body')->setAttrib('data-agent-kind', 'code') ?>
                         <div class="form-text">Rendered per the selected format. <code>[shortcodes]</code> work in HTML/Markdown; PHTML runs view code (trusted authors only).</div>
                     </div>
                 </div>
@@ -124,17 +124,17 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
         <div class="card-body">
             <div class="mb-3">
                 <label class="form-label" for="<?= $this->escape($el('meta_description')->getId()) ?>">Meta description</label>
-                <?= $el('meta_description') ?>
+                <?= $el('meta_description')->setAttrib('data-agent-target', 'meta_description')->setAttrib('data-agent-label', 'Meta description')->setAttrib('data-agent-kind', 'text') ?>
                 <div class="form-text">Search-result snippet &amp; <code>&lt;meta name="description"&gt;</code> (≈160 chars).</div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="<?= $this->escape($el('head_html')->getId()) ?>">Head HTML <span class="text-body-secondary">— runs in <code>&lt;head&gt;</code></span></label>
-                <?= $el('head_html') ?>
+                <?= $el('head_html')->setAttrib('data-agent-target', 'head_html')->setAttrib('data-agent-label', 'Head HTML')->setAttrib('data-agent-kind', 'html') ?>
                 <div class="form-text">Raw <code>&lt;link&gt;</code> / <code>&lt;meta&gt;</code> / <code>&lt;style&gt;</code> / <code>&lt;script src&gt;</code>, output verbatim. Admin-authored (trusted).</div>
             </div>
             <div class="mb-0">
                 <label class="form-label" for="<?= $this->escape($el('body_scripts')->getId()) ?>">Body scripts <span class="text-body-secondary">— runs before <code>&lt;/body&gt;</code></span></label>
-                <?= $el('body_scripts') ?>
+                <?= $el('body_scripts')->setAttrib('data-agent-target', 'body_scripts')->setAttrib('data-agent-label', 'Body scripts')->setAttrib('data-agent-kind', 'html') ?>
                 <div class="form-text">Raw <code>&lt;script&gt;</code>, loaded at the end of the page.</div>
             </div>
         </div>

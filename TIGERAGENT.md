@@ -287,8 +287,13 @@ aside sets the editor. AI's "say" → user.
 - **Mechanics.** The Loop returns a DOM action as a `client` ledger entry and stops (like an approval
   pause). The browser executes it, then POSTs the outcome to `Agent_Service_Agent::resume`, which
   feeds it back via `Loop::followUp`. A client-side hop cap (6) plus the server `MAX_STEPS` bound the
-  ping-pong. `dom` capability is gated at chat level (you're editing your own screen). *Deferred:*
-  iframes / GrapesJS (need `postMessage` plumbing).
+  ping-pong. `dom` capability is gated at chat level (you're editing your own screen).
+- **Wired surfaces (first-party).** The obvious content editors declare targets out of the box:
+  the **CMS page editor** (`title`, `body`, `meta_description`, `head_html`, `body_scripts`), the
+  **blog article editor** (`kicker`, `title`, `subtitle`, `preamble`, `body`, `excerpt`,
+  `seo_description`), and the **Code Area** (`name`, `code`). Any third-party editor opts in the same
+  way — add `data-agent-target` to a field, no JS. *Deferred:* iframes / GrapesJS (need `postMessage`
+  plumbing).
 
 ## 6. Data model
 
