@@ -263,8 +263,11 @@ writing the call — see "Services (`/api`)".
   e.g. `billing.invoice.created`, `core.api.error.not_allowed`.
 - Put strings in PHP array files: `<module>/languages/<lang>/<module>.php` returning
   `['key' => 'text']`. Locales are **language-only** (`en`, `es`).
-- Response messages translate automatically (`Tiger_Model_MessageObject`). In views/forms use
-  `$this->_t('key')`.
+- Response messages translate automatically (`Tiger_Model_MessageObject`). In a **form** use
+  `$this->_t('key')` (`Tiger_Form::_t`). In a **view** there is **NO `_t` helper** — pull the
+  registered translator: `Zend_Registry::get('Zend_Translate')->translate('key')` (or a small local
+  `$t = fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);` closure). `$this->_t()` /
+  `$this->view->_t()` in a view/controller throws `Plugin '_t' not found`.
 
 ## The live-override pattern (reuse it)
 

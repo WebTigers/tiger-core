@@ -4,12 +4,15 @@
 /**
  * TigerAgent settings screen (ADMIN.md template): connect a BYO AI account + toggle the agent.
  * The API key is write-only — never echoed back; a stored key shows a "connected" badge.
+ *
+ * Views have no _t() helper in tiger-core — pull the registered translator off the registry.
  */
+$t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
 ?>
 <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
-        <h1 class="h3 mb-1"><i class="fa-solid fa-robot me-2"></i><?= $this->_t('agent.settings.title') ?></h1>
-        <p class="text-body-secondary mb-0"><?= $this->_t('agent.settings.subtitle') ?></p>
+        <h1 class="h3 mb-1"><i class="fa-solid fa-robot me-2"></i><?= $t('agent.settings.title') ?></h1>
+        <p class="text-body-secondary mb-0"><?= $t('agent.settings.subtitle') ?></p>
     </div>
     <div class="text-nowrap">
         <button type="button" id="agent-settings-save" class="btn btn-primary">
@@ -38,11 +41,11 @@
                     <div class="form-check form-switch mb-4">
                         <input class="form-check-input" type="checkbox" role="switch" id="agent-enabled"
                                name="enabled" value="1" <?= $this->enabled ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="agent-enabled"><?= $this->_t('agent.settings.enabled') ?></label>
+                        <label class="form-check-label" for="agent-enabled"><?= $t('agent.settings.enabled') ?></label>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="agent-provider"><?= $this->_t('agent.settings.provider') ?></label>
+                        <label class="form-label" for="agent-provider"><?= $t('agent.settings.provider') ?></label>
                         <select class="form-select" id="agent-provider" name="provider">
                             <?php foreach ($this->providers as $key => $label): ?>
                                 <option value="<?= $this->escape($key) ?>" <?= $key === $this->provider ? 'selected' : '' ?>>
@@ -53,30 +56,30 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="agent-model"><?= $this->_t('agent.settings.model') ?></label>
+                        <label class="form-label" for="agent-model"><?= $t('agent.settings.model') ?></label>
                         <?= $this->form->getElement('model')->setAttrib('id', 'agent-model') ?>
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label" for="agent-api_key"><?= $this->_t('agent.settings.key') ?></label>
+                        <label class="form-label" for="agent-api_key"><?= $t('agent.settings.key') ?></label>
                         <?= $this->form->getElement('api_key')->setAttrib('id', 'agent-api_key') ?>
                         <div class="form-text">
                             <?php if ($this->connected): ?>
-                                <span class="text-success"><i class="fa-solid fa-circle-check me-1"></i><?= $this->_t('agent.settings.connected') ?></span>
+                                <span class="text-success"><i class="fa-solid fa-circle-check me-1"></i><?= $t('agent.settings.connected') ?></span>
                             <?php else: ?>
-                                <span class="text-body-secondary"><?= $this->_t('agent.settings.disconnected') ?></span>
+                                <span class="text-body-secondary"><?= $t('agent.settings.disconnected') ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
 
                     <div class="mb-2">
-                        <label class="form-label" for="agent-mode_max"><?= $this->_t('agent.settings.mode_max') ?></label>
+                        <label class="form-label" for="agent-mode_max"><?= $t('agent.settings.mode_max') ?></label>
                         <select class="form-select" id="agent-mode_max" name="mode_max">
                             <?php foreach (['ask' => 'agent.settings.mode.ask', 'auto' => 'agent.settings.mode.auto', 'yolo' => 'agent.settings.mode.yolo'] as $val => $key): ?>
-                                <option value="<?= $val ?>" <?= $this->modeMax === $val ? 'selected' : '' ?>><?= $this->_t($key) ?></option>
+                                <option value="<?= $val ?>" <?= $this->modeMax === $val ? 'selected' : '' ?>><?= $t($key) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="form-text"><?= $this->_t('agent.settings.mode_max.help') ?></div>
+                        <div class="form-text"><?= $t('agent.settings.mode_max.help') ?></div>
                     </div>
 
                 </div>

@@ -17,12 +17,14 @@ try {
 $agentModel = Tiger_Agent::model();
 
 // The mode selector offers levels up to the install ceiling (Tiger_Agent::modeMax()); the user
-// can dial DOWN but never past it. Labels are translate keys.
+// can dial DOWN but never past it. Labels are translate keys — views have no _t() helper, so pull
+// the translator off the registry.
+$agentT   = Zend_Registry::get('Zend_Translate');
 $modeMax  = Tiger_Agent::modeMax();
 $modeRank = Tiger_Agent::MODES[$modeMax] ?? 1;
 $modeOpts = [];
 foreach (Tiger_Agent::MODES as $m => $rank) {
-    if ($rank <= $modeRank) { $modeOpts[$m] = $this->_t('agent.mode.' . $m); }
+    if ($rank <= $modeRank) { $modeOpts[$m] = $agentT->translate('agent.mode.' . $m); }
 }
 ?>
 <aside id="tiger-agent" class="tiger-agent tiger-agent-aside" aria-label="AI Agent" data-mode-max="<?= $this->escape($modeMax) ?>">

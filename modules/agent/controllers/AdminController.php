@@ -25,7 +25,7 @@ class Agent_AdminController extends Tiger_Controller_Admin_Action
             'model'    => Tiger_Agent::model(),
         ]);
 
-        $this->view->title        = $this->view->_t('agent.settings.title') . ' — Tiger Admin';
+        $this->view->title        = Zend_Registry::get('Zend_Translate')->translate('agent.settings.title') . ' — Tiger Admin';
         $this->view->form         = $form;
         $this->view->enabled      = Tiger_Agent::isEnabled();
         $this->view->connected    = Tiger_Agent::isConnected();
