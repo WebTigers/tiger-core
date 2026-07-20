@@ -49,6 +49,8 @@ class Access_UserController extends Tiger_Controller_Admin_Action
                 'user_id'  => $user->user_id,
                 'email'    => $user->email,
                 'username' => $user->username,
+                'locale'   => (string) $user->locale,
+                'timezone' => (string) $user->timezone,
                 'status'   => $user->status,
             ]);
         }

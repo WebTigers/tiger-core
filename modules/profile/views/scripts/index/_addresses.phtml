@@ -1,0 +1,221 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Addresses tab — add/edit form on top (Country → autocomplete street → autofill city/region/postal),
+ * cards below with edit/trash. The autocomplete is tiger.address.js (data-attribute driven): the
+ * street input carries data-tiger-address + data-fill-* pointing at the city/region/postal/country
+ * field ids, and it biases Tiger_Service_Location::suggest by the chosen country. Cards render from
+ * one JS list; the server returns the fresh list + a rotated CSRF token on every save.
+ */
+$t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
+$groupLabels = ['priority' => 'Frequent', 'rest' => 'All countries'];
+?>
+<div class="card">
+    <div class="card-body">
+
+        <form id="address-form" onsubmit="return false;" novalidate>
+            <?= $this->addressForm->getElement('_csrf') ?>
+            <input type="hidden" name="user_address_id" id="addr-id" value="">
+            <input type="hidden" name="latitude" id="addr-lat" value="">
+            <input type="hidden" name="longitude" id="addr-lng" value="">
+            <div class="row">
+                <div class="col-xl-6 col-lg-8">
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-type"><?= $t('profile.address.type') ?></label>
+                        <select class="form-select" id="addr-type" name="type">
+                            <?php foreach ($this->addressTypes as $val => $label): ?>
+                                <option value="<?= $this->escape($val) ?>"><?= $this->escape($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-country"><?= $t('profile.address.country') ?></label>
+                        <select class="form-select" id="addr-country" name="country" data-tiger-ip-country>
+                            <option value="">— <?= $this->escape($t('profile.address.country')) ?> —</option>
+                            <?php foreach ($this->countries as $gk => $countries): if (!$countries) continue; ?>
+                                <optgroup label="<?= $this->escape($groupLabels[$gk] ?? $gk) ?>">
+                                    <?php foreach ($countries as $iso2 => $name): ?>
+                                        <option value="<?= $this->escape($iso2) ?>"><?= $this->escape($name) ?></option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-line1"><?= $t('profile.address.line1') ?></label>
+                        <input type="text" class="form-control" id="addr-line1" name="line1" autocomplete="off"
+                               data-tiger-address data-fill-city="addr-city" data-fill-region="addr-region"
+                               data-fill-postal="addr-postal" data-fill-country="addr-country"
+                               data-fill-lat="addr-lat" data-fill-lng="addr-lng"
+                               placeholder="<?= $this->escape($t('profile.address.line1_ph')) ?>">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-line2"><?= $t('profile.address.line2') ?></label>
+                        <input type="text" class="form-control" id="addr-line2" name="line2">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-city"><?= $t('profile.address.city') ?></label>
+                        <input type="text" class="form-control" id="addr-city" name="city">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-region"><?= $t('profile.address.region') ?></label>
+                        <input type="text" class="form-control" id="addr-region" name="region">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="addr-postal"><?= $t('profile.address.postal') ?></label>
+                        <input type="text" class="form-control" id="addr-postal" name="postal">
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="1" id="addr-primary" name="is_primary">
+                            <label class="form-check-label" for="addr-primary"><?= $t('profile.address.primary') ?></label>
+                        </div>
+                        <div class="text-nowrap">
+                            <button type="button" id="address-cancel" class="btn btn-link btn-sm d-none"><?= $t('profile.address.cancel') ?></button>
+                            <button type="button" id="address-save" class="btn btn-primary">
+                                <i class="fa-solid fa-plus me-1"></i><span id="address-save-label"><?= $t('profile.address.add') ?></span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-3">
+        <div id="address-cards"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb        = document.getElementById('profile-feedback');
+    var form      = document.getElementById('address-form');
+    var csrfInput = form.querySelector('[name="_csrf"]');
+    var host      = document.getElementById('address-cards');
+    var idInput   = document.getElementById('addr-id');
+    var latInput  = document.getElementById('addr-lat');
+    var lngInput  = document.getElementById('addr-lng');
+    var f = {
+        country: document.getElementById('addr-country'), type: document.getElementById('addr-type'),
+        line1: document.getElementById('addr-line1'), line2: document.getElementById('addr-line2'),
+        city: document.getElementById('addr-city'), region: document.getElementById('addr-region'),
+        postal: document.getElementById('addr-postal'), primary: document.getElementById('addr-primary')
+    };
+    var saveBtn = document.getElementById('address-save');
+    var saveLabel = document.getElementById('address-save-label');
+    var cancelBtn = document.getElementById('address-cancel');
+
+    var TYPES = <?= json_encode($this->addressTypes, JSON_UNESCAPED_UNICODE) ?>;
+    var STR = {
+        add:    <?= json_encode($t('profile.address.add'), JSON_UNESCAPED_UNICODE) ?>,
+        update: <?= json_encode($t('profile.address.update'), JSON_UNESCAPED_UNICODE) ?>,
+        none:   <?= json_encode($t('profile.address.none'), JSON_UNESCAPED_UNICODE) ?>,
+        saved:  <?= json_encode($t('profile.address.saved'), JSON_UNESCAPED_UNICODE) ?>,
+        del:    <?= json_encode($t('profile.address.deleted'), JSON_UNESCAPED_UNICODE) ?>,
+        confirm:<?= json_encode($t('profile.address.confirm_delete'), JSON_UNESCAPED_UNICODE) ?>
+    };
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function fmtAddr(a) {
+        var parts = [];
+        var l1 = (a.line1 || '') + (a.line2 ? ', ' + a.line2 : '');
+        if (l1.trim()) { parts.push(l1); }
+        var cr = [a.city, a.region].filter(Boolean).join(', ');
+        if (a.postal) { cr += (cr ? ' ' : '') + a.postal; }
+        if (cr) { parts.push(cr); }
+        if (a.country) { parts.push(a.country); }
+        return parts.join(', ');
+    }
+
+    function render(list) {
+        host.innerHTML = '';
+        if (!list || !list.length) { host.innerHTML = '<p class="text-body-secondary small mb-0">' + esc(STR.none) + '</p>'; return; }
+        list.forEach(function (a) {
+            var label = TYPES[a.label] || a.label;
+            var el = document.createElement('div');
+            el.className = 'd-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+            el.innerHTML =
+                '<div class="d-flex align-items-center gap-2">' +
+                    (Number(a.is_primary) ? '<i class="fa-solid fa-star text-warning" title="Primary"></i>' : '') +
+                    '<span class="badge text-bg-secondary">' + esc(label) + '</span>' +
+                    '<span>' + esc(fmtAddr(a)) + '</span>' +
+                '</div>' +
+                '<div class="text-nowrap">' +
+                    '<button type="button" class="btn btn-sm btn-link text-body p-1 js-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' +
+                    '<button type="button" class="btn btn-sm btn-link text-danger p-1 js-del" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+                '</div>';
+            el.querySelector('.js-edit').addEventListener('click', function () { edit(a); });
+            el.querySelector('.js-del').addEventListener('click', function (e) { del(a.user_address_id, e.currentTarget); });
+            host.appendChild(el);
+        });
+    }
+
+    function reset() {
+        idInput.value = ''; latInput.value = ''; lngInput.value = '';
+        f.country.selectedIndex = 0; f.type.selectedIndex = 0; f.primary.checked = false;
+        ['line1', 'line2', 'city', 'region', 'postal'].forEach(function (k) { f[k].value = ''; });
+        saveLabel.textContent = STR.add; cancelBtn.classList.add('d-none');
+        form.querySelectorAll('.is-invalid').forEach(function (x) { x.classList.remove('is-invalid'); });
+    }
+    function edit(a) {
+        idInput.value = a.user_address_id;
+        // Carry the stored geocode; it persists on save unless the user retypes the street
+        // (tiger.address.js clears these on a manual edit).
+        latInput.value = a.latitude == null ? '' : a.latitude;
+        lngInput.value = a.longitude == null ? '' : a.longitude;
+        f.country.value = a.country || ''; f.type.value = a.label || ''; f.primary.checked = !!Number(a.is_primary);
+        f.line1.value = a.line1 || ''; f.line2.value = a.line2 || ''; f.city.value = a.city || '';
+        f.region.value = a.region || ''; f.postal.value = a.postal || '';
+        saveLabel.textContent = STR.update; cancelBtn.classList.remove('d-none'); f.line1.focus();
+    }
+    cancelBtn.addEventListener('click', reset);
+
+    function post(method, extra, btn) {
+        var fd = extra ? new URLSearchParams(extra) : new URLSearchParams(new FormData(form));
+        fd.set('module', 'profile'); fd.set('service', 'address'); fd.set('method', method);
+        if (extra) { fd.set('_csrf', csrfInput.value); }
+        return TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        });
+    }
+
+    saveBtn.addEventListener('click', function () {
+        post('save', null, this).then(function (res) {
+            if (res && res.result === 1 && res.data) {
+                render(res.data.addresses || []);
+                if (res.data._csrf) { csrfInput.value = res.data._csrf; }   // rotate token
+                reset();
+                TigerDOM.notify(fb, STR.saved, { type: 'success' });
+                return;
+            }
+            form.querySelectorAll('.is-invalid').forEach(function (x) { x.classList.remove('is-invalid'); });
+            if (res && res.form) { Object.keys(res.form).forEach(function (k) { if (f[k]) { f[k].classList.add('is-invalid'); } }); }
+            (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+
+    function del(id, btn) {
+        if (!window.confirm(STR.confirm)) { return; }
+        post('delete', { user_address_id: id }, btn).then(function (res) {
+            if (res && res.result === 1 && res.data) {
+                render(res.data.addresses || []);
+                if (res.data._csrf) { csrfInput.value = res.data._csrf; }
+                TigerDOM.notify(fb, STR.del, { type: 'success' });
+            }
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    }
+
+    render(<?= json_encode($this->addresses, JSON_UNESCAPED_UNICODE) ?>);
+});
+</script>

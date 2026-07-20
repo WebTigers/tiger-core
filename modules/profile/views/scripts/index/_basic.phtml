@@ -1,0 +1,239 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Basic Info tab — avatar (pick or drop via TigerUpload → crop/zoom/position with Cropper.js →
+ * self-service upload) + username + the two i18n primitives (language, timezone). Email is
+ * read-only (changing the login identifier needs a verification flow, out of base scope). Saves
+ * through /api. Rendered as a partial: the parent passes the model (form, passwordForm, avatarUrl…).
+ */
+$t  = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
+$av = (string) $this->avatarUrl;
+?>
+<div class="card">
+    <div class="card-body">
+
+        <!-- Avatar -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="position-relative flex-shrink-0" style="width:96px;height:96px;">
+                <img id="avatar-img" src="<?= $this->escape($av) ?>" alt="Avatar"
+                     class="rounded-circle w-100 h-100 <?= $av === '' ? 'd-none' : '' ?>" style="object-fit:cover;">
+                <div id="avatar-placeholder"
+                     class="rounded-circle w-100 h-100 bg-secondary-subtle d-flex align-items-center justify-content-center <?= $av === '' ? '' : 'd-none' ?>">
+                    <i class="fa-solid fa-user fa-2x text-secondary"></i>
+                </div>
+            </div>
+            <div>
+                <button type="button" id="avatar-change" class="btn btn-outline-primary btn-sm">
+                    <i class="fa-solid fa-camera me-2"></i><?= $t('profile.avatar.change') ?>
+                </button>
+                <button type="button" id="avatar-remove" class="btn btn-link btn-sm text-danger <?= $av === '' ? 'd-none' : '' ?>">
+                    <?= $t('profile.avatar.remove') ?>
+                </button>
+                <div class="form-text mb-0"><?= $t('profile.avatar.hint') ?> Or drop a photo anywhere on the page.</div>
+            </div>
+        </div>
+        <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" class="d-none">
+
+        <hr class="my-4">
+
+        <!-- Identity + i18n -->
+        <form id="profile-basic-form" onsubmit="return false;" novalidate>
+            <?= $this->form->getElement('_csrf') ?>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="profile-display-name"><?= $t('profile.user.display_name') ?></label>
+                    <input type="text" class="form-control" id="profile-display-name" name="display_name"
+                           value="<?= $this->escape($this->displayName) ?>"
+                           placeholder="<?= $this->escape($t('profile.user.display_name_ph')) ?>" autocomplete="name">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="profile-username"><?= $t('profile.user.username') ?></label>
+                    <input type="text" class="form-control" id="profile-username" name="username"
+                           value="<?= $this->escape($this->username) ?>" autocomplete="username">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="profile-email"><?= $t('profile.user.email') ?></label>
+                    <input type="email" class="form-control" id="profile-email"
+                           value="<?= $this->escape($this->email) ?>" disabled readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="profile-locale"><?= $t('profile.user.locale') ?></label>
+                    <select class="form-select" id="profile-locale" name="locale">
+                        <?php foreach ($this->locales as $code => $name): ?>
+                            <option value="<?= $this->escape($code) ?>" <?= $code === $this->locale ? 'selected' : '' ?>>
+                                <?= $this->escape($name) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="profile-timezone"><?= $t('profile.user.timezone') ?></label>
+                    <select class="form-select" id="profile-timezone" name="timezone"
+                            data-tiger-combo data-placeholder="<?= $this->escape($t('profile.user.timezone_ph')) ?>">
+                        <option value="">—</option>
+                        <?php foreach ($this->timezones as $tzId => $tzLabel): ?>
+                            <option value="<?= $this->escape($tzId) ?>" <?= $tzId === $this->timezone ? 'selected' : '' ?>>
+                                <?= $this->escape($tzLabel) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="card-footer text-end">
+        <button type="button" id="profile-basic-save" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk me-2"></i>Save
+        </button>
+    </div>
+</div>
+
+<!-- Crop modal: static image, a movable + resizable square crop box (mouse: drag to move, corner to
+     resize, wheel to zoom). -->
+<div class="modal fade" id="avatar-crop-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><?= $t('profile.avatar.adjust') ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="bg-body-tertiary rounded text-center">
+                    <img id="avatar-crop-image" alt="" style="display:block;max-width:100%;max-height:60vh;margin:0 auto;">
+                </div>
+                <p class="form-text text-center mt-2 mb-0">Drag to move · drag a corner to resize · scroll to zoom.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="avatar-crop-save">
+                    <i class="fa-solid fa-check me-2"></i><?= $t('profile.avatar.save') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb = document.getElementById('profile-feedback');
+
+    // ----- Basic info save -----
+    document.getElementById('profile-basic-save').addEventListener('click', function () {
+        var form = document.getElementById('profile-basic-form');
+        var fd   = new URLSearchParams(new FormData(form));
+        fd.set('module', 'profile'); fd.set('service', 'user'); fd.set('method', 'save');
+        TigerButton.run(this, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) {
+            if (res && res.result === 1) {
+                var dn = document.getElementById('profile-display-name').value.trim();
+                window.dispatchEvent(new CustomEvent('tiger:display-name-changed', { detail: { name: dn || null } }));
+                TigerDOM.notify(fb, 'Profile saved.', { type: 'success' });
+                return;
+            }
+            if (res && res.form) { Object.keys(res.form).forEach(function (f) { var el = form.querySelector('[name="' + f + '"]'); if (el) { el.classList.add('is-invalid'); } }); }
+            (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+
+    // ----- Avatar: pick / drop (TigerUpload) -> crop (Cropper.js) -> upload -----
+    var input   = document.getElementById('avatar-file');
+    var modalEl = document.getElementById('avatar-crop-modal');
+    var cropImg = document.getElementById('avatar-crop-image');
+    var cropper = null, modalObj = null, pendingSrc = null;
+
+    function bust(url) { return url + (url.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(); }
+    function getModal() { if (!modalObj) { modalObj = bootstrap.Modal.getOrCreateInstance(modalEl); } return modalObj; }
+    function destroyCropper() { if (cropper) { cropper.destroy(); cropper = null; } }
+    function showAvatar(url) {
+        var img = document.getElementById('avatar-img');
+        img.src = url; img.classList.remove('d-none');
+        document.getElementById('avatar-placeholder').classList.add('d-none');
+        document.getElementById('avatar-remove').classList.remove('d-none');
+    }
+
+    // TigerUpload: the upload engine + the full-page transparent drop pane. auto:false — we upload
+    // the CROPPED result on Save, not the raw drop.
+    var up = TigerUpload.create({
+        url: '/api', field: 'file', auto: false,
+        params: { module: 'profile', service: 'avatar', method: 'upload' }
+    });
+    up.dropOnWindow({ label: 'Drop your photo', sublabel: 'to set it as your avatar',
+        onDrop: function (files) { openCropper(files && files[0]); } });
+    up.subscribe({
+        onSuccess: function (item) {
+            if (item.response && item.response.url) {
+                var u = bust(item.response.url);
+                showAvatar(u);
+                window.dispatchEvent(new CustomEvent('tiger:avatar-changed', { detail: { url: u } }));
+            }
+            getModal().hide();
+            TigerDOM.notify(fb, 'Photo updated.', { type: 'success' });
+        },
+        onError: function (item) { TigerDOM.notify(fb, (item && item.error) || 'Upload failed — please try again.', { type: 'error' }); }
+    });
+
+    document.getElementById('avatar-change').addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () { openCropper(input.files && input.files[0]); input.value = ''; });
+
+    // Read the file to a data-URL so the <img> is fully decoded before Cropper measures it (the fix
+    // for a blank Cropper inside a Bootstrap modal), then show the modal.
+    function openCropper(file) {
+        if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) {
+            TigerDOM.notify(fb, 'Please choose a JPG, PNG, or WebP image.', { type: 'error' });
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (e) { pendingSrc = e.target.result; getModal().show(); };
+        reader.readAsDataURL(file);
+    }
+
+    // Init Cropper only once the modal is shown AND the image has loaded — both must hold or Cropper
+    // measures a zero-size box and renders nothing.
+    modalEl.addEventListener('shown.bs.modal', function () {
+        destroyCropper();
+        cropImg.onload = function () {
+            cropImg.onload = null;
+            try {
+                cropper = new Cropper(cropImg, { aspectRatio: 1, viewMode: 1, autoCropArea: 0.85, responsive: true, background: true });
+            } catch (err) {
+                TigerDOM.notify(fb, 'Could not start the cropper: ' + (err && err.message ? err.message : err), { type: 'error' });
+            }
+        };
+        cropImg.src = pendingSrc;
+    });
+    modalEl.addEventListener('hidden.bs.modal', function () { destroyCropper(); });
+
+    document.getElementById('avatar-crop-save').addEventListener('click', function () {
+        if (!cropper) { return; }
+        var canvas = cropper.getCroppedCanvas({ width: 512, height: 512, imageSmoothingQuality: 'high' });
+        if (!canvas) { return; }
+        canvas.toBlob(function (blob) {
+            var file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+            up.clear();          // drop any raw file the window-drop queued
+            up.add([file]);
+            up.start();
+        }, 'image/jpeg', 0.9);
+    });
+
+    document.getElementById('avatar-remove').addEventListener('click', function () {
+        var btn = this;
+        var fd = new URLSearchParams();
+        fd.set('module', 'profile'); fd.set('service', 'avatar'); fd.set('method', 'remove');
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) {
+            if (res && res.result === 1) {
+                document.getElementById('avatar-img').classList.add('d-none');
+                document.getElementById('avatar-placeholder').classList.remove('d-none');
+                btn.classList.add('d-none');
+                window.dispatchEvent(new CustomEvent('tiger:avatar-changed', { detail: { url: null } }));
+                TigerDOM.notify(fb, 'Photo removed.', { type: 'success' });
+            }
+        });
+    });
+});
+</script>

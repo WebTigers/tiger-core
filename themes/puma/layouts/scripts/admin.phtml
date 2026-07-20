@@ -53,6 +53,13 @@ $_hasAgent = class_exists('Tiger_Agent') && Tiger_Agent::isAvailable();
 <?php endif; ?>
     <!-- The admin shell chrome (our MIT layout CSS — Bootstrap ships no app shell). -->
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/admin.css') ?>">
+    <!-- Cropper.js (vendored): avatar/logo crop CSS. Must load on every screen with the crop modal —
+         NOT gated behind useDataTables, or the crop overlay + box never render. -->
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/cropperjs/cropper.min.css') ?>">
+<?php if (!empty($this->useIntlTel)): ?>
+    <!-- intl-tel-input (vendored) — phone country dropdown + live formatting; loaded only where a phone field opts in. -->
+    <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/intl-tel-input/css/intlTelInput.css') ?>">
+<?php endif; ?>
 <?php if (!empty($this->useDataTables)): ?>
     <!-- DataTables (Bootstrap 5), loaded only for screens that opt in ($this->useDataTables). -->
     <link rel="stylesheet" href="<?= $this->asset($this->themeAssets . '/vendor/datatables/dataTables.bootstrap5.min.css') ?>">
@@ -87,6 +94,14 @@ $_hasAgent = class_exists('Tiger_Agent') && Tiger_Agent::isAvailable();
 <!-- Backdrop for the off-canvas sidebar on mobile. -->
 <div class="tiger-backdrop" data-tiger-toggle="sidebar"></div>
 
+<!-- Cropper.js (vendored — no CDN). MUST load before jQuery/Bootstrap set define.amd, or its UMD
+     registers anonymously as an AMD module and never creates the window.Cropper global. -->
+<script src="<?= $this->asset($this->themeAssets . '/vendor/cropperjs/cropper.min.js') ?>"></script>
+<?php if (!empty($this->useIntlTel)): ?>
+<!-- intl-tel-input (widget + libphonenumber utils). Before jQuery/Bootstrap set define.amd, so its
+     UMD creates the window.intlTelInput global instead of registering as an anonymous AMD module. -->
+<script src="<?= $this->asset($this->themeAssets . '/vendor/intl-tel-input/js/intlTelInputWithUtils.min.js') ?>"></script>
+<?php endif; ?>
 <script src="<?= $this->asset($this->themeAssets . '/js/bootstrap.bundle.js') ?>"></script>
 <?php if (!empty($this->useDataTables)): ?>
 <!-- jQuery + DataTables: the admin's one jQuery dependency (data grids only); the
@@ -101,6 +116,14 @@ $_hasAgent = class_exists('Tiger_Agent') && Tiger_Agent::isAvailable();
 <?php endif; ?>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.dom.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.button.js') ?>"></script>
+<!-- Searchable-select enhancer: any <select data-tiger-combo> becomes a filter-as-you-type combobox. -->
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.combobox.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.tabs.js') ?>"></script>
+<?php if (!empty($this->useAddress)): ?>
+<!-- Address autocomplete (data-tiger-address → Tiger_Service_Location::suggest). -->
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.address.js') ?>" defer></script>
+<?php endif; ?>
+<script src="<?= $this->asset($this->themeAssets . '/vendor/tiger-upload/tiger-upload.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
 <!-- Per-user drag-to-reorder for the admin sidebar (SortableJS, vendored). -->
 <script src="<?= $this->asset($this->themeAssets . '/js/vendor/Sortable.min.js') ?>"></script>

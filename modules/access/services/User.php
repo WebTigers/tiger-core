@@ -83,15 +83,32 @@ class Access_Service_User extends Tiger_Service_Service
         if ($user->isTaken('email', $email, $userId)) { $this->_error('access.user.email_taken'); return; }
         if ($username !== null && $user->isTaken('username', $username, $userId)) { $this->_error('access.user.username_taken'); return; }
 
-        $data = ['email' => $email, 'username' => $username, 'status' => $v['status']];
+        $locale   = trim((string) $v['locale']);
+        $timezone = trim((string) $v['timezone']);
+        $newPw    = (string) $v['new_password'];
+        $data = [
+            'email'    => $email,
+            'username' => $username,
+            'status'   => $v['status'],
+            'locale'   => $locale !== '' ? $locale : null,
+            'timezone' => $timezone !== '' ? $timezone : null,
+        ];
 
         try {
-            if ($userId) {
-                $user->update($data, ['user_id = ?' => $userId]);
-                $id = $userId;
-            } else {
-                $id = $user->insert($data);
-            }
+            $id = $this->_transaction(function () use ($user, $userId, $data, $newPw) {
+                if ($userId) {
+                    $user->update($data, ['user_id = ?' => $userId]);
+                    $newId = $userId;
+                } else {
+                    $newId = $user->insert($data);
+                }
+                // Admin authority: set/reset the password outright when provided (no current-password
+                // step — that's the self-service Profile_Service_Security path). Blank = unchanged.
+                if ($newPw !== '') {
+                    (new Tiger_Model_UserCredential())->setPassword($newId, $newPw);
+                }
+                return $newId;
+            });
             $this->_success(['user_id' => $id], 'access.user.saved', '/access/user');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');

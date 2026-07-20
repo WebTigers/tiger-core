@@ -41,9 +41,23 @@ $el = function ($name) use ($form) { return $form->getElement($name); };
                         <?= $el('username') ?>
                         <div class="form-text">Optional. Unique if set.</div>
                     </div>
-                    <div class="mb-0">
+                    <div class="mb-3">
                         <label class="form-label" for="<?= $this->escape($el('status')->getId()) ?>">Status</label>
                         <?= $el('status') ?>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('locale')->getId()) ?>">Language</label>
+                        <?= $el('locale') ?>
+                        <div class="form-text">The user's preferred language.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="<?= $this->escape($el('timezone')->getId()) ?>">Timezone</label>
+                        <?= $el('timezone') ?>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="<?= $this->escape($el('new_password')->getId()) ?>">Set Password</label>
+                        <?= $el('new_password') ?>
+                        <div class="form-text">Leave blank to keep the current password. Setting it here resets it immediately.</div>
                     </div>
                 </div>
             </div>

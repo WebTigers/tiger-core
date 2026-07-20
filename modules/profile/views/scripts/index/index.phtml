@@ -1,0 +1,42 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * My Profile — the base self-service account screen (ADMIN.md template). The tab bar and panes
+ * are driven entirely by Tiger_Profile_Tabs, so a module that registers a tab appears here with
+ * no edit to this file. Views have no _t() helper — pull the registered translator.
+ */
+$t     = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
+$tabs  = $this->tabs;
+$model = $this->model;
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1"><i class="fa-solid fa-user me-2"></i><?= $t('profile.title') ?></h1>
+        <p class="text-body-secondary mb-0"><?= $t('profile.subtitle') ?></p>
+    </div>
+</div>
+
+<div id="profile-feedback"></div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <?php foreach ($tabs as $i => $tab): ?>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link <?= $i === 0 ? 'active' : '' ?>" type="button" role="tab"
+                    data-bs-toggle="tab" data-bs-target="#<?= $this->escape($tab['key']) ?>"
+                    aria-controls="<?= $this->escape($tab['key']) ?>" aria-selected="<?= $i === 0 ? 'true' : 'false' ?>">
+                <i class="fa-solid <?= $this->escape($tab['icon']) ?> me-2"></i><?= $t($tab['label']) ?>
+            </button>
+        </li>
+    <?php endforeach; ?>
+</ul>
+
+<div class="tab-content">
+    <?php foreach ($tabs as $i => $tab): ?>
+        <div class="tab-pane fade <?= $i === 0 ? 'show active' : '' ?>" id="<?= $this->escape($tab['key']) ?>" role="tabpanel">
+            <?php if (!empty($tab['view'])): ?>
+                <?= $this->partial($tab['view'] . '.phtml', $model) ?>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+</div>

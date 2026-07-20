@@ -26,4 +26,25 @@ class Tiger_Model_UserContact extends Tiger_Model_Table
     {
         return $this->fetchAll($this->activeSelect()->where('user_id = ?', $userId));
     }
+
+    /**
+     * A user's contacts joined to the underlying channel — the render/read shape (findByUser returns
+     * only link rows). Primary first, then oldest. Each row: user_contact_id, label, is_primary,
+     * kind, type, value.
+     *
+     * @param  string $userId
+     * @return array<int,array<string,mixed>>
+     */
+    public function withContact($userId)
+    {
+        $db = $this->getAdapter();
+        return $db->fetchAll(
+            $db->select()
+               ->from(['uc' => 'user_contact'], ['user_contact_id', 'label', 'is_primary'])
+               ->joinLeft(['c' => 'contact'], 'c.contact_id = uc.contact_id', ['kind', 'type', 'value'])
+               ->where('uc.user_id = ?', (string) $userId)
+               ->where('uc.deleted = ?', 0)
+               ->order(['uc.is_primary DESC', 'uc.created_at ASC'])
+        );
+    }
 }

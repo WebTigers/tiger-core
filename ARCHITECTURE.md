@@ -277,6 +277,16 @@ prerogative — but it is **never** something a module install/activation does o
 - **Account is a module**, not core — it extends `User`/`Org` via its own FK-linked tables,
   **never by adding columns to core tables.** Why: so the platform can be updated without
   breaking apps that extended it. ("Try not to edit Core files — or Core tables — within your app.")
+  - **The one deliberate exception: `user.locale` + `user.timezone`.** These two i18n primitives
+    live *on the identity row*, not in the Account extension, because they're resolved on
+    essentially **every authenticated request** (`Tiger_Controller_Plugin_LocalePrefix` reads
+    `user.locale` ahead of the device cookie, so language follows the person across devices). A
+    per-request join into an extension table for a value needed that often is the wrong trade;
+    co-locating with identity is what Laravel/Django/Rails do for exactly this reason. The line
+    stays bright: these are **request-critical, single-scalar, universal** primitives — anything
+    open-ended (avatar, bio, phone-as-contact, arbitrary preferences) still goes in the extension
+    or the per-scope `option` tier, never as new `user`/`org` columns. Don't cite this as a
+    precedent for widening the thin identity; it's a named carve-out, not an open door.
 - **`org_user` is the tenancy boundary.** What stops a user acting across tenants is the
   *absence of an `org_user` row* linking them to that org. Cross-tenant denial is structural,
   not a code check you can forget.

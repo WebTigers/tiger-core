@@ -1,0 +1,246 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Contacts tab — add/edit form on top, cards below (edit/trash each). Type-aware: PHONE uses the
+ * intl-tel-input widget (country dropdown + live formatting + validation) and stores E.164; Email/
+ * Other use a plain input. Cards render from one JS list, so create/edit/delete just re-render; the
+ * server returns the fresh list + a rotated CSRF token every save (Zend hash tokens hop-expire).
+ *
+ * Agent note — the phone round-trip: the widget's getNumber() → hidden `value` (E.164, e.g.
+ * +15551234567) and getSelectedCountryData().iso2 → hidden `phone_country`. On edit, setNumber(E.164)
+ * re-seeds the widget (it detects the country from the number). Default country = tiger.profile.phone
+ * .default_country (this->phoneDefault). intl-tel-input is loaded by the layout only when
+ * useIntlTel is set (Profile_IndexController sets it).
+ */
+$t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
+?>
+<div class="card">
+    <div class="card-body">
+
+        <form id="contact-form" onsubmit="return false;" novalidate>
+            <?= $this->contactForm->getElement('_csrf') ?>
+            <input type="hidden" name="user_contact_id" id="contact-id" value="">
+            <input type="hidden" name="value" id="contact-value-hidden" value="">
+            <input type="hidden" name="phone_country" id="contact-phone-country" value="">
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-3">
+                    <label class="form-label" for="contact-type"><?= $t('profile.contact.type') ?></label>
+                    <select class="form-select" id="contact-type" name="type">
+                        <?php foreach ($this->contactTypes as $val => $label): ?>
+                            <option value="<?= $this->escape($val) ?>"><?= $this->escape($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-sm-5">
+                    <label class="form-label" for="contact-value"><?= $t('profile.contact.value') ?></label>
+                    <div id="contact-value-wrap">
+                        <input type="text" class="form-control" id="contact-value"
+                               placeholder="<?= $this->escape($t('profile.contact.value_ph')) ?>">
+                    </div>
+                    <div id="contact-phone-wrap" class="d-none">
+                        <input type="tel" class="form-control" id="contact-phone" autocomplete="tel">
+                    </div>
+                </div>
+                <div class="col-sm-2">
+                    <div class="form-check mt-4 pt-2">
+                        <input class="form-check-input" type="checkbox" value="1" id="contact-primary" name="is_primary">
+                        <label class="form-check-label" for="contact-primary"><?= $t('profile.contact.primary') ?></label>
+                    </div>
+                </div>
+                <div class="col-sm-2">
+                    <button type="button" id="contact-save" class="btn btn-primary w-100">
+                        <i class="fa-solid fa-plus me-1"></i><span id="contact-save-label"><?= $t('profile.contact.add') ?></span>
+                    </button>
+                    <button type="button" id="contact-cancel" class="btn btn-link btn-sm w-100 mt-1 d-none"><?= $t('profile.contact.cancel') ?></button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-3">
+        <div id="contact-cards"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb        = document.getElementById('profile-feedback');
+    var form      = document.getElementById('contact-form');
+    var csrfInput = form.querySelector('[name="_csrf"]');
+    var host      = document.getElementById('contact-cards');
+    var idInput   = document.getElementById('contact-id');
+    var valHidden = document.getElementById('contact-value-hidden');
+    var ccHidden  = document.getElementById('contact-phone-country');
+    var typeEl    = document.getElementById('contact-type');
+    var valueEl   = document.getElementById('contact-value');
+    var valueWrap = document.getElementById('contact-value-wrap');
+    var phoneEl   = document.getElementById('contact-phone');
+    var phoneWrap = document.getElementById('contact-phone-wrap');
+    var primEl    = document.getElementById('contact-primary');
+    var saveBtn   = document.getElementById('contact-save');
+    var saveLabel = document.getElementById('contact-save-label');
+    var cancelBtn = document.getElementById('contact-cancel');
+
+    var TYPES = <?= json_encode($this->contactTypes, JSON_UNESCAPED_UNICODE) ?>;
+    var PHONE_DEFAULT = <?= json_encode(strtolower((string) $this->phoneDefault), JSON_UNESCAPED_UNICODE) ?>;
+    var STR = {
+        add:    <?= json_encode($t('profile.contact.add'), JSON_UNESCAPED_UNICODE) ?>,
+        update: <?= json_encode($t('profile.contact.update'), JSON_UNESCAPED_UNICODE) ?>,
+        none:   <?= json_encode($t('profile.contact.none'), JSON_UNESCAPED_UNICODE) ?>,
+        saved:  <?= json_encode($t('profile.contact.saved'), JSON_UNESCAPED_UNICODE) ?>,
+        del:    <?= json_encode($t('profile.contact.deleted'), JSON_UNESCAPED_UNICODE) ?>,
+        confirm:<?= json_encode($t('profile.contact.confirm_delete'), JSON_UNESCAPED_UNICODE) ?>,
+        badphone:<?= json_encode($t('profile.contact.bad_phone'), JSON_UNESCAPED_UNICODE) ?>
+    };
+
+    // intl-tel-input is initialised lazily: the Contacts pane is hidden at load, and initialising the
+    // widget on a display:none input mis-measures the dropdown. Init on first show (or if deep-linked).
+    var iti = null;
+    function initIti() {
+        if (iti || !window.intlTelInput) { return; }
+        iti = window.intlTelInput(phoneEl, {
+            initialCountry: PHONE_DEFAULT || 'us',
+            separateDialCode: true,
+            formatOnDisplay: true,
+            countrySearch: true
+        });
+    }
+    var tabBtn = document.querySelector('[data-bs-toggle="tab"][data-bs-target="#contacts"]');
+    if (tabBtn) { tabBtn.addEventListener('shown.bs.tab', initIti); }
+    if (document.getElementById('contacts') && document.getElementById('contacts').classList.contains('active')) { initIti(); }
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function isPhone() { return typeEl.value === 'phone'; }
+
+    // Display formatter: numbers are stored as bare digits (E.164 preferred), shown formatted via
+    // intl-tel-input's bundled libphonenumber — e.g. +1 407-461-7174. E.164 (leading +) formats itself;
+    // legacy national digits use the ISO on contact.type or the default country. Falls back to raw.
+    // A hidden intl-tel-input instance used purely as a formatter (stable public API), so we don't
+    // depend on the internal utils global name across versions.
+    var _fmtIti = null;
+    function fmtIti() {
+        if (_fmtIti || !window.intlTelInput) { return _fmtIti; }
+        var hid = document.createElement('input');
+        hid.type = 'tel'; hid.tabIndex = -1; hid.setAttribute('aria-hidden', 'true');
+        hid.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:200px;';
+        document.body.appendChild(hid);
+        _fmtIti = window.intlTelInput(hid, { initialCountry: PHONE_DEFAULT || 'us' });
+        return _fmtIti;
+    }
+    function fmtPhone(value, isoType) {
+        if (!value) { return value; }
+        var v = String(value);
+        var iso = (v.charAt(0) === '+') ? '' : String(isoType || PHONE_DEFAULT || 'us').toLowerCase();
+        try {
+            // Prefer the utils global (pure function) if present…
+            var U = window.intlTelInputUtilsTemp || window.intlTelInputUtils;
+            if (U && U.formatNumber) {
+                var fmt = (U.numberFormat && U.numberFormat.INTERNATIONAL != null) ? U.numberFormat.INTERNATIONAL : 1;
+                var out = U.formatNumber(v, iso, fmt);
+                if (out) { return out; }
+            }
+            // …otherwise a hidden instance: setNumber + getNumber(1 = INTERNATIONAL).
+            var it = fmtIti();
+            if (it) { if (iso) { it.setCountry(iso); } it.setNumber(v); return it.getNumber(1) || v; }
+        } catch (e) {}
+        return v;
+    }
+
+    function toggleType() {
+        var phone = isPhone();
+        phoneWrap.classList.toggle('d-none', !phone);
+        valueWrap.classList.toggle('d-none', phone);
+        valueEl.type = (typeEl.value === 'email') ? 'email' : 'text';
+        if (phone) { initIti(); }
+    }
+    typeEl.addEventListener('change', toggleType);
+
+    function render(list) {
+        host.innerHTML = '';
+        if (!list || !list.length) { host.innerHTML = '<p class="text-body-secondary small mb-0">' + esc(STR.none) + '</p>'; return; }
+        list.forEach(function (c) {
+            var label = TYPES[c.kind] || c.kind;
+            var el = document.createElement('div');
+            el.className = 'd-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+            el.innerHTML =
+                '<div class="d-flex align-items-center gap-2">' +
+                    (Number(c.is_primary) ? '<i class="fa-solid fa-star text-warning" title="Primary"></i>' : '') +
+                    '<span class="badge text-bg-secondary">' + esc(label) + '</span>' +
+                    '<span>' + esc(c.kind === 'phone' ? fmtPhone(c.value, c.type) : c.value) + '</span>' +
+                '</div>' +
+                '<div class="text-nowrap">' +
+                    '<button type="button" class="btn btn-sm btn-link text-body p-1 js-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' +
+                    '<button type="button" class="btn btn-sm btn-link text-danger p-1 js-del" title="Delete"><i class="fa-solid fa-trash"></i></button>' +
+                '</div>';
+            el.querySelector('.js-edit').addEventListener('click', function () { edit(c); });
+            el.querySelector('.js-del').addEventListener('click', function (e) { del(c.user_contact_id, e.currentTarget); });
+            host.appendChild(el);
+        });
+    }
+
+    function reset() {
+        idInput.value = ''; valueEl.value = ''; primEl.checked = false; typeEl.selectedIndex = 0;
+        if (iti) { try { iti.setNumber(''); } catch (e) {} }
+        toggleType(); saveLabel.textContent = STR.add; cancelBtn.classList.add('d-none');
+        form.querySelectorAll('.is-invalid').forEach(function (x) { x.classList.remove('is-invalid'); });
+    }
+    function edit(c) {
+        idInput.value = c.user_contact_id; typeEl.value = c.kind; primEl.checked = !!Number(c.is_primary);
+        toggleType();
+        if (c.kind === 'phone') { initIti(); if (iti) { try { iti.setNumber(c.value || ''); } catch (e) {} } }
+        else { valueEl.value = c.value || ''; valueEl.focus(); }
+        saveLabel.textContent = STR.update; cancelBtn.classList.remove('d-none');
+    }
+    cancelBtn.addEventListener('click', reset);
+
+    saveBtn.addEventListener('click', function () {
+        // Move the active input's value into the submitted hidden fields.
+        if (isPhone()) {
+            initIti();
+            if (iti && !iti.isValidNumber()) { phoneEl.classList.add('is-invalid'); TigerDOM.notify(fb, STR.badphone, { type: 'error' }); return; }
+            valHidden.value = iti ? iti.getNumber() : '';
+            ccHidden.value  = iti ? (iti.getSelectedCountryData().iso2 || '').toUpperCase() : '';
+        } else {
+            valHidden.value = valueEl.value.trim();
+            ccHidden.value  = '';
+        }
+        var fd = new URLSearchParams(new FormData(form));
+        fd.set('module', 'profile'); fd.set('service', 'contact'); fd.set('method', 'save');
+        TigerButton.run(this, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) {
+            if (res && res.result === 1 && res.data) {
+                render(res.data.contacts || []);
+                if (res.data._csrf) { csrfInput.value = res.data._csrf; }   // rotate token
+                reset();
+                TigerDOM.notify(fb, STR.saved, { type: 'success' });
+                return;
+            }
+            phoneEl.classList.remove('is-invalid'); valueEl.classList.remove('is-invalid');
+            if (res && res.form && res.form.value) { (isPhone() ? phoneEl : valueEl).classList.add('is-invalid'); }
+            (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    });
+
+    function del(id, btn) {
+        if (!window.confirm(STR.confirm)) { return; }
+        var fd = new URLSearchParams();
+        fd.set('module', 'profile'); fd.set('service', 'contact'); fd.set('method', 'delete');
+        fd.set('user_contact_id', id); fd.set('_csrf', csrfInput.value);
+        TigerButton.run(btn, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) {
+            if (res && res.result === 1 && res.data) {
+                render(res.data.contacts || []);
+                if (res.data._csrf) { csrfInput.value = res.data._csrf; }
+                TigerDOM.notify(fb, STR.del, { type: 'success' });
+            }
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    }
+
+    toggleType();
+    render(<?= json_encode($this->contacts, JSON_UNESCAPED_UNICODE) ?>);
+});
+</script>

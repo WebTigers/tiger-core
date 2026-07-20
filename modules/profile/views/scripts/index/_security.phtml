@@ -1,0 +1,54 @@
+<?php
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
+/**
+ * Security tab — change your own password (verify current → set new). Two-factor auth has its own
+ * home at /auth/security; this tab links to it. Rendered as a partial: the parent passes the model
+ * (incl. `passwordForm` for its CSRF token). Saves via /api (Profile_Service_Security).
+ */
+$t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
+?>
+<form id="profile-security-form" onsubmit="return false;" novalidate class="card">
+    <div class="card-body">
+        <?= $this->passwordForm->getElement('_csrf') ?>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="profile-new-password"><?= $t('profile.security.new') ?></label>
+                <input type="password" class="form-control" id="profile-new-password" name="new_password" autocomplete="new-password" data-tiger-strength="1">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="profile-confirm-password"><?= $t('profile.security.confirm') ?></label>
+                <input type="password" class="form-control" id="profile-confirm-password" name="confirm_password" autocomplete="new-password">
+            </div>
+        </div>
+    </div>
+    <div class="card-footer d-flex align-items-center justify-content-between">
+        <a class="small text-decoration-none" href="/auth/security"><i class="fa-solid fa-shield-halved me-1"></i><?= $t('profile.security.twofa') ?></a>
+        <button type="button" id="profile-security-save" class="btn btn-primary">
+            <i class="fa-solid fa-key me-2"></i><?= $t('profile.security.change') ?>
+        </button>
+    </div>
+</form>
+
+<script>
+document.getElementById('profile-security-save').addEventListener('click', function () {
+    var form = document.getElementById('profile-security-form');
+    var fb   = document.getElementById('profile-feedback');
+    var fd   = new URLSearchParams(new FormData(form));
+    fd.set('module', 'profile'); fd.set('service', 'security'); fd.set('method', 'changePassword');
+    TigerButton.run(this, function () {
+        return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+            .then(function (r) { return r.json().catch(function () { return {}; }); });
+    }).then(function (res) {
+        if (res && res.result === 1) {
+            TigerDOM.notify(fb, 'Password changed.', { type: 'success' });
+            form.reset();
+            return;
+        }
+        if (res && res.form) { Object.keys(res.form).forEach(function (f) {
+            var el = form.querySelector('[name="' + f + '"]'); if (el) { el.classList.add('is-invalid'); }
+        }); }
+        (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+    }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+});
+</script>

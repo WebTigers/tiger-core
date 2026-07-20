@@ -8,7 +8,11 @@
  * fields, then nudges them to re-validate. Zero cost with the default Nominatim adapter;
  * swap the provider in config and this UI is unchanged. Field mapping via data-attrs:
  *   <input data-tiger-address data-fill-city="su-city" data-fill-region="su-region"
- *          data-fill-postal="su-postal" data-fill-country="su-country">
+ *          data-fill-postal="su-postal" data-fill-country="su-country"
+ *          data-fill-lat="su-lat" data-fill-lng="su-lng">
+ * The optional data-fill-lat / data-fill-lng target hidden inputs and capture the picked
+ * result's cached geocode. They're CLEARED the moment the user hand-edits the street, since
+ * a typed address no longer corresponds to the picked coordinates.
  */
 (function (global) {
     'use strict';
@@ -42,12 +46,20 @@
             el.value = val;                       // for a <select>, only "sticks" if the option exists
             fire(el);
         }
+        // Set a hidden geocode field by id, no validation nudge (hidden inputs need none).
+        function setGeo(lat, lng) {
+            var la = input.getAttribute('data-fill-lat'), lo = input.getAttribute('data-fill-lng');
+            var el;
+            if (la && (el = document.getElementById(la))) { el.value = (lat == null ? '' : lat); }
+            if (lo && (el = document.getElementById(lo))) { el.value = (lng == null ? '' : lng); }
+        }
         function pick(p) {
             if (p.line1) { input.value = p.line1; fire(input); }
             setField(input.getAttribute('data-fill-city'), p.city);
             setField(input.getAttribute('data-fill-region'), p.region);
             setField(input.getAttribute('data-fill-postal'), p.postal);
             setField(input.getAttribute('data-fill-country'), p.country);
+            setGeo(p.latitude, p.longitude);   // cache the picked result's geocode
             hide();
         }
         function render() {
@@ -74,7 +86,9 @@
                 .catch(function () {});
         }, 300);
 
-        input.addEventListener('input', query);
+        // Real keystrokes only reach here (pick() fires change/focusout, never input), so a typed
+        // edit invalidates the cached geocode.
+        input.addEventListener('input', function () { setGeo('', ''); query(); });
         // mousedown (not click) so the pick fires before the input's blur hides the menu.
         menu.addEventListener('mousedown', function (e) {
             var b = e.target.closest('[data-i]');

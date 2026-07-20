@@ -10,9 +10,14 @@
  *   - CREDENTIALS (password, SMS/phone, TOTP, passkeys, SSO) live in
  *     `user_credential` (Tiger_Model_UserCredential), 1-to-many, because auth is
  *     multi-factor and a credential is not identity.
- *   - Profile/richness (name, avatar, phone-as-contact, preferences) belongs to an
+ *   - Profile/richness (name, avatar, phone-as-contact, most preferences) belongs to an
  *     Account MODULE that extends User via its own FK-linked table, so the platform
- *     updates without colliding with app-specific profile shapes.
+ *     updates without colliding with app-specific profile shapes. THE ONE DELIBERATE
+ *     EXCEPTION: `locale` + `timezone` live HERE on the identity row — they are
+ *     request-critical i18n primitives resolved on essentially every authenticated
+ *     request (LocalePrefix reads `user.locale` before the device cookie), so
+ *     co-locating them with identity is the pragmatic call, the way Laravel/Django/Rails
+ *     do it. See ARCHITECTURE §7. Open-ended profile data still belongs in the extension.
  *   - A user's relationship to a tenant — and their ROLE — lives on org_user
  *     (Tiger_Model_OrgUser), because a user can belong to many orgs with a different
  *     role in each. A role on the user would force one global role and break
@@ -24,6 +29,27 @@ class Tiger_Model_User extends Tiger_Model_Table
 {
     protected $_name    = 'user';
     protected $_primary = 'user_id';
+
+    /**
+     * The user's stored preferred locale if it is one of the supported languages, else null.
+     *
+     * A NULL / blank / unsupported `user.locale` means "no explicit preference" — the caller
+     * (LocalePrefix) then falls through to the cookie → browser → default chain. Kept on the
+     * model so the query lives with the data (AGENTS.md) and the resolver stays thin.
+     *
+     * @param  string   $userId    the user
+     * @param  string[] $supported supported language codes (language-only, e.g. en, es)
+     * @return string|null         a supported locale, or null when none is set
+     */
+    public function preferredLocale($userId, array $supported)
+    {
+        $row = $this->findById((string) $userId);
+        if (!$row) {
+            return null;
+        }
+        $loc = isset($row->locale) ? strtolower(trim((string) $row->locale)) : '';
+        return in_array($loc, $supported, true) ? $loc : null;
+    }
 
     /**
      * Find a user by email (the canonical login identifier; unique).

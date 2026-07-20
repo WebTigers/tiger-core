@@ -25,4 +25,26 @@ class Tiger_Model_UserAddress extends Tiger_Model_Table
     {
         return $this->fetchAll($this->activeSelect()->where('user_id = ?', $userId));
     }
+
+    /**
+     * A user's addresses joined to the underlying location — the render/read shape (findByUser returns
+     * only link rows). Primary first, then oldest. Each row: user_address_id, label, is_primary, and
+     * line1/line2/city/region/postal/country/latitude/longitude.
+     *
+     * @param  string $userId
+     * @return array<int,array<string,mixed>>
+     */
+    public function withAddress($userId)
+    {
+        $db = $this->getAdapter();
+        return $db->fetchAll(
+            $db->select()
+               ->from(['ua' => 'user_address'], ['user_address_id', 'label', 'is_primary'])
+               ->joinLeft(['a' => 'address'], 'a.address_id = ua.address_id',
+                   ['line1', 'line2', 'city', 'region', 'postal', 'country', 'latitude', 'longitude'])
+               ->where('ua.user_id = ?', (string) $userId)
+               ->where('ua.deleted = ?', 0)
+               ->order(['ua.is_primary DESC', 'ua.created_at ASC'])
+        );
+    }
 }

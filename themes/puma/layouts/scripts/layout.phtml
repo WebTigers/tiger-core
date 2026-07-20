@@ -66,6 +66,7 @@ $_lang = defined('LANG') ? LANG : 'en';
 <?= $this->render('_partials/consent-banner.phtml') ?><?php /* GDPR cookie-consent bar — self-checks Tiger_Consent, renders nothing when not due */ ?>
 
 <script src="<?= $this->asset($this->themeAssets . '/js/bootstrap.bundle.js') ?>"></script>
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.tabs.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.prefs.js') ?>"></script>
 <?= $this->codeInject('footer') ?>
 <?= $this->pageScripts ?? '' ?><?php /* per-page body scripts from the CMS page meta (admin-authored) */ ?>

@@ -14,6 +14,33 @@ $identity = $auth->hasIdentity() ? $auth->getIdentity() : null;
 $userName = $identity->email    ?? 'Guest';
 $userRole = $identity->role     ?? 'guest';
 $orgName  = $identity->org_name ?? '';
+
+// Current user's avatar (option tier → media → URL), else '' for the icon placeholder. The key is
+// the profile module's avatar convention (`tiger.user.avatar`), referenced as a LITERAL so this
+// core theme partial never imports a module class (ARCHITECTURE: core/theme depends on no module).
+$userAvatar = '';
+if ($identity && !empty($identity->user_id)) {
+    try {
+        $opt = new Tiger_Model_Option();
+        // Display name overrides the email label (profile option, `tiger.user.display_name`); falls back to email.
+        $dn = $opt->get(Tiger_Model_Option::SCOPE_USER, (string) $identity->user_id, 'tiger.user.display_name');
+        if ($dn !== null && trim((string) $dn) !== '') { $userName = trim((string) $dn); }
+        // Avatar (option → media → URL), else '' for the icon placeholder.
+        $mediaId = $opt->get(Tiger_Model_Option::SCOPE_USER, (string) $identity->user_id, 'tiger.user.avatar');
+        if ($mediaId) {
+            $mediaRow = (new Tiger_Model_Media())->findById($mediaId);
+            if ($mediaRow) { $userAvatar = (new Tiger_Model_Media())->url($mediaRow->toArray()); }
+        }
+    } catch (Throwable $e) { $userAvatar = ''; }
+}
+
+// ACL filter for module-registered header + user-menu items — hidden only when the role is denied a
+// resource the ACL actually knows about (mirrors admin-menu.phtml).
+$acl     = Zend_Registry::isRegistered('Zend_Acl') ? Zend_Registry::get('Zend_Acl') : null;
+$allowed = function ($resource) use ($acl, $userRole) {
+    if (empty($resource) || !$acl) { return true; }
+    return $acl->has($resource) ? $acl->isAllowed($userRole, $resource) : true;
+};
 ?>
 <header class="tiger-header">
 
@@ -33,6 +60,14 @@ $orgName  = $identity->org_name ?? '';
     </form>
 
     <div class="tiger-header-spacer"></div>
+
+    <!-- Module-registered header actions (Tiger_Admin_Header) — ACL-filtered icon buttons. -->
+    <?php foreach (Tiger_Admin_Header::items() as $hi): if (!$allowed($hi['resource'])) { continue; } ?>
+        <a href="<?= $this->escape($hi['href']) ?>" class="btn btn-link text-body px-2"
+           title="<?= $this->escape($hi['label']) ?>" aria-label="<?= $this->escape($hi['label']) ?>">
+            <i class="fa-solid <?= $this->escape($hi['icon']) ?> fa-lg"></i>
+        </a>
+    <?php endforeach; ?>
 
     <!-- Notifications (demo content; wire to real feeds later) -->
     <div class="dropdown">
@@ -59,17 +94,23 @@ $orgName  = $identity->org_name ?? '';
     <!-- User box -->
     <div class="dropdown ms-1">
         <a href="#" class="d-flex align-items-center gap-2 text-decoration-none text-body" data-bs-toggle="dropdown">
-            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle flex-shrink-0" style="width:34px;height:34px;"><i class="fa-solid fa-user text-secondary"></i></span>
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary-subtle overflow-hidden flex-shrink-0" style="width:34px;height:34px;">
+                <img id="header-avatar-img" src="<?= $this->escape($userAvatar) ?>" alt=""
+                     class="w-100 h-100 <?= $userAvatar === '' ? 'd-none' : '' ?>" style="object-fit:cover;">
+                <i id="header-avatar-icon" class="fa-solid fa-user text-secondary <?= $userAvatar === '' ? '' : 'd-none' ?>"></i>
+            </span>
             <span class="d-none d-md-block text-start lh-sm">
-                <span class="d-block small fw-semibold"><?= $this->escape($userName) ?></span>
+                <span id="header-user-name" data-email="<?= $this->escape($identity->email ?? '') ?>" class="d-block small fw-semibold"><?= $this->escape($userName) ?></span>
                 <span class="d-block text-secondary" style="font-size:.72rem;"><?= $this->escape($orgName ?: ucfirst($userRole)) ?></span>
             </span>
             <i class="fa-solid fa-chevron-down small text-secondary d-none d-md-inline"></i>
         </a>
         <ul class="dropdown-menu dropdown-menu-end shadow">
-            <li><a class="dropdown-item" href="/admin/profile"><i class="fa-solid fa-id-badge me-2 fa-fw"></i>My Profile</a></li>
-            <li><a class="dropdown-item" href="/admin/config"><i class="fa-solid fa-gear me-2 fa-fw"></i>Settings</a></li>
+            <li><a class="dropdown-item" href="/user/profile"><i class="fa-solid fa-id-badge me-2 fa-fw"></i>My Profile</a></li>
             <li><a class="dropdown-item" href="/auth/security"><i class="fa-solid fa-shield-halved me-2 fa-fw"></i>Two-Factor Auth</a></li>
+            <?php foreach (Tiger_Admin_UserMenu::items() as $mi): if (!$allowed($mi['resource'])) { continue; } ?>
+                <li><a class="dropdown-item" href="<?= $this->escape($mi['href']) ?>"><i class="fa-solid <?= $this->escape($mi['icon']) ?> me-2 fa-fw"></i><?= $this->escape($mi['label']) ?></a></li>
+            <?php endforeach; ?>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="/auth/lock"><i class="fa-solid fa-lock me-2 fa-fw"></i>Lock Screen</a></li>
             <li><a class="dropdown-item" href="/logout"><i class="fa-solid fa-power-off me-2 fa-fw"></i>Sign Out</a></li>
@@ -77,3 +118,23 @@ $orgName  = $identity->org_name ?? '';
     </div>
 
 </header>
+
+<script>
+// Live-update the header avatar the moment it changes elsewhere (e.g. the profile Basic tab),
+// no reload. Any avatar source fires window 'tiger:avatar-changed' with { url } (null = removed).
+window.addEventListener('tiger:avatar-changed', function (e) {
+    var img = document.getElementById('header-avatar-img');
+    var ico = document.getElementById('header-avatar-icon');
+    if (!img || !ico) { return; }
+    var url = e.detail && e.detail.url;
+    if (url) { img.src = url; img.classList.remove('d-none'); ico.classList.add('d-none'); }
+    else     { img.classList.add('d-none'); ico.classList.remove('d-none'); }
+});
+// Live-update the header label when the display name changes (Basic tab); falls back to the email.
+window.addEventListener('tiger:display-name-changed', function (e) {
+    var el = document.getElementById('header-user-name');
+    if (!el) { return; }
+    var name = e.detail && e.detail.name;
+    el.textContent = name || el.getAttribute('data-email') || 'User';
+});
+</script>
