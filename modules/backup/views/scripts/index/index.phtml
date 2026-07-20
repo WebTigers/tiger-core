@@ -1,0 +1,307 @@
+<?php
+/**
+ * Backup & Restore screen (/backup) — create a backup (components + destination), the backup history
+ * (download / restore / delete), restore from an uploaded file, and the scheduled-backup settings
+ * (embedding the reusable schedule-control + cron-setup partials). Follows ADMIN.md: header + feedback
+ * mount + cards; every mutation is an /api call via TigerButton/TigerDOM. No page-POSTs, no bespoke CSS.
+ */
+$e         = fn($s) => $this->escape((string) $s);
+$backups   = $this->backups ?? [];
+$disks     = $this->disks ?? [['name' => 'local', 'label' => 'Local (this server)']];
+$allComps  = $this->components ?? ['database', 'media', 'modules', 'platform'];
+$settings  = $this->settings ?? [];
+$sched     = $this->schedule ?? [];
+
+$compLabels = [
+    'database' => ['Database', 'All tables — a portable SQL dump'],
+    'media'    => ['Media', 'Uploaded files'],
+    'modules'  => ['Modules', 'Your app modules'],
+    'platform' => ['Platform', 'App code + config (for moving a site)'],
+];
+$selComps = $settings['components'] ?? ['database', 'media'];
+
+$outcomeBadge = ['ok' => ['success', 'OK'], 'error' => ['danger', 'Failed'], 'running' => ['info', 'Running']];
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Backup &amp; Restore</h1>
+        <p class="text-body-secondary mb-0">Archive your site to a downloadable zip — keep it local or push it to cloud storage. Restore here, or move the site to a new home.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="backup-run" class="btn btn-primary"><i class="fa-solid fa-box-archive me-2"></i>Back up now</button>
+    </div>
+</div>
+
+<div id="backup-feedback"></div>
+
+<div class="row g-4">
+
+    <!-- Create ----------------------------------------------------------------->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-box-archive me-2"></i>Create a backup</div>
+            <div class="card-body">
+                <label class="form-label small text-body-secondary">What to include</label>
+                <div class="row g-2 mb-3" id="backup-components">
+                    <?php foreach ($allComps as $c): [$lbl, $desc] = $compLabels[$c] ?? [$c, '']; ?>
+                        <div class="col-sm-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="<?= $e($c) ?>" id="comp-<?= $e($c) ?>"<?= in_array($c, $selComps, true) ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="comp-<?= $e($c) ?>"><?= $e($lbl) ?><span class="d-block small text-body-secondary"><?= $e($desc) ?></span></label>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-sm-7">
+                        <label class="form-label small text-body-secondary mb-1">Destination</label>
+                        <select class="form-select" id="backup-disk">
+                            <?php foreach ($disks as $d): ?>
+                                <option value="<?= $e($d['name']) ?>"<?= ($settings['disk'] ?? 'local') === $d['name'] ? ' selected' : '' ?>><?= $e($d['label']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if (count($disks) < 2): ?>
+                            <div class="form-text">Configure a cloud <em>media disk</em> (S3/GCS/Azure) to back up off-server.</div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-sm-5">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="backup-secrets"<?= !empty($settings['include_secrets']) ? ' checked' : '' ?>>
+                            <label class="form-check-label small" for="backup-secrets">Include secrets (local.ini)</label>
+                            <div class="form-text">Needed to move a site intact. Handle the archive securely.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore from a file ---------------------------------------------------->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100 border-warning-subtle">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-rotate-left me-2"></i>Restore from a file</div>
+            <div class="card-body">
+                <p class="small text-body-secondary">Upload a <code>TigerBackup-*.zip</code> to restore it here — the way you move a site onto a fresh install. This is <strong>destructive</strong>: it runs under maintenance mode and takes a safety backup first.</p>
+                <div class="input-group">
+                    <input type="file" class="form-control" id="restore-file" accept=".zip">
+                    <button type="button" class="btn btn-warning" id="restore-upload"><i class="fa-solid fa-rotate-left me-2"></i>Restore</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History ---------------------------------------------------------------->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-clock-rotate-left me-2"></i>Backups</div>
+            <div class="card-body p-0">
+                <?php if (!$backups): ?>
+                    <p class="text-body-secondary p-4 mb-0">No backups yet. Choose what to include and click <strong>Back up now</strong>.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead><tr><th>Archive</th><th>Size</th><th>Includes</th><th>When</th><th>Where</th><th class="text-end">Actions</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($backups as $b):
+                                [$oc, $ocl] = $outcomeBadge[$b['outcome'] ?? ''] ?? ['secondary', ucfirst((string) ($b['outcome'] ?? ''))];
+                                $ok = ($b['outcome'] ?? '') === 'ok';
+                            ?>
+                                <tr>
+                                    <td>
+                                        <span class="font-monospace small"><?= $e($b['filename']) ?></span>
+                                        <?php if (!empty($b['pinned'])): ?><span class="badge text-bg-light ms-1" title="Manual backups are never auto-pruned"><i class="fa-solid fa-thumbtack"></i></span><?php endif; ?>
+                                        <?php if (!$ok): ?><span class="badge text-bg-<?= $e($oc) ?> ms-1"><?= $e($ocl) ?></span><?php endif; ?>
+                                        <?php if (!empty($b['error'])): ?><div class="small text-danger"><?= $e($b['error']) ?></div><?php endif; ?>
+                                    </td>
+                                    <td class="text-nowrap"><?= $ok ? $e(Tiger_Backup::hsize($b['size_bytes'])) : '—' ?></td>
+                                    <td>
+                                        <?php foreach (array_filter(explode(',', (string) $b['components'])) as $c): ?>
+                                            <span class="badge text-bg-secondary"><?= $e($compLabels[$c][0] ?? $c) ?></span>
+                                        <?php endforeach; ?>
+                                    </td>
+                                    <td class="text-nowrap small" title="<?= $e($b['created_at']) ?>"><?= $e(date('M j, Y g:i a', strtotime((string) $b['created_at']))) ?><br><span class="text-body-secondary"><?= $e(ucfirst((string) $b['source'])) ?></span></td>
+                                    <td class="small"><?= $e($b['disk']) ?></td>
+                                    <td class="text-end text-nowrap">
+                                        <?php if ($ok): ?>
+                                            <a class="btn btn-sm btn-outline-secondary" href="/backup/index/download/id/<?= $e($b['backup_id']) ?>" title="Download"><i class="fa-solid fa-download"></i></a>
+                                            <button type="button" class="btn btn-sm btn-outline-warning" data-restore="<?= $e($b['backup_id']) ?>" data-name="<?= $e($b['filename']) ?>" title="Restore this backup"><i class="fa-solid fa-rotate-left"></i></button>
+                                        <?php endif; ?>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-delete="<?= $e($b['backup_id']) ?>" data-name="<?= $e($b['filename']) ?>" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheduled backups ------------------------------------------------------>
+    <div class="col-12 col-xl-7">
+        <div class="card h-100">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-calendar-check me-2"></i>Scheduled backups</div>
+            <div class="card-body">
+                <p class="small text-body-secondary">Set a cadence and Tiger backs up on its own. Rolling retention keeps the newest <strong>N</strong> scheduled backups; manual backups are never auto-removed.</p>
+
+                <label class="form-label small text-body-secondary mb-1">Schedule</label>
+                <div class="mb-3">
+                    <?= $this->partial('_partials/schedule-control.phtml', [
+                        'jobKey'     => 'backup.run',
+                        'jobEvery'   => $sched['every'] ?? 'daily',
+                        'jobAt'      => $sched['at'] ?? '02:00',
+                        'jobDow'     => $sched['dow'] ?? 1,
+                        'jobDom'     => $sched['dom'] ?? 1,
+                        'jobEnabled' => !empty($sched['enabled']),
+                        'feedbackId' => 'backup-feedback',
+                    ]) ?>
+                </div>
+
+                <hr>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label small text-body-secondary mb-1">Keep newest (rolling max)</label>
+                        <input type="number" min="0" class="form-control" id="set-retention" value="<?= (int) ($settings['retention_max'] ?? 7) ?>">
+                        <div class="form-text">0 = keep all.</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small text-body-secondary mb-1">Email status to</label>
+                        <input type="text" class="form-control" id="set-email" placeholder="you@example.com, ops@example.com" value="<?= $e($settings['notify_email'] ?? '') ?>">
+                        <div class="form-check form-switch mt-1">
+                            <input class="form-check-input" type="checkbox" role="switch" id="set-notify"<?= !empty($settings['notify_enabled']) ? ' checked' : '' ?>>
+                            <label class="form-check-label small" for="set-notify">Email on success &amp; failure</label>
+                        </div>
+                    </div>
+                </div>
+                <p class="small text-body-secondary mt-3 mb-2">Scheduled backups use the components &amp; destination selected in <em>Create a backup</em> above, saved here:</p>
+                <button type="button" id="backup-save-settings" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-floppy-disk me-2"></i>Save schedule settings</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-5">
+        <?= $this->render('_partials/cron-setup.phtml') ?>
+    </div>
+</div>
+
+<!-- Restore confirm modal -->
+<div class="modal fade" id="restore-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Confirm restore</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">You're about to restore <strong id="restore-target"></strong>. This <strong>overwrites</strong> the current database and/or files and can't be undone. A safety backup is taken first, and the site enters maintenance mode during the restore.</p>
+                <label class="form-label small">Type <code>RESTORE</code> to confirm</label>
+                <input type="text" class="form-control" id="restore-confirm" autocomplete="off" placeholder="RESTORE">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="restore-go"><i class="fa-solid fa-rotate-left me-2"></i>Restore now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var fb = document.getElementById('backup-feedback');
+    function notify(res) { (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); }); }
+    function api(method, params, btn) {
+        var body = new URLSearchParams(params || {});
+        body.set('module', 'backup'); body.set('service', 'backup'); body.set('method', method);
+        var task = function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        };
+        return btn ? TigerButton.run(btn, task) : task();
+    }
+    function checkedComponents() {
+        return Array.prototype.slice.call(document.querySelectorAll('#backup-components input:checked')).map(function (i) { return i.value; });
+    }
+
+    // Back up now
+    document.getElementById('backup-run').addEventListener('click', function () {
+        var comps = checkedComponents();
+        if (!comps.length) { TigerDOM.notify(fb, 'Select at least one component.', { type: 'error' }); return; }
+        var body = new URLSearchParams();
+        body.set('module', 'backup'); body.set('service', 'backup'); body.set('method', 'run');
+        body.set('disk', document.getElementById('backup-disk').value);
+        body.set('include_secrets', document.getElementById('backup-secrets').checked ? 1 : 0);
+        comps.forEach(function (c) { body.append('components[]', c); });
+        TigerButton.run(this, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body }).then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) { notify(res); if (res && res.result === 1) { setTimeout(function () { location.reload(); }, 900); } });
+    });
+
+    // Delete
+    document.addEventListener('click', function (e) {
+        var del = e.target.closest('[data-delete]');
+        if (del) {
+            if (!confirm('Delete ' + del.getAttribute('data-name') + '? This removes the archive permanently.')) { return; }
+            api('remove', { backup_id: del.getAttribute('data-delete') }, del).then(function (res) { notify(res); if (res && res.result === 1) { setTimeout(function () { location.reload(); }, 700); } });
+        }
+    });
+
+    // Restore (history) — open the confirm modal
+    var modalEl = document.getElementById('restore-modal');
+    var modal = new bootstrap.Modal(modalEl);
+    var confirmInput = document.getElementById('restore-confirm');
+    var pending = null;   // { kind:'history', id } | { kind:'upload' }
+
+    document.addEventListener('click', function (e) {
+        var r = e.target.closest('[data-restore]');
+        if (r) {
+            pending = { kind: 'history', id: r.getAttribute('data-restore') };
+            document.getElementById('restore-target').textContent = r.getAttribute('data-name');
+            confirmInput.value = ''; modal.show();
+        }
+    });
+
+    // Restore from upload
+    document.getElementById('restore-upload').addEventListener('click', function () {
+        var f = document.getElementById('restore-file').files[0];
+        if (!f) { TigerDOM.notify(fb, 'Choose a .zip archive first.', { type: 'error' }); return; }
+        pending = { kind: 'upload', file: f };
+        document.getElementById('restore-target').textContent = f.name;
+        confirmInput.value = ''; modal.show();
+    });
+
+    // Confirm restore
+    document.getElementById('restore-go').addEventListener('click', function () {
+        if (confirmInput.value !== 'RESTORE') { confirmInput.classList.add('is-invalid'); return; }
+        confirmInput.classList.remove('is-invalid');
+        var btn = this;
+        if (pending && pending.kind === 'history') {
+            api('restore', { backup_id: pending.id, confirm: 'RESTORE' }, btn).then(function (res) {
+                modal.hide(); notify(res); if (res && res.result === 1) { setTimeout(function () { location.reload(); }, 1500); }
+            });
+        } else if (pending && pending.kind === 'upload') {
+            var fd = new FormData();
+            fd.append('archive', pending.file); fd.append('confirm', 'RESTORE');
+            TigerButton.run(btn, function () {
+                return fetch('/backup/index/upload', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            }).then(function (res) { modal.hide(); notify(res); if (res && res.result === 1) { setTimeout(function () { location.reload(); }, 1500); } });
+        }
+    });
+
+    // Save schedule settings (components + destination come from the Create card)
+    document.getElementById('backup-save-settings').addEventListener('click', function () {
+        var comps = checkedComponents();
+        var body = new URLSearchParams();
+        body.set('module', 'backup'); body.set('service', 'backup'); body.set('method', 'saveSettings');
+        body.set('disk', document.getElementById('backup-disk').value);
+        body.set('include_secrets', document.getElementById('backup-secrets').checked ? 1 : 0);
+        body.set('retention_max', document.getElementById('set-retention').value || '0');
+        body.set('notify_enabled', document.getElementById('set-notify').checked ? 1 : 0);
+        body.set('notify_email', document.getElementById('set-email').value || '');
+        comps.forEach(function (c) { body.append('components[]', c); });
+        TigerButton.run(this, function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body }).then(function (r) { return r.json().catch(function () { return {}; }); });
+        }).then(function (res) { notify(res); });
+    });
+})();
+</script>
