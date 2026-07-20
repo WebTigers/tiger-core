@@ -152,6 +152,33 @@ class Tiger_Application_Bootstrap extends Zend_Application_Bootstrap_Bootstrap
     }
 
     /**
+     * Scheduler: register the always-on core jobs, discover module `schedule.ini` declarations, and
+     * arm the WordPress-style pseudo-cron plugin. Lives in core (not the schedule admin module) so
+     * scheduling works even with the UI module deactivated — the admin screen only edits/observes.
+     * 'modules' first so a module's Bootstrap can register jobs before discovery runs.
+     */
+    protected function _initSchedule()
+    {
+        $this->bootstrap('frontController');
+        $this->bootstrap('modules');
+        $this->bootstrap('db');   // discover() reads the module table — needs the default adapter set first
+        if (!class_exists('Tiger_Schedule')) { return; }
+
+        // Core housekeeping jobs (config-overridable; users rarely touch these).
+        Tiger_Schedule::register([
+            'key'   => 'core.auth.purge_challenges',
+            'label' => 'Purge expired login challenges',
+            'every' => Tiger_Schedule::HOURLY,
+            'run'   => static function () { (new Tiger_Model_AuthChallenge())->purgeExpired(); },
+            'managed' => false,
+        ]);
+
+        Tiger_Schedule::discover();
+        $this->getResource('frontController')
+             ->registerPlugin(new Tiger_Controller_Plugin_ScheduleTick());
+    }
+
+    /**
      * CMS: register the page-dispatch plugin. It routes URLs that match no real
      * controller to CMS `page` content (or a 301 via page_redirect), and leaves
      * everything else to the normal 404 path. Runs at routeShutdown; graceful when

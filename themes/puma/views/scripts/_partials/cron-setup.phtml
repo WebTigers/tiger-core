@@ -1,0 +1,110 @@
+<?php
+/**
+ * cron-setup.phtml — the reusable "How to set up Cron" card.
+ *
+ * Self-contained: it reads Tiger_Schedule for the live real-cron / pseudo-cron status and builds the
+ * exact cron line itself, so ANY admin screen can drop it in with zero setup —
+ *   <?= $this->render('_partials/cron-setup.phtml') ?>
+ * Used by the Scheduler screen and (later) the Backup screen. The visitor-driven WordPress-style
+ * pseudo-cron is the fallback when no real cron is wired; this card nudges toward a real one.
+ *
+ * Optional var: cronCommand (string) — overrides the auto-built cron line.
+ */
+$e = fn($s) => $this->escape((string) $s);
+
+$root    = defined('APPLICATION_ROOT') ? APPLICATION_ROOT : (defined('APPLICATION_PATH') ? dirname(APPLICATION_PATH) : '/path/to/app');
+$command = (string) ($this->cronCommand ?? ('php ' . $root . '/vendor/bin/tiger schedule:run >/dev/null 2>&1'));
+
+$realCron   = class_exists('Tiger_Schedule') && Tiger_Schedule::realCronRecent();
+$pseudoCron = class_exists('Tiger_Schedule') && Tiger_Schedule::pseudoCronEnabled();
+?>
+<div class="card">
+    <div class="card-header fw-semibold">
+        <i class="fa-regular fa-clock me-2"></i>How to set up Cron
+    </div>
+    <div class="card-body">
+
+        <!-- Live status -->
+        <?php if ($realCron): ?>
+            <div class="alert alert-success d-flex align-items-center mb-3" role="status">
+                <i class="fa-solid fa-circle-check fa-lg me-2"></i>
+                <div>
+                    <strong>A real cron is running.</strong>
+                    Tiger heard from your server cron in the last couple of minutes — schedules run on time.
+                </div>
+            </div>
+        <?php elseif ($pseudoCron): ?>
+            <div class="alert alert-warning d-flex align-items-center mb-3" role="status">
+                <i class="fa-solid fa-triangle-exclamation fa-lg me-2"></i>
+                <div>
+                    <strong>WordPress-style pseudo-cron is active.</strong>
+                    No real cron detected, so scheduled jobs run on <em>site traffic</em> — fine to start, but a
+                    quiet site can run jobs late. Add a real cron below for reliable, on-time scheduling.
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="alert alert-danger d-flex align-items-center mb-3" role="status">
+                <i class="fa-solid fa-circle-xmark fa-lg me-2"></i>
+                <div>
+                    <strong>No cron is running.</strong>
+                    Both real cron and the traffic-driven fallback are off — scheduled jobs will not run until
+                    you set one up below.
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- The command everything else pastes -->
+        <label class="form-label small text-body-secondary mb-1">Your cron command</label>
+        <div class="input-group input-group-sm mb-3">
+            <input type="text" class="form-control font-monospace" id="cron-command" value="<?= $e($command) ?>" readonly>
+            <button type="button" class="btn btn-outline-secondary" onclick="var i=document.getElementById('cron-command');i.select();navigator.clipboard&&navigator.clipboard.writeText(i.value);this.innerHTML='<i class=\'fa-solid fa-check\'></i>';" title="Copy">
+                <i class="fa-regular fa-copy"></i>
+            </button>
+        </div>
+        <p class="small text-body-secondary">Run it <strong>every minute</strong> (<code>* * * * *</code>) — Tiger decides internally which jobs are actually due, so a per-minute cron is cheap and keeps everything on time.</p>
+
+        <!-- How-to tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cron-cpanel" type="button" role="tab"><i class="fa-solid fa-server me-1"></i>cPanel</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cron-plesk" type="button" role="tab"><i class="fa-solid fa-server me-1"></i>Plesk</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cron-cli" type="button" role="tab"><i class="fa-solid fa-terminal me-1"></i>Command line</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cron-claude" type="button" role="tab"><i class="fa-solid fa-robot me-1"></i>Let Claude Code do it</button></li>
+        </ul>
+        <div class="tab-content border border-top-0 rounded-bottom p-3">
+
+            <div class="tab-pane fade show active" id="cron-cpanel" role="tabpanel">
+                <ol class="mb-0 small">
+                    <li>In cPanel, open <strong>Advanced → Cron Jobs</strong>.</li>
+                    <li>Under <em>Add New Cron Job</em>, set <strong>Common Settings</strong> to <strong>Once Per Minute</strong> (<code>* * * * *</code>).</li>
+                    <li>Paste the command above into <strong>Command</strong>.</li>
+                    <li>Click <strong>Add New Cron Job</strong>. Done — this card flips to green within a minute or two.</li>
+                </ol>
+                <p class="small text-body-secondary mt-2 mb-0">If <code>php</code> isn't found, use your host's full PHP path (e.g. <code>/usr/local/bin/ea-php82</code>) in place of <code>php</code>.</p>
+            </div>
+
+            <div class="tab-pane fade" id="cron-plesk" role="tabpanel">
+                <ol class="mb-0 small">
+                    <li>In Plesk, open <strong>Websites &amp; Domains → Scheduled Tasks</strong> for your domain.</li>
+                    <li>Click <strong>Add Task</strong>, choose <strong>Run a command</strong>.</li>
+                    <li>Set <strong>Run</strong> to <strong>Cron style</strong> and enter <code>* * * * *</code>.</li>
+                    <li>Paste the command above, then <strong>OK</strong> / <strong>Run Now</strong> to test.</li>
+                </ol>
+            </div>
+
+            <div class="tab-pane fade" id="cron-cli" role="tabpanel">
+                <p class="small mb-2">SSH into the server and edit the crontab:</p>
+                <pre class="bg-body-tertiary border rounded p-2 small mb-2"><code>crontab -e</code></pre>
+                <p class="small mb-2">Add this line, then save:</p>
+                <pre class="bg-body-tertiary border rounded p-2 small mb-0"><code>* * * * * <?= $e($command) ?></code></pre>
+            </div>
+
+            <div class="tab-pane fade" id="cron-claude" role="tabpanel">
+                <p class="small mb-2">Have Claude Code (or any shell access to this server) do it for you — just ask:</p>
+                <pre class="bg-body-tertiary border rounded p-2 small mb-2"><code>Add a per-minute cron that runs:
+<?= $e($command) ?></code></pre>
+                <p class="small text-body-secondary mb-0">Claude Code will add the crontab entry and confirm it. Until then, the traffic-driven pseudo-cron keeps things moving.</p>
+            </div>
+
+        </div>
+    </div>
+</div>

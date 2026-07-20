@@ -117,6 +117,9 @@ $_hasAgent = class_exists('Tiger_Agent') && Tiger_Agent::isAvailable();
 <?php endif; ?>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.dom.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.button.js') ?>"></script>
+<!-- Reusable schedule control (data-schedule-form / data-schedule-run → schedule/setSchedule|runNow).
+     Loaded globally so an embedded schedule-control (e.g. in Backup) works with zero per-page wiring. -->
+<script src="<?= $this->asset($this->themeAssets . '/js/tiger.schedule.js') ?>"></script>
 <!-- Searchable-select enhancer: any <select data-tiger-combo> becomes a filter-as-you-type combobox. -->
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.combobox.js') ?>"></script>
 <script src="<?= $this->asset($this->themeAssets . '/js/tiger.tabs.js') ?>"></script>

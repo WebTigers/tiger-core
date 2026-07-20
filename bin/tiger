@@ -92,6 +92,27 @@ switch ($cmd) {
         (new Tiger_Db_Migrator(tiger_db(), tiger_migration_paths()))->migrate($log);
         break;
 
+    case 'schedule:run':
+        // The reliable trigger — point a cron at this: * * * * * php <root>/vendor/bin/tiger schedule:run
+        $res = Tiger_Schedule::runDue(isset($argv[2]) ? (int) $argv[2] : 55, 'cron');
+        if (!empty($res['skipped'])) { $log('  skipped: ' . $res['skipped']); break; }
+        if (empty($res['ran'])) { $log('  nothing due'); break; }
+        foreach ($res['ran'] as $r) {
+            $log(sprintf('  [%s] %s%s', $r['status'] === 'ok' ? 'ok' : 'ERR', $r['job'],
+                $r['status'] === 'ok' ? ' (' . $r['ms'] . 'ms)' : ' — ' . ($r['error'] ?? '')));
+        }
+        break;
+
+    case 'schedule:list':
+        foreach (Tiger_Schedule::all() as $key => $job) {
+            $job  = Tiger_Schedule::effective($job);
+            $next = Tiger_Schedule::nextRun($job, time());
+            printf("  [%s] %-32s %-10s next: %s\n", Tiger_Schedule::enabled($key) ? 'x' : ' ', $key,
+                $job['every'] . (in_array($job['every'], ['daily', 'weekly', 'monthly'], true) ? '@' . $job['at'] : ''),
+                $next ? date('Y-m-d H:i', $next) : '—');
+        }
+        break;
+
     case 'migrate:status':
         foreach ((new Tiger_Db_Migrator(tiger_db(), tiger_migration_paths()))->status() as $version => $s) {
             printf("  [%s] %s_%s\n", $s['applied'] ? 'x' : ' ', $version, $s['name']);

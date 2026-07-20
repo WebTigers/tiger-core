@@ -1,0 +1,78 @@
+<?php
+/**
+ * schedule-control.phtml — the reusable "schedule this job" control.
+ *
+ * A self-contained frequency/time/enable form for ONE job. Render it on the Scheduler screen, or
+ * embed it in any other admin screen (e.g. Backup) so a user schedules that module's job WITHOUT
+ * visiting /schedule — the markup carries data-attributes and tiger.schedule.js (loaded globally in
+ * the admin layout) posts the change to schedule/setSchedule. No per-page JS needed.
+ *
+ * Vars (all optional except jobKey):
+ *   jobKey     (string)  the registered job key — REQUIRED
+ *   jobEvery   (string)  current frequency (default 'daily')
+ *   jobAt      (string)  current HH:MM (default '02:00')
+ *   jobDow     (int)     current day-of-week 0=Sun (default 1)
+ *   jobDom     (int)     current day-of-month 1-28 (default 1)
+ *   jobEnabled (bool)    current enabled state
+ *   feedbackId (string)  id of a TigerDOM.notify mount for the result (optional)
+ *   reload     (bool)    reload the page after a successful save (default false)
+ */
+$e       = fn($s) => $this->escape((string) $s);
+$key     = (string) ($this->jobKey ?? '');
+$every   = (string) ($this->jobEvery ?? 'daily');
+$at      = (string) ($this->jobAt ?? '02:00');
+$dow     = (int) ($this->jobDow ?? 1);
+$dom     = (int) ($this->jobDom ?? 1);
+$enabled = !empty($this->jobEnabled);
+$fb      = (string) ($this->feedbackId ?? '');
+$reload  = !empty($this->reload);
+$timed   = in_array($every, ['daily', 'weekly', 'monthly'], true);
+
+$freqLabels = [
+    'every_minute' => 'Every minute',
+    'every_5_min'  => 'Every 5 minutes',
+    'every_15_min' => 'Every 15 minutes',
+    'hourly'       => 'Hourly',
+    'daily'        => 'Daily',
+    'weekly'       => 'Weekly',
+    'monthly'      => 'Monthly',
+];
+$days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+?>
+<div class="row g-2 align-items-end" data-schedule-form data-job="<?= $e($key) ?>"<?= $fb ? ' data-feedback="' . $e($fb) . '"' : '' ?><?= $reload ? ' data-reload' : '' ?>>
+    <div class="col-6 col-sm-4">
+        <label class="form-label small text-body-secondary mb-1">Frequency</label>
+        <select class="form-select form-select-sm" data-sch="every">
+            <?php foreach ($freqLabels as $val => $lbl): ?>
+                <option value="<?= $e($val) ?>"<?= $val === $every ? ' selected' : '' ?>><?= $e($lbl) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="col-6 col-sm-3<?= $timed ? '' : ' d-none' ?>" data-sch-time>
+        <label class="form-label small text-body-secondary mb-1">Time</label>
+        <input type="time" class="form-control form-control-sm" data-sch="at" value="<?= $e($at) ?>">
+    </div>
+    <div class="col-6 col-sm-3<?= $every === 'weekly' ? '' : ' d-none' ?>" data-sch-dow>
+        <label class="form-label small text-body-secondary mb-1">Day of week</label>
+        <select class="form-select form-select-sm" data-sch="dow">
+            <?php foreach ($days as $i => $dn): ?>
+                <option value="<?= $i ?>"<?= $i === $dow ? ' selected' : '' ?>><?= $e($dn) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="col-6 col-sm-2<?= $every === 'monthly' ? '' : ' d-none' ?>" data-sch-dom>
+        <label class="form-label small text-body-secondary mb-1">Day of month</label>
+        <input type="number" min="1" max="28" class="form-control form-control-sm" data-sch="dom" value="<?= $dom ?>">
+    </div>
+    <div class="col-6 col-sm-auto">
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" data-sch="enabled" id="sch-en-<?= $e($key) ?>"<?= $enabled ? ' checked' : '' ?>>
+            <label class="form-check-label small" for="sch-en-<?= $e($key) ?>">Enabled</label>
+        </div>
+    </div>
+    <div class="col-6 col-sm-auto ms-sm-auto">
+        <button type="button" class="btn btn-primary btn-sm w-100" data-schedule-save<?= $fb ? ' data-feedback="' . $e($fb) . '"' : '' ?>>
+            <i class="fa-solid fa-floppy-disk me-1"></i>Save
+        </button>
+    </div>
+</div>
