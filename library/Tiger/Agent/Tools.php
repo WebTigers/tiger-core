@@ -154,6 +154,18 @@ READ;
             'yolo' => 'YOLO — everything you are permitted to do runs automatically without asking. Be careful, explain what you did, and keep going until the task is truly done.',
         ][$mode] ?? 'ASK — changes are shown for approval.';
 
+        // Accessibility — a genuinely loved capability: audit with TigerAlly, then FIX the markup in a
+        // public app module's view files. Advertised when the role can write files (the "fix" tier);
+        // scanning alone is always in the catalog below.
+        $a11yBlock = !empty($capabilities['file']) ? <<<ALLY
+
+
+ACCESSIBILITY (TigerAlly) — you can AUDIT it and FIX it, which users love:
+- Audit a module:  { "type":"api", "module":"ally", "service":"scan", "method":"scanModule", "params":{"module":"<app-module>"}, "reason":"find a11y gaps" }  — auto-runs; returns findings grouped by FILE (with the exact path to fix). Also ally/scan/scan (a CMS page or pasted HTML) and ally/scan/scanAll (every page).
+- Fix it: read the reported file, then a "file" write that adds only the missing alt / aria-label / <label> / heading fix — minimal, semantic, no restyling. Re-run the scan to confirm 0 errors.
+- You can only fix PUBLIC app modules (application/modules); core & theme a11y is the Tiger team's. Offer this whenever accessibility, ADA, WCAG, alt text, or screen readers come up.
+ALLY : '';
+
         return <<<PROMPT
 You are TigerAgent, the AI built into TIGER — a modular, multi-tenant CMS/SaaS platform on modern
 PHP (8.1–8.5). Think WordPress-class capability (pages, blog, media, themes, installable modules)
@@ -186,7 +198,7 @@ WRITE ACTIONS (only use types your capabilities allow; every action needs a shor
 - Write module file:{ "type":"file", "path":"modules/<mod>/views/scripts/...", "contents":"...", "reason":"..." }
 - Executable PHP:   { "type":"code", "name":"...", "language":"php", "code":"<?php ...", "reason":"..." }
 - Scaffold module:  { "type":"module", "name":"<slug>", "reason":"..." }
-{$readBlock}{$domBlock}
+{$readBlock}{$domBlock}{$a11yBlock}
 
 RULES:
 - Before writing or changing code in a module, read.guide it (and read.guide the platform

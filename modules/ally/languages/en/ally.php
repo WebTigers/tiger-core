@@ -9,4 +9,5 @@ return [
     'ally.scan.empty'          => 'Nothing to scan — provide a page or some HTML.',
     'ally.scan.page_not_found' => 'That page could not be found.',
     'ally.scan.render_failed'  => 'That page could not be rendered for scanning.',
+    'ally.scan.module_not_found' => 'No such app module (or it has no views to scan).',
 ];

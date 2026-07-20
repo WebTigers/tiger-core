@@ -49,6 +49,56 @@ class Ally_Service_Scan extends Tiger_Service_Service
     }
 
     /**
+     * Scan a PUBLIC app module's view templates (application/modules/<module>/views) for a11y gaps,
+     * attributing every finding to its source FILE — so the caller (a human, or the AI agent's Forge)
+     * knows exactly which file to fix. PHP is neutralised before parsing so `<?= $x ?>` inside an
+     * attribute reads as a present value (no false positive) while a genuinely-missing attribute is
+     * still caught. Only app modules are scanned — those are the ones the Forge can actually write.
+     *
+     * A Forge read-verb, so the agent can run it on demand; the returned `file` paths are exactly what
+     * a `file` write (or a Scout read) accepts.
+     *
+     * @param  array $params module
+     * @return void
+     */
+    public function scanModule(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+        $mod = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($params['module'] ?? ''));
+        if ($mod === '' || !defined('MODULES_PATH')) { $this->_error('ally.scan.module_not_found'); return; }
+
+        $viewsDir = MODULES_PATH . '/' . $mod . '/views';
+        if (!is_dir($viewsDir)) { $this->_error('ally.scan.module_not_found'); return; }
+
+        $files  = [];
+        $totals = ['scanned' => 0, 'files_with_issues' => 0, 'error' => 0, 'warning' => 0];
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($viewsDir, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) {
+            if (!$f->isFile() || strtolower($f->getExtension()) !== 'phtml') { continue; }
+            $totals['scanned']++;
+            $src = (string) @file_get_contents($f->getPathname());
+            // Neutralise PHP so DOMDocument sees static structure: a dynamic attribute value becomes a
+            // present (non-empty) value, a missing attribute stays missing.
+            $neutral = preg_replace('/<\?(?:php|=).*?\?>/s', 'x', $src);
+            $r = Tiger_Ally::inspect((string) $neutral);
+            if ($r['summary']['error'] > 0 || $r['summary']['warning'] > 0) {
+                $totals['files_with_issues']++;
+                $totals['error']   += $r['summary']['error'];
+                $totals['warning'] += $r['summary']['warning'];
+                $files[] = [
+                    'file'     => 'application/modules/' . $mod . str_replace($viewsDir, '/views', $f->getPathname()),
+                    'passed'   => $r['passed'],
+                    'error'    => $r['summary']['error'],
+                    'warning'  => $r['summary']['warning'],
+                    'findings' => $r['findings'],
+                ];
+            }
+        }
+
+        $this->_success(['module' => $mod, 'totals' => $totals, 'files' => $files], 'ally.scan.done');
+    }
+
+    /**
      * The scannable CMS pages (type=page), for the picker + scanAll.
      *
      * @param  array $params (unused)
