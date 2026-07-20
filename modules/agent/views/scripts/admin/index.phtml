@@ -57,7 +57,15 @@ $t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
 
                     <div class="mb-3">
                         <label class="form-label" for="agent-model"><?= $t('agent.settings.model') ?></label>
-                        <?= $this->form->getElement('model')->setAttrib('id', 'agent-model') ?>
+                        <div class="input-group">
+                            <select class="form-select" id="agent-model" name="model">
+                                <option value="<?= $this->escape($this->model) ?>"><?= $this->escape($this->model) ?></option>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" id="agent-model-refresh" title="Refresh the model list">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                        <div class="form-text" id="agent-model-hint"></div>
                     </div>
 
                     <div class="mb-4">
@@ -101,6 +109,40 @@ $t = static fn($k) => Zend_Registry::get('Zend_Translate')->translate($k);
 </form>
 
 <script>
+// Live model list — from agent/settings/models: live from the provider when a key is available
+// (a just-typed one, else the stored one), else a curated static fallback. Vendors churn models,
+// so the dropdown is always fetched, never hardcoded.
+function agentLoadModels() {
+    var provider = document.getElementById('agent-provider').value;
+    var keyEl    = document.getElementById('agent-api_key');
+    var sel      = document.getElementById('agent-model');
+    var hint     = document.getElementById('agent-model-hint');
+    var current  = sel.value;
+    var fd = new URLSearchParams();
+    fd.set('module', 'agent'); fd.set('service', 'settings'); fd.set('method', 'models');
+    fd.set('provider', provider);
+    if (keyEl && keyEl.value.trim()) { fd.set('api_key', keyEl.value.trim()); }
+    hint.textContent = 'Loading models…';
+    fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (res) {
+            if (!res || res.result !== 1 || !res.data || !res.data.models) { hint.textContent = ''; return; }
+            sel.innerHTML = '';
+            res.data.models.forEach(function (m) {
+                var o = document.createElement('option');
+                o.value = m.id; o.textContent = m.label || m.id;
+                if (m.id === current) { o.selected = true; }
+                sel.appendChild(o);
+            });
+            if (!sel.value && sel.options.length) { sel.selectedIndex = 0; }
+            hint.textContent = res.data.live ? 'Live from your account.' : 'Common models — connect a key for the live list.';
+        })
+        .catch(function () { hint.textContent = ''; });
+}
+document.getElementById('agent-provider').addEventListener('change', agentLoadModels);
+document.getElementById('agent-model-refresh').addEventListener('click', agentLoadModels);
+agentLoadModels();
+
 document.getElementById('agent-settings-save').addEventListener('click', function () {
     var form = document.getElementById('agent-settings-form');
     var fb   = document.getElementById('agent-settings-feedback');

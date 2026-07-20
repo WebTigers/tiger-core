@@ -14,10 +14,11 @@
  */
 class Tiger_Agent_Provider_Anthropic implements Tiger_Agent_Provider_Adapter
 {
-    const ENDPOINT    = 'https://api.anthropic.com/v1/messages';
-    const API_VERSION = '2023-06-01';
-    const MAX_TOKENS  = 4096;
-    const TIMEOUT     = 120;
+    const ENDPOINT        = 'https://api.anthropic.com/v1/messages';
+    const ENDPOINT_MODELS = 'https://api.anthropic.com/v1/models';
+    const API_VERSION     = '2023-06-01';
+    const MAX_TOKENS      = 4096;
+    const TIMEOUT         = 120;
 
     /**
      * Run one completion against the Anthropic Messages API.
@@ -79,6 +80,49 @@ class Tiger_Agent_Provider_Anthropic implements Tiger_Agent_Provider_Adapter
             ]],
             'messages'   => $this->_mapMessages($messages),
         ];
+    }
+
+    /**
+     * The Anthropic models — live from GET /v1/models when a key is given, else the curated static
+     * fallback. Never throws (a failed fetch degrades to static).
+     *
+     * @param  string $apiKey optional BYO key
+     * @return array<int,array{id:string,label:string}>
+     */
+    public function models($apiKey = '')
+    {
+        if ($apiKey !== '') {
+            try {
+                $ch = curl_init(self::ENDPOINT_MODELS . '?limit=100');
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 15,
+                    CURLOPT_HTTPHEADER     => ['x-api-key: ' . $apiKey, 'anthropic-version: ' . self::API_VERSION],
+                ]);
+                $raw  = curl_exec($ch);
+                $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                curl_close($ch);
+                $body = json_decode((string) $raw, true);
+                if ($code === 200 && !empty($body['data'])) {
+                    $out = [];
+                    foreach ($body['data'] as $m) {
+                        if (!empty($m['id'])) {
+                            $out[] = ['id' => (string) $m['id'], 'label' => (string) ($m['display_name'] ?? $m['id'])];
+                        }
+                    }
+                    if ($out) {
+                        return $out;
+                    }
+                }
+            } catch (Throwable $e) {
+                // fall through to static
+            }
+        }
+        $out = [];
+        foreach (Tiger_Agent_Provider_Factory::staticModels('anthropic') as $id) {
+            $out[] = ['id' => $id, 'label' => $id];
+        }
+        return $out;
     }
 
     /**

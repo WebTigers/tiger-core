@@ -35,14 +35,15 @@ class Agent_Service_Settings extends Tiger_Service_Service
         $model = trim((string) $form->getValue('model'));
         $key   = trim((string) $form->getValue('api_key'));
 
+        // Read every form value HERE — $form is not captured into the transaction closure below.
+        $modeMax = (string) $form->getValue('mode_max');
+        if (!isset(Tiger_Agent::MODES[$modeMax])) { $modeMax = 'auto'; }
+
         try {
-            $this->_transaction(function () use ($params, $provider, $model, $key) {
+            $this->_transaction(function () use ($params, $provider, $model, $key, $modeMax) {
                 $cfg = new Tiger_Model_Config();
                 $scope   = Tiger_Model_Config::SCOPE_GLOBAL;
                 $scopeId = '';
-
-                $modeMax = (string) $form->getValue('mode_max');
-                if (!isset(Tiger_Agent::MODES[$modeMax])) { $modeMax = 'auto'; }
 
                 $cfg->set($scope, $scopeId, Tiger_Agent::CFG_ENABLED,  !empty($params['enabled']) ? '1' : '0');
                 $cfg->set($scope, $scopeId, Tiger_Agent::CFG_PROVIDER, $provider);
@@ -58,6 +59,33 @@ class Agent_Service_Settings extends Tiger_Service_Service
                 }
             });
             $this->_success(['connected' => Tiger_Agent::isConnected()], 'agent.settings.saved');
+        } catch (Throwable $e) {
+            $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
+        }
+    }
+
+    /**
+     * List a provider's selectable models for the settings dropdown — LIVE from the provider when a
+     * key is available (a just-typed `api_key`, else the stored one), else the curated static
+     * fallback. So the selector reflects what the account can actually use, with or without a key.
+     *
+     * @param  array $params provider (optional), api_key (optional, unsaved key to list live with)
+     * @return void
+     */
+    public function models(array $params): void
+    {
+        if (!$this->_isAdmin()) { $this->_error('core.api.error.not_allowed'); return; }
+
+        $provider = preg_replace('/[^a-z]/', '', strtolower((string) ($params['provider'] ?? 'anthropic')));
+        if (!array_key_exists($provider, Tiger_Agent_Provider_Factory::options())) {
+            $provider = 'anthropic';
+        }
+        // A key typed but not yet saved lets the user list live before committing; else the stored one.
+        $key = trim((string) ($params['api_key'] ?? '')) ?: Tiger_Agent::apiKey();
+
+        try {
+            $models = Tiger_Agent_Provider_Factory::make($provider)->models($key);
+            $this->_success(['models' => $models, 'live' => $key !== ''], 'core.api.success');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
         }

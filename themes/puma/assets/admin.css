@@ -316,3 +316,21 @@ html:not(.agent-open) .tiger-agent-launcher { display: inline-flex; align-items:
     .agent-open .tiger-content { margin-right: 0 !important; }
     .tiger-agent-aside { width: min(92vw, 420px); }
 }
+
+/* ---- Agent "thinking" typing indicator --------------------------------------------------------- */
+.agent-thinking .bubble { display: inline-flex; align-items: center; }
+.agent-dots { display: inline-flex; align-items: center; gap: .3rem; padding: .1rem .05rem; }
+.agent-dots > span {
+    width: .45rem; height: .45rem; border-radius: 50%;
+    background: var(--bs-secondary-color, #9aa0a6);
+    animation: tigerAgentDot 1.2s infinite ease-in-out both;
+}
+.agent-dots > span:nth-child(1) { animation-delay: -0.24s; }
+.agent-dots > span:nth-child(2) { animation-delay: -0.12s; }
+@keyframes tigerAgentDot {
+    0%, 80%, 100% { opacity: .3; transform: scale(.8); }
+    40%           { opacity: 1;  transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .agent-dots > span { animation: none; opacity: .6; }
+}

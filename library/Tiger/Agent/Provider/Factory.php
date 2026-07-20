@@ -13,12 +13,15 @@
  */
 class Tiger_Agent_Provider_Factory
 {
-    /** The provider roster: key => [label, adapter class, default model]. */
+    /** The provider roster: key => [label, adapter class, default model, curated static models]. The
+     *  `models` list is the NO-KEY fallback for the selector; with a key the adapter fetches the live
+     *  list from the provider (vendors churn models constantly — never hardcode as the source). */
     const PROVIDERS = [
         'anthropic' => [
             'label'   => 'Anthropic (Claude)',
             'adapter' => 'Tiger_Agent_Provider_Anthropic',
             'default' => 'claude-sonnet-5',
+            'models'  => ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
         ],
     ];
 
@@ -45,6 +48,18 @@ class Tiger_Agent_Provider_Factory
     {
         $spec = self::PROVIDERS[$provider] ?? self::PROVIDERS['anthropic'];
         return $spec['default'];
+    }
+
+    /**
+     * The curated static model ids for a provider — the selector's fallback when there's no key.
+     *
+     * @param  string $provider the provider key
+     * @return string[]
+     */
+    public static function staticModels($provider)
+    {
+        $spec = self::PROVIDERS[$provider] ?? self::PROVIDERS['anthropic'];
+        return !empty($spec['models']) ? $spec['models'] : [$spec['default']];
     }
 
     /**

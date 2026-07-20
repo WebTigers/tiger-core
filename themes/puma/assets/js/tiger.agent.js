@@ -22,6 +22,7 @@
     var form   = aside.querySelector('[data-agent-form]');
     var status = aside.querySelector('[data-agent-status]');
     var csrfEl = aside.querySelector('input[name="_csrf"]');
+    var currentToken = csrfEl ? csrfEl.value : '';   // rotated — each agent response returns a fresh token
 
     var LS = {
         open:  'tiger_agent_open',
@@ -59,7 +60,7 @@
     function api(method, params) {
         var fd = new URLSearchParams();
         fd.set('module', 'agent'); fd.set('service', 'agent'); fd.set('method', method);
-        if (csrfEl) { fd.set('_csrf', csrfEl.value); }
+        if (currentToken) { fd.set('_csrf', currentToken); }
         Object.keys(params || {}).forEach(function (k) {
             var v = params[k];
             fd.set(k, (typeof v === 'object') ? JSON.stringify(v) : v);
@@ -68,7 +69,13 @@
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd
-        }).then(function (r) { return r.json().catch(function () { return { result: 0 }; }); });
+        }).then(function (r) { return r.json().catch(function () { return { result: 0 }; }); })
+          .then(function (json) {
+              // The server rotates the CSRF token on every response (Zend hash tokens expire by
+              // hops after ~1 use); adopt the fresh one so the next call validates.
+              if (json && json.data && json.data._csrf) { currentToken = json.data._csrf; }
+              return json;
+          });
     }
 
     // ----- rendering ---------------------------------------------------------
@@ -187,10 +194,29 @@
 
     // ----- turn + approval ---------------------------------------------------
 
+    // A "thinking" bubble — an animated typing indicator shown in the transcript while a turn is in
+    // flight (every network hop routes through busy(), so it covers send / approve / resume).
+    var thinkingEl = null;
+    function thinking(on) {
+        if (on) {
+            if (thinkingEl) { return; }
+            clearEmpty();
+            thinkingEl = document.createElement('div');
+            thinkingEl.className = 'agent-msg assistant agent-thinking';
+            thinkingEl.innerHTML = '<div class="bubble"><span class="agent-dots" role="status" aria-label="Agent is thinking"><span></span><span></span><span></span></span></div>';
+            logEl.appendChild(thinkingEl);
+            scrollDown();
+        } else if (thinkingEl) {
+            thinkingEl.remove();
+            thinkingEl = null;
+        }
+    }
+
     function busy(on, msg) {
         status.textContent = on ? (msg || 'Working…') : ' ';
         var send = aside.querySelector('[data-agent-send]');
         if (send) { send.disabled = !!on; }
+        thinking(!!on);
     }
 
     function send() {
@@ -224,7 +250,10 @@
         clientHops = 0;
         api('approve', { run_id: runId, indexes: JSON.stringify([index]), context: pageContext(), mode: getMode() }).then(function (res) {
             busy(false);
-            if (!res || res.result !== 1 || !res.data) { return; }
+            if (!res || res.result !== 1 || !res.data) {
+                addBubble('assistant', (res && res.messages && res.messages[0] && res.messages[0].message) || 'Something went wrong.');
+                return;
+            }
             // Re-render the whole ledger for this run in place (statuses now updated).
             var parent = box.parentNode;
             box.remove();
@@ -267,8 +296,12 @@
             clientHops++;
             busy(true, 'Working…');
             api('resume', { conversation_id: activeCid(), results: JSON.stringify(results), context: pageContext(), mode: getMode() })
-                .then(function (res) { busy(false); if (res && res.result === 1 && res.data) { onTurn(res.data); } })
-                .catch(function () { busy(false); });
+                .then(function (res) {
+                    busy(false);
+                    if (res && res.result === 1 && res.data) { onTurn(res.data); return; }
+                    addBubble('assistant', (res && res.messages && res.messages[0] && res.messages[0].message) || 'The agent stopped unexpectedly — please try again.');
+                })
+                .catch(function () { busy(false); addBubble('assistant', 'Network error — please try again.'); });
             return;
         }
         handleNavigate(wrap, data.navigate);

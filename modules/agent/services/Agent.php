@@ -350,4 +350,40 @@ class Agent_Service_Agent extends Tiger_Service_Service
             );
         } catch (Throwable $e) { /* cosmetic re-render sync — never fail approval over it */ }
     }
+
+    /**
+     * Stamp a FRESH CSRF token onto every success response. The agent is a long-lived AJAX panel that
+     * makes many /api calls from one page, but a Zend hash token expires by hops after ~1 use — so a
+     * single rendered token can't carry a whole conversation. Rotating one per response (the client
+     * adopts it for the next call, see tiger.agent.js) keeps the panel alive without a reload.
+     *
+     * @param  mixed       $data
+     * @param  string      $message
+     * @param  string|null $redirect
+     * @return void
+     */
+    protected function _success($data = null, $message = 'core.api.success', $redirect = null)
+    {
+        if (is_array($data)) { $data['_csrf'] = $this->_freshToken(); }
+        parent::_success($data, $message, $redirect);
+    }
+
+    /**
+     * Mint (and rotate into the session) a fresh shared-salt 'Agent' CSRF token. Rendering a new
+     * Agent_Form_Send hash element generates a new hash, stores it under the shared salt, and resets
+     * its hop expiry — so the value returned validates on the next send / approve / resume.
+     *
+     * @return string the fresh token, or '' if it couldn't be minted
+     */
+    protected function _freshToken(): string
+    {
+        try {
+            $el = (new Agent_Form_Send())->getElement('_csrf');
+            $el->setView(new Zend_View());
+            $el->render();
+            return (string) $el->getValue();
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
 }

@@ -12,6 +12,9 @@
  */
 class Agent_Form_Send extends Tiger_Form
 {
+    /** All agent /api endpoints (send/approve/resume) share ONE CSRF token — the aside renders just one. */
+    protected function csrfSalt(): string { return 'Agent'; }
+
     protected function elements(): array
     {
         return [
