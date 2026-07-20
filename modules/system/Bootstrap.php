@@ -41,5 +41,13 @@ class System_Bootstrap extends Zend_Application_Module_Bootstrap
             'resource' => 'System_AclController',
             'order'    => 16,
         ]);
+        Tiger_Admin_Nav::register([
+            'key'      => 'system_logs',
+            'label'    => 'Logs',
+            'icon'     => 'fa-rectangle-list',
+            'href'     => '/system/logs',
+            'resource' => 'System_LogsController',
+            'order'    => 17,
+        ]);
     }
 }

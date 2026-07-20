@@ -1,0 +1,133 @@
+<?php
+/**
+ * Logs — tail + filter the application log (System_Service_Logs). Read-only. Level chip + text
+ * search + a refresh; rows expand to show the JSON context. Semantic Bootstrap only. See ADMIN.md.
+ */
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1"><i class="fa-solid fa-rectangle-list me-2"></i>Logs</h1>
+        <p class="text-body-secondary mb-0">The application log — newest first. Read-only.</p>
+    </div>
+    <div class="text-nowrap">
+        <button type="button" id="logs-refresh" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-rotate me-2"></i>Refresh
+        </button>
+    </div>
+</div>
+
+<div id="logs-feedback"></div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-sm-3">
+                <label class="form-label" for="logs-level">Minimum level</label>
+                <select id="logs-level" class="form-select">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label" for="logs-q">Search</label>
+                <input id="logs-q" class="form-control" placeholder="message or context…">
+            </div>
+            <div class="col-sm-3">
+                <label class="form-label" for="logs-limit">Show</label>
+                <select id="logs-limit" class="form-select">
+                    <option value="100">Last 100</option>
+                    <option value="200" selected>Last 200</option>
+                    <option value="500">Last 500</option>
+                    <option value="1000">Last 1000</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="logs-notice"></div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" id="logs-table">
+                <thead>
+                    <tr>
+                        <th style="width:11rem;">Time</th>
+                        <th style="width:5.5rem;">Level</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-body">
+                    <tr><td colspan="3" class="text-body-secondary small py-3">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fb     = document.getElementById('logs-feedback');
+    var body   = document.getElementById('logs-body');
+    var notice = document.getElementById('logs-notice');
+    var levelEl = document.getElementById('logs-level');
+    var qEl     = document.getElementById('logs-q');
+    var limitEl = document.getElementById('logs-limit');
+
+    var BADGE = { CRIT: 'text-bg-danger', ERR: 'text-bg-danger', WARN: 'text-bg-warning',
+                  NOTICE: 'text-bg-info', INFO: 'text-bg-secondary', DEBUG: 'text-bg-light' };
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function fmtTs(ts) { if (!ts) { return ''; } var d = new Date(ts); return isNaN(d) ? ts : d.toLocaleString(); }
+    function debounce(fn, ms) { var t; return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
+
+    function seedLevels(levels) {
+        if (levelEl.options.length > 1 || !levels) { return; }
+        levels.forEach(function (l) { var o = document.createElement('option'); o.value = l; o.textContent = l; levelEl.appendChild(o); });
+    }
+
+    function render(res) {
+        var data = (res && res.data) || {};
+        seedLevels(data.levels);
+        notice.innerHTML = '';
+        if (data.available === false) {
+            notice.innerHTML = '<div class="alert alert-info mb-3">Logs are shipping to the <strong>' + esc(data.sink || 'configured') +
+                '</strong> sink, which can\'t be read here. Point <code>tiger.log.writer</code> at <code>stream</code> (with <code>tiger.log.stream.path</code>) to view them in-app.</div>';
+            body.innerHTML = '<tr><td colspan="3" class="text-body-secondary small py-3">Nothing to show for this sink.</td></tr>';
+            return;
+        }
+        var rows = data.entries || [];
+        if (!rows.length) { body.innerHTML = '<tr><td colspan="3" class="text-body-secondary small py-3">No matching log entries.</td></tr>'; return; }
+        body.innerHTML = '';
+        rows.forEach(function (e) {
+            var ctx = (e.context && Object.keys(e.context).length) ? JSON.stringify(e.context, null, 2) : '';
+            var badge = BADGE[e.level] || 'text-bg-secondary';
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td class="small text-nowrap font-monospace">' + esc(fmtTs(e.ts)) + '</td>' +
+                '<td><span class="badge ' + badge + '">' + esc(e.level || '?') + '</span></td>' +
+                '<td><div class="fw-medium">' + esc(e.msg) + '</div>' +
+                (ctx ? '<pre class="small text-body-secondary mb-0 mt-1" style="white-space:pre-wrap;max-height:12rem;overflow:auto;">' + esc(ctx) + '</pre>' : '') +
+                '</td>';
+            body.appendChild(tr);
+        });
+    }
+
+    function load(btn) {
+        var fd = new URLSearchParams();
+        fd.set('module', 'system'); fd.set('service', 'logs'); fd.set('method', 'search');
+        fd.set('level', levelEl.value); fd.set('q', qEl.value); fd.set('limit', limitEl.value);
+        var task = function () {
+            return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+                .then(function (r) { return r.json().catch(function () { return {}; }); });
+        };
+        var p = btn ? TigerButton.run(btn, task) : task();
+        p.then(function (res) {
+            if (res && res.result === 1) { render(res); return; }
+            (res && res.messages || []).forEach(function (m) { TigerDOM.notify(fb, m.message, { type: m.class }); });
+        }).catch(function () { TigerDOM.notify(fb, 'Network error — please try again.', { type: 'error' }); });
+    }
+
+    document.getElementById('logs-refresh').addEventListener('click', function () { load(this); });
+    levelEl.addEventListener('change', function () { load(); });
+    limitEl.addEventListener('change', function () { load(); });
+    qEl.addEventListener('input', debounce(function () { load(); }, 350));
+    load();
+});
+</script>
