@@ -69,6 +69,8 @@ class System_Service_Settings extends Tiger_Service_Service
                     'accept_label' => $params['consent_accept_label'] ?? null,
                     'reject_label' => $params['consent_reject_label'] ?? null,
                     'policy_url'   => $params['consent_policy_url']   ?? null,
+                    'ccpa_notice'  => $params['consent_ccpa_notice']  ?? null,
+                    'honor_gpc'    => !empty($params['consent_honor_gpc']),   // unchecked box = absent = off
                 ]);
             }
 

@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 WebTigers. Tiger™ and WebTigers™ are trademarks of WebTigers.
 /**
- * GDPR cookie-consent banner (PUMA). Self-checking: renders nothing unless Tiger_Consent says a
- * banner is due (mode always|auto-with-tracking, and the visitor hasn't chosen yet). Accept writes
- * the consent cookie and reloads so consent-gated trackers (GA, …) load; Decline writes a "none"
- * cookie and dismisses. Bootstrap + --bs-* tokens, so it restyles with the theme + skin.
+ * Cookie-consent banner (PUMA) — GDPR + CCPA in ONE banner, ONE Accept. Self-checking: renders
+ * nothing unless Tiger_Consent::showBanner() is true. Accept writes the consent cookie ('all') and
+ * reloads so consent-gated trackers (GA, …) load; "Necessary only" writes 'none' — which is also the
+ * California opt-out of sale/sharing. When a Global Privacy Control signal is present we say so and
+ * you're already opted out (honored server-side by Tiger_Consent); an explicit Accept still wins.
+ * Bootstrap + --bs-* tokens, so it restyles with the theme + skin.
  */
 if (!class_exists('Tiger_Consent') || !Tiger_Consent::showBanner()) {
     return;
 }
-$c = Tiger_Consent::settings();
+$c   = Tiger_Consent::settings();
+$gpc = !empty($c['gpc']) && !empty($c['honor_gpc']);
 ?>
 <div id="tiger-consent" class="fixed-bottom p-3" role="dialog" aria-live="polite" aria-label="Cookie consent">
     <div class="container">
@@ -21,6 +24,13 @@ $c = Tiger_Consent::settings();
                     <?= $this->escape($c['message']) ?>
 <?php if ($c['policy_url'] !== ''): ?>
                     <a href="<?= $this->escape($c['policy_url']) ?>" class="text-decoration-none">Learn more</a>.
+<?php endif; ?>
+                    <!-- Global Privacy Control acknowledgment (server-detected here; JS reveals it too). -->
+                    <div id="tiger-consent-gpc" class="text-success mt-1<?= $gpc ? '' : ' d-none' ?>">
+                        <i class="fa-solid fa-shield-halved me-1"></i>Global Privacy Control detected — you're opted out of analytics &amp; sharing.
+                    </div>
+<?php if (!empty($c['ccpa_notice'])): ?>
+                    <div class="text-body-secondary mt-1" style="font-size:.85em;"><?= $this->escape($c['ccpa_notice']) ?></div>
 <?php endif; ?>
                 </div>
                 <div class="d-flex gap-2 flex-shrink-0">
@@ -35,6 +45,12 @@ $c = Tiger_Consent::settings();
 (function () {
     var bar = document.getElementById('tiger-consent');
     if (!bar) { return; }
+    // Belt-and-suspenders: if the browser exposes GPC via JS but a proxy stripped the Sec-GPC header,
+    // still surface the opt-out acknowledgment.
+    if (navigator.globalPrivacyControl === true) {
+        var g = document.getElementById('tiger-consent-gpc');
+        if (g) { g.classList.remove('d-none'); }
+    }
     function setCookie(v) {
         document.cookie = 'tiger_consent=' + v + '; path=/; max-age=31536000; SameSite=Lax';
     }
@@ -42,10 +58,10 @@ $c = Tiger_Consent::settings();
         var btn = e.target.closest('[data-consent]');
         if (!btn) { return; }
         if (btn.getAttribute('data-consent') === 'accept') {
-            setCookie('all');
+            setCookie('all');           // explicit opt-in — overrides any GPC signal for this visitor
             location.reload();          // reload so consent-gated tags (e.g. GA) load this visit
         } else {
-            setCookie('none');
+            setCookie('none');          // GDPR decline == CCPA opt-out of sale/sharing
             bar.parentNode.removeChild(bar);
         }
     });

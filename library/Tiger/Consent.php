@@ -15,6 +15,13 @@
  * → `off` → everything loads, so trackers (e.g. GA) work standalone. The consent MODULE adds the
  * settings UI + the banner that writes the cookie; the gate logic lives here.
  *
+ * **GDPR + CCPA in one gate (one banner, one Accept).** GDPR is opt-IN (the mode/banner above);
+ * California's CCPA/CPRA is opt-OUT, and its legally-recognized opt-out signal is **Global Privacy
+ * Control** (the `Sec-GPC: 1` request header / `navigator.globalPrivacyControl`). We honor GPC as a
+ * "do not sell or share" for non-essential trackers even when GDPR consent isn't required — so a
+ * California visitor is opted out automatically, no second banner and no separate "Accept". An
+ * explicit Accept here still wins (the visitor's own choice overrides the browser signal).
+ *
  * @api
  * @see Tiger_Tracking
  */
@@ -79,17 +86,54 @@ class Tiger_Consent
     }
 
     /**
-     * May a tracker of this category load right now? True unless consent is required and not granted.
+     * May a tracker of this category load right now? An explicit opt-in always permits; otherwise a
+     * GPC/CCPA opt-out signal blocks non-essential trackers; otherwise the GDPR mode decides.
      *
      * @param  string $category the tracking category (default 'analytics')
      * @return bool
      */
     public static function allows($category = 'analytics')
     {
-        if (!self::required($category)) {
+        // A standing explicit decline ("Necessary only" → 'none') opts the visitor out for good —
+        // honored regardless of GDPR mode (it is also the CCPA opt-out of sale/sharing).
+        if ((string) ($_COOKIE[self::COOKIE] ?? '') === 'none') {
+            return false;
+        }
+        // The visitor's own opt-in (Accept, or this category granted) always wins.
+        if (self::accepted($category)) {
             return true;
         }
-        return self::accepted($category);
+        // Global Privacy Control: a CCPA/CPRA opt-out. Honor it for non-essential trackers even when
+        // GDPR consent isn't required here — unless the visitor has explicitly decided in the banner.
+        if (self::honorGpc() && self::gpc() && !self::decided()) {
+            return false;
+        }
+        // GDPR: permitted unless consent is required and not yet granted.
+        return !self::required($category);
+    }
+
+    /**
+     * Is a Global Privacy Control opt-out signal present on this request? GPC (`Sec-GPC: 1`) is the
+     * CPRA-recognized "do not sell/share" browser signal. (`DNT` is a deprecated, non-binding hint and
+     * is intentionally NOT treated as an opt-out.)
+     *
+     * @return bool
+     */
+    public static function gpc()
+    {
+        return isset($_SERVER['HTTP_SEC_GPC']) && trim((string) $_SERVER['HTTP_SEC_GPC']) === '1';
+    }
+
+    /**
+     * Do we honor GPC as a CCPA opt-out? Config `tiger.consent.honor_gpc`, default ON (the compliant
+     * behavior — set to 0 only if you have a specific reason not to).
+     *
+     * @return bool
+     */
+    public static function honorGpc()
+    {
+        $v = strtolower(trim((string) self::_config('consent.honor_gpc', '1')));
+        return !in_array($v, ['0', 'off', 'false', 'no'], true);
     }
 
     /** Has the visitor made a choice (accept OR reject)? True once the consent cookie exists. */
@@ -106,10 +150,11 @@ class Tiger_Consent
 
     /** Default banner copy, used when the operator hasn't customized it. */
     const DEFAULTS = [
-        'message'      => 'We use cookies to analyze site traffic. You can accept or decline analytics cookies.',
+        'message'      => 'We use cookies to analyze traffic and improve your experience. Accept, or continue with only what\'s necessary.',
         'accept_label' => 'Accept',
-        'reject_label' => 'Decline',
+        'reject_label' => 'Necessary only',
         'policy_url'   => '',
+        'ccpa_notice'  => 'California residents: choosing "Necessary only" (or sending a Global Privacy Control signal) opts you out of any sale or sharing of your personal information.',
     ];
 
     /**
@@ -129,6 +174,9 @@ class Tiger_Consent
             'accept_label' => $get('accept_label', self::DEFAULTS['accept_label']),
             'reject_label' => $get('reject_label', self::DEFAULTS['reject_label']),
             'policy_url'   => $get('policy_url', self::DEFAULTS['policy_url']),
+            'ccpa_notice'  => $get('ccpa_notice', self::DEFAULTS['ccpa_notice']),
+            'honor_gpc'    => self::honorGpc(),   // whether we honor the GPC opt-out signal
+            'gpc'          => self::gpc(),         // is a GPC signal present on THIS request?
         ];
     }
 
@@ -152,6 +200,8 @@ class Tiger_Consent
         $cfg->set($g, '', 'tiger.consent.accept_label', trim((string) ($data['accept_label'] ?? '')));
         $cfg->set($g, '', 'tiger.consent.reject_label', trim((string) ($data['reject_label'] ?? '')));
         $cfg->set($g, '', 'tiger.consent.policy_url',   trim((string) ($data['policy_url'] ?? '')));
+        $cfg->set($g, '', 'tiger.consent.ccpa_notice',  trim((string) ($data['ccpa_notice'] ?? '')));
+        $cfg->set($g, '', 'tiger.consent.honor_gpc',    !empty($data['honor_gpc']) ? '1' : '0');
     }
 
     /** Read a `tiger.<dotKey>` config value with a default. */

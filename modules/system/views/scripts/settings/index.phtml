@@ -301,9 +301,19 @@ $hasSecret = !empty($this->hasSecret);
                                     <input type="text" class="form-control" id="consent-reject" name="consent_reject_label" value="<?= $this->escape($c['reject_label']) ?>">
                                 </div>
                             </div>
-                            <div class="mb-0">
+                            <div class="mb-3">
                                 <label class="form-label" for="consent-policy">Privacy policy URL <span class="text-body-secondary fw-normal">(optional)</span></label>
                                 <input type="text" class="form-control" id="consent-policy" name="consent_policy_url" value="<?= $this->escape($c['policy_url']) ?>" placeholder="/privacy">
+                            </div>
+                            <hr>
+                            <p class="text-body-secondary small mb-2"><strong>California (CCPA/CPRA)</strong> — one banner covers both. No second "Accept": choosing <em>Necessary only</em> is the California opt-out of sale/sharing.</p>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="consent-gpc" name="consent_honor_gpc" value="1"<?= !empty($c['honor_gpc']) ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="consent-gpc">Honor Global Privacy Control (<code>Sec-GPC</code>) — auto opt-out for visitors who send the signal</label>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label" for="consent-ccpa">California notice <span class="text-body-secondary fw-normal">(optional; shown under the message)</span></label>
+                                <textarea class="form-control" id="consent-ccpa" name="consent_ccpa_notice" rows="2"><?= $this->escape($c['ccpa_notice'] ?? '') ?></textarea>
                             </div>
                         </div>
                     </div>
