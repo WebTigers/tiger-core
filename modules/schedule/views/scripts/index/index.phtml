@@ -1,0 +1,137 @@
+<?php
+/**
+ * Scheduler screen (/schedule) — the registered jobs, their live schedule + last/next run, an
+ * inline reschedule (the reusable schedule-control), run-now, and the "How to set up Cron" card.
+ * Follows ADMIN.md: header + feedback mount + cards; all mutations go through /api via
+ * tiger.schedule.js (loaded globally). No page-POSTs, no bespoke CSS.
+ */
+$e    = fn($s) => $this->escape((string) $s);
+$jobs = $this->jobs ?? [];
+
+$freqLabels = [
+    'every_minute' => 'Every minute',
+    'every_5_min'  => 'Every 5 minutes',
+    'every_15_min' => 'Every 15 minutes',
+    'hourly'       => 'Hourly',
+    'daily'        => 'Daily',
+    'weekly'       => 'Weekly',
+    'monthly'      => 'Monthly',
+];
+$days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Human summary of a job's cadence.
+$summary = function (array $j) use ($freqLabels, $days) {
+    $base = $freqLabels[$j['every']] ?? $j['every'];
+    if ($j['every'] === 'daily')   { return $base . ' at ' . $j['at']; }
+    if ($j['every'] === 'weekly')  { return $base . ' on ' . ($days[$j['dow']] ?? '?') . ' at ' . $j['at']; }
+    if ($j['every'] === 'monthly') { return $base . ' on day ' . $j['dom'] . ' at ' . $j['at']; }
+    return $base;
+};
+
+// Bootstrap alert context for a run outcome.
+$outcomeBadge = [
+    'ok'      => ['success', 'Success'],
+    'error'   => ['danger',  'Failed'],
+    'running' => ['info',    'Running'],
+    'skipped' => ['secondary', 'Skipped'],
+];
+?>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-1">Scheduler</h1>
+        <p class="text-body-secondary mb-0">Background jobs and when they run. Any module can register one — Backup, cleanups, reports.</p>
+    </div>
+</div>
+
+<div id="schedule-feedback"></div>
+
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="fa-solid fa-list-check me-2"></i>Scheduled jobs</div>
+            <div class="card-body p-0">
+                <?php if (!$jobs): ?>
+                    <p class="text-body-secondary p-4 mb-0">No jobs are registered yet.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Job</th>
+                                    <th>Schedule</th>
+                                    <th>Next run</th>
+                                    <th>Last run</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($jobs as $i => $j):
+                                $editId = 'sched-edit-' . $i;
+                                $last   = $j['last'];
+                                [$oClass, $oLabel] = $outcomeBadge[$last['outcome'] ?? ''] ?? ['secondary', ucfirst((string) ($last['outcome'] ?? ''))];
+                            ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold"><?= $e($j['label']) ?></div>
+                                        <div class="small text-body-secondary font-monospace"><?= $e($j['key']) ?></div>
+                                    </td>
+                                    <td>
+                                        <?= $e($summary($j)) ?>
+                                        <?php if (!$j['enabled']): ?>
+                                            <span class="badge text-bg-secondary ms-1">Disabled</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($j['enabled'] && $j['next_run']): ?>
+                                            <span title="<?= $e(date('c', $j['next_run'])) ?>"><?= $e(date('M j, g:i a', $j['next_run'])) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-body-secondary">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($last): ?>
+                                            <span class="badge text-bg-<?= $e($oClass) ?>"><?= $e($oLabel) ?></span>
+                                            <span class="small text-body-secondary ms-1" title="<?= $e($last['at']) ?>">
+                                                <?= $e(date('M j, g:i a', strtotime((string) $last['at']))) ?>
+                                                <?php if (!empty($last['ms'])): ?>· <?= (int) $last['ms'] ?>ms<?php endif; ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-body-secondary">Never</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#<?= $e($editId) ?>" title="Edit schedule">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-schedule-run="<?= $e($j['key']) ?>" data-feedback="schedule-feedback" data-reload title="Run now">
+                                            <i class="fa-solid fa-play me-1"></i>Run now
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="collapse" id="<?= $e($editId) ?>">
+                                    <td colspan="5" class="bg-body-tertiary">
+                                        <?= $this->partial('_partials/schedule-control.phtml', [
+                                            'jobKey'     => $j['key'],
+                                            'jobEvery'   => $j['every'],
+                                            'jobAt'      => $j['at'],
+                                            'jobDow'     => $j['dow'],
+                                            'jobDom'     => $j['dom'],
+                                            'jobEnabled' => $j['enabled'],
+                                            'feedbackId' => 'schedule-feedback',
+                                            'reload'     => true,
+                                        ]) ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-8">
+        <?= $this->render('_partials/cron-setup.phtml') ?>
+    </div>
+</div>
