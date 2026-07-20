@@ -111,8 +111,21 @@ $mega = [
                 <li class="nav-item"><a class="nav-link" href="https://github.com/WebTigers/Tiger" target="_blank" rel="noopener">GitHub</a></li>
             </ul>
 
-            <!-- Centered search region: filled by a feature (e.g. TigerDocs ⌘K); collapses to nothing when empty. -->
-            <div class="tiger-header-search mx-lg-auto my-2 my-lg-0"><?= $this->placeholder('tigerHeaderSearch') ?></div>
+            <!-- Centered search region: the Tiger_Search ⌘K launcher when any provider is registered,
+                 else a placeholder a feature can fill; collapses to nothing when empty. -->
+            <div class="tiger-header-search mx-lg-auto my-2 my-lg-0">
+<?php if (class_exists('Tiger_Search') && Tiger_Search::providers()): ?>
+                <div class="position-relative" data-tiger-search style="min-width: 240px;">
+                    <form action="/search" method="get" role="search" class="mb-0">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                            <input type="search" name="q" class="form-control" placeholder="Search…" aria-label="Search" autocomplete="off" data-search-input>
+                        </div>
+                    </form>
+                    <div class="dropdown-menu w-100 shadow" style="max-height: 60vh; overflow-y: auto;" data-search-results></div>
+                </div>
+<?php endif; ?>
+                <?= $this->placeholder('tigerHeaderSearch') ?></div>
 
             <div class="d-flex align-items-center gap-1">
                 <?= $this->render('_partials/lang-switcher.phtml') ?>

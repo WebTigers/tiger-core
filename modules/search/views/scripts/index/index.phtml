@@ -1,0 +1,40 @@
+<?php
+/**
+ * Public search results (/search). Server-rendered so search works with no JS and is crawlable.
+ * Groups results by source (pages, articles, …). Semantic Bootstrap only — the active theme styles it.
+ */
+$e       = fn($s) => $this->escape((string) $s);
+$term    = (string) ($this->term ?? '');
+$results = $this->results ?? null;
+?>
+<div class="container py-5" style="max-width: 820px;">
+    <h1 class="h3 mb-4">Search</h1>
+
+    <form action="/search" method="get" class="mb-4" role="search">
+        <div class="input-group input-group-lg">
+            <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="search" name="q" class="form-control" value="<?= $e($term) ?>" placeholder="Search the site…" autofocus>
+            <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+    </form>
+
+    <?php if ($term === ''): ?>
+        <p class="text-body-secondary">Type a term above to search.</p>
+    <?php elseif (!$results || $results['total'] === 0): ?>
+        <p class="text-body-secondary">No results for <strong><?= $e($term) ?></strong>. Try different or broader words.</p>
+    <?php else: ?>
+        <p class="text-body-secondary mb-4"><?= (int) $results['total'] ?> result<?= $results['total'] === 1 ? '' : 's' ?> for <strong><?= $e($term) ?></strong></p>
+        <?php foreach ($results['groups'] as $group): ?>
+            <h2 class="h6 text-uppercase text-body-secondary mt-4 mb-2"><i class="fa-solid <?= $e($group['icon']) ?> me-2"></i><?= $e($group['label']) ?></h2>
+            <div class="list-group mb-3">
+                <?php foreach ($group['hits'] as $hit): ?>
+                    <a class="list-group-item list-group-item-action" href="<?= $e($hit['url']) ?>">
+                        <div class="fw-semibold"><?= $e($hit['title']) ?></div>
+                        <?php if ($hit['snippet'] !== ''): ?><div class="small text-body-secondary"><?= $e($hit['snippet']) ?></div><?php endif; ?>
+                        <div class="small text-primary"><?= $e($hit['url']) ?></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>

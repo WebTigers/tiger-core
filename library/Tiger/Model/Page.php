@@ -63,6 +63,57 @@ class Tiger_Model_Page extends Tiger_Model_Table
     }
 
     /**
+     * Full-text search of live content (the seam behind the CMS/blog Tiger_Search providers).
+     *
+     * Reproduces resolveBySlug's exact visibility gate — type + locale + org cascade + published +
+     * schedule — so it can never surface a draft, a scheduled-but-not-live page, or another tenant's
+     * content. Uses the `ft_page(title, body)` FULLTEXT index for relevance; falls back to LIKE when
+     * FULLTEXT returns nothing (short terms below `innodb_ft_min_token_size`, which can't be tuned on
+     * shared hosting, otherwise silently return zero).
+     *
+     * @param  string $term   the query
+     * @param  string $locale the locale to match
+     * @param  string $orgId  tenant scope ('' = global)
+     * @param  int    $limit  max rows (clamped 1..50)
+     * @param  string $type   the page type to search (default TYPE_PAGE; e.g. 'article' for the blog)
+     * @return array          matching rows with page_id, slug, title, body, type, org_id, score
+     */
+    public function search($term, $locale, $orgId = '', $limit = 20, $type = self::TYPE_PAGE)
+    {
+        $term = trim((string) $term);
+        if ($term === '') { return []; }
+        $db    = $this->getAdapter();
+        $scope = $this->_orgScope($orgId);
+        $limit = max(1, min(50, (int) $limit));
+
+        $gate = function (Zend_Db_Select $select) use ($type, $locale, $scope) {
+            return $select
+                ->where('deleted = ?', 0)
+                ->where('type = ?', (string) $type)
+                ->where('locale = ?', (string) $locale)
+                ->where('org_id IN (?)', $scope)
+                ->where('status = ?', self::STATUS_PUBLISHED)
+                ->where('published_at IS NULL OR published_at <= NOW()');
+        };
+        $cols = ['page_id', 'slug', 'title', 'body', 'type', 'org_id'];
+
+        // 1) FULLTEXT (NATURAL LANGUAGE MODE ignores operators, so the quoted term is injection-safe).
+        $match = 'MATCH(`title`,`body`) AGAINST (' . $db->quote($term) . ' IN NATURAL LANGUAGE MODE)';
+        $ft = $db->select()->from($this->_name, $cols + ['score' => new Zend_Db_Expr($match)]);
+        $gate($ft)->where($match)->order('score DESC')->order('org_id DESC')->limit($limit);
+        $rows = $db->fetchAll($ft);
+        if ($rows) { return $rows; }
+
+        // 2) LIKE fallback — escape LIKE wildcards in the term.
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term) . '%';
+        $lk = $db->select()->from($this->_name, $cols + ['score' => new Zend_Db_Expr('0')]);
+        $gate($lk)
+            ->where($db->quoteInto('title LIKE ?', $like) . ' OR ' . $db->quoteInto('body LIKE ?', $like))
+            ->order('org_id DESC')->limit($limit);
+        return $db->fetchAll($lk);
+    }
+
+    /**
      * Fetch by stable handle (layouts, partials, or a page by key). Not publish-
      * gated — layouts/partials are infrastructure, fetched regardless of status.
      * Tenant row wins over global.

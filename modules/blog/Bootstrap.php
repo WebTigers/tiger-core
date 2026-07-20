@@ -42,6 +42,33 @@ class Blog_Bootstrap extends Zend_Application_Module_Bootstrap
             'blog/post', ['module' => 'blog', 'controller' => 'post', 'action' => 'index']));
     }
 
+    /** Register the blog's "articles" search provider — the tap-in demo for Tiger_Search. */
+    protected function _initSearchProvider()
+    {
+        if (!class_exists('Tiger_Search')) {
+            return;
+        }
+        Tiger_Search::register([
+            'key'    => 'articles',
+            'label'  => 'Articles',
+            'icon'   => 'fa-newspaper',
+            'weight' => 20,
+            'search' => function ($term, $ctx) {
+                $out = [];
+                $rows = (new Tiger_Model_Page())->search($term, $ctx['locale'], $ctx['orgId'], $ctx['limit'], 'article');
+                foreach ($rows as $r) {
+                    $out[] = [
+                        'title'   => (string) $r['title'],
+                        'url'     => '/blog/' . ltrim((string) $r['slug'], '/'),
+                        'snippet' => Tiger_Search::snippet($r['body'], $term),
+                        'score'   => (float) $r['score'],
+                    ];
+                }
+                return $out;
+            },
+        ]);
+    }
+
     /** Contribute published articles to the sitemap — the blog owns the /blog/<slug> URL form. */
     protected function _initBlogSitemap()
     {
