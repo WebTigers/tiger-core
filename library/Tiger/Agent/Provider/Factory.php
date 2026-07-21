@@ -119,4 +119,41 @@ class Tiger_Agent_Provider_Factory
         }
         return $out;
     }
+
+    /**
+     * Can this provider+model accept image input (multimodal / "vision")?
+     *
+     * Deliberately CONSERVATIVE: return true only for models we're confident take images. When unsure
+     * we return false so the caller degrades to a caption/OCR pass (which works for every model) rather
+     * than sending an image to a text-only model and getting an API error. Model names churn, so this
+     * is a heuristic on the id — the safe direction is "no" (caption) not "yes" (risk a hard failure).
+     *
+     * @param  string $provider provider key
+     * @param  string $model    model id
+     * @return bool
+     */
+    public static function supportsVision($provider, $model)
+    {
+        $m = strtolower((string) $model);
+        switch ((string) $provider) {
+            case 'anthropic':                                   // every current Claude is multimodal
+                return strpos($m, 'claude') !== false;
+            case 'openai':                                      // 4o / 4.1 / 5 / o-series see images; not audio-only
+                return (bool) preg_match('~gpt-4o|gpt-4\.1|gpt-5|chatgpt-4o|(?:^|[^a-z])o[134](?:$|[^a-z])~', $m)
+                       && strpos($m, 'audio') === false && strpos($m, 'realtime') === false;
+            case 'gemini':                                      // 1.5+ and 2.x are all multimodal
+                return strpos($m, 'gemini') !== false;
+            case 'grok':
+                return strpos($m, 'vision') !== false || (bool) preg_match('~grok-(4|2-vision)~', $m);
+            case 'mistral':                                     // pixtral + the newer vision-capable small/medium
+                return strpos($m, 'pixtral') !== false || (bool) preg_match('~mistral-(small|medium)-2[45]~', $m);
+            case 'openrouter':                                  // route id names its upstream — reuse the same cues
+                return (bool) preg_match('~vision|gpt-4o|gpt-4\.1|gpt-5|claude|gemini|pixtral|llama-3\.2~', $m);
+            case 'groq':
+                return strpos($m, 'vision') !== false || strpos($m, 'llama-3.2') !== false;
+            case 'deepseek':                                    // text-only today
+            default:
+                return false;
+        }
+    }
 }

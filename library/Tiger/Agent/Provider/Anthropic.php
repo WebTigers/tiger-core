@@ -139,18 +139,29 @@ class Tiger_Agent_Provider_Anthropic implements Tiger_Agent_Provider_Adapter
         foreach ($messages as $m) {
             $role    = (($m['role'] ?? 'user') === 'assistant') ? 'assistant' : 'user';
             $content = (string) ($m['content'] ?? '');
-            if ($content === '') {
+            $images  = ($role === 'user') ? (array) ($m['images'] ?? []) : [];   // images only on user turns
+            if ($content === '' && !$images) {
                 continue;
             }
+            // Content is a block array (a superset of a plain string) so text + images ride together.
+            $blocks = [];
+            if ($content !== '') { $blocks[] = ['type' => 'text', 'text' => $content]; }
+            foreach ($images as $img) {
+                $data = (string) ($img['data'] ?? '');
+                if ($data === '') { continue; }
+                $blocks[] = ['type' => 'image', 'source' => [
+                    'type' => 'base64', 'media_type' => (string) ($img['mime'] ?? 'image/png'), 'data' => $data,
+                ]];
+            }
             if ($out && $out[count($out) - 1]['role'] === $role) {
-                $out[count($out) - 1]['content'] .= "\n\n" . $content;
+                $out[count($out) - 1]['content'] = array_merge((array) $out[count($out) - 1]['content'], $blocks);
             } else {
-                $out[] = ['role' => $role, 'content' => $content];
+                $out[] = ['role' => $role, 'content' => $blocks];
             }
         }
         // The API requires the first message to be a user turn.
         if ($out && $out[0]['role'] !== 'user') {
-            array_unshift($out, ['role' => 'user', 'content' => '(continue)']);
+            array_unshift($out, ['role' => 'user', 'content' => [['type' => 'text', 'text' => '(continue)']]]);
         }
         return $out;
     }

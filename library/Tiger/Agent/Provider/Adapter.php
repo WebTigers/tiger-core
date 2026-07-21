@@ -11,7 +11,10 @@
  * about the response contract, the Forge, or the ACL — the Loop owns all of that. Swapping
  * providers therefore changes the wire format only, never how Tiger reasons about a turn.
  *
- * Messages are the provider-neutral shape `[{role:'user'|'assistant', content:'…'}, …]`.
+ * Messages are the provider-neutral shape `[{role:'user'|'assistant', content:'…'}, …]`. A `user`
+ * turn MAY additionally carry `images: [{mime:'image/png', data:'<base64>'}, …]` — adapters whose
+ * model is multimodal render them in the provider's native image format; text-only adapters ignore
+ * them. Use Tiger_Agent_Provider_Factory::supportsVision() to decide before attaching images.
  *
  * @api
  */

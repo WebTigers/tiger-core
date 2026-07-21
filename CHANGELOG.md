@@ -6,6 +6,22 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+## [0.36.0-beta] — 2026-07-21
+
+### Added
+- **Vision (multimodal) input for AI providers.** A `user` turn may now carry
+  `images: [{mime, data:<base64>}, …]`; each adapter renders them in its native wire format — Anthropic
+  `image` blocks, the OpenAI-compatible `image_url` content parts, and Gemini `inlineData`. Text-only
+  turns are byte-identical to before, so this is fully backward-compatible.
+  `Tiger_Agent_Provider_Factory::supportsVision($provider, $model)` reports capability — deliberately
+  conservative (unknown model ⇒ `false`) so callers degrade to a caption/OCR pass rather than sending an
+  image to a text-only model. Consumed by TigerRoundtable to choose native-image vs. caption per room.
+
+### Fixed
+- **OpenAI's newer models rejected `max_tokens`.** `Tiger_Agent_Provider_OpenAi` now sends
+  `max_completion_tokens` (required by gpt-5 / o-series); the OpenAI-compatible base still defaults to
+  `max_tokens` via an overridable `_maxTokensField()`.
+
 ## [0.19.0-beta] — 2026-07-17
 
 ### Added
