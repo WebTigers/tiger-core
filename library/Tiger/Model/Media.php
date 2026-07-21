@@ -224,6 +224,63 @@ class Tiger_Model_Media extends Tiger_Model_Table
     }
 
     /**
+     * Full-text search of the media library (the seam behind the Tiger_Search "media" provider).
+     *
+     * MATCH…AGAINST the ft_media index (filename/title/caption/description), with a LIKE fallback for
+     * short terms / an unsynced index. Visibility is enforced: **public + clean** media to everyone;
+     * **private + clean** media only to a signed-in caller in the owning org. Unscanned/infected/
+     * rejected/in-review items are never surfaced.
+     *
+     * @param  string $term the query
+     * @param  array  $ctx  Tiger_Search context: role, orgId, locale, limit
+     * @param  int    $limit max rows (clamped 1..50)
+     * @return array   matching rows (media_id, disk, storage_key, visibility, kind, mime_type, variants,
+     *                 filename, title, caption, description, score)
+     */
+    public function search($term, array $ctx, $limit = 20)
+    {
+        $term = trim((string) $term);
+        if ($term === '') { return []; }
+        $db    = $this->getAdapter();
+        $limit = max(1, min(50, (int) $limit));
+        $role  = (string) ($ctx['role'] ?? 'guest');
+        $orgId = (string) ($ctx['orgId'] ?? '');
+
+        $gate = function (Zend_Db_Select $select) use ($db, $role, $orgId) {
+            $select->where('deleted = ?', 0)
+                   ->where('scan_status IN (?)', [self::SCAN_CLEAN, self::SCAN_APPROVED, self::SCAN_SKIPPED]);
+            // Public media is visible to everyone; private only to a signed-in caller in the owning org.
+            $pub = $db->quoteInto('visibility = ?', self::VISIBILITY_PUBLIC);
+            if ($role !== 'guest' && $orgId !== '') {
+                $priv = '(' . $db->quoteInto('visibility = ?', self::VISIBILITY_PRIVATE)
+                      . ' AND ' . $db->quoteInto('org_id = ?', $orgId) . ')';
+                $select->where('(' . $pub . ' OR ' . $priv . ')');
+            } else {
+                $select->where($pub);
+            }
+            return $select;
+        };
+        $cols = ['media_id', 'org_id', 'disk', 'storage_key', 'visibility', 'kind', 'mime_type',
+                 'variants', 'filename', 'title', 'caption', 'description'];
+
+        // 1) FULLTEXT
+        $match = 'MATCH(`filename`,`title`,`caption`,`description`) AGAINST (' . $db->quote($term) . ' IN NATURAL LANGUAGE MODE)';
+        $ft = $db->select()->from($this->_name, $cols + ['score' => new Zend_Db_Expr($match)]);
+        $gate($ft)->where($match)->order('score DESC')->limit($limit);
+        $rows = $db->fetchAll($ft);
+        if ($rows) { return $rows; }
+
+        // 2) LIKE fallback across the same text columns.
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term) . '%';
+        $lk = $db->select()->from($this->_name, $cols + ['score' => new Zend_Db_Expr('0')]);
+        $gate($lk)->where(
+            $db->quoteInto('filename LIKE ?', $like) . ' OR ' . $db->quoteInto('title LIKE ?', $like)
+            . ' OR ' . $db->quoteInto('caption LIKE ?', $like) . ' OR ' . $db->quoteInto('description LIKE ?', $like)
+        )->order('created_at DESC')->limit($limit);
+        return $db->fetchAll($lk);
+    }
+
+    /**
      * A usable URL for a media item (or one of its variants): the adapter's direct/CDN URL
      * for public objects, else the ACL-checked streamer route. Accepts a row array.
      *

@@ -9,6 +9,36 @@
  */
 class Media_Bootstrap extends Zend_Application_Module_Bootstrap
 {
+    /** Register the "media" search provider — uploaded files surface in site search (Tiger_Search). */
+    protected function _initSearchProvider()
+    {
+        if (!class_exists('Tiger_Search')) {
+            return;
+        }
+        Tiger_Search::register([
+            'key'    => 'media',
+            'label'  => 'Media',
+            'icon'   => 'fa-photo-film',
+            'weight' => 30,
+            'search' => function ($term, $ctx) {
+                $model = new Tiger_Model_Media();
+                $out   = [];
+                foreach ($model->search($term, $ctx, $ctx['limit']) as $r) {
+                    $title   = trim((string) $r['title']) !== '' ? $r['title'] : $r['filename'];
+                    $snippet = Tiger_Search::snippet((string) ($r['description'] ?: $r['caption']), $term);
+                    if ($snippet === '') { $snippet = (string) $r['filename']; }
+                    $out[] = [
+                        'title'   => (string) $title,
+                        'url'     => $model->url($r),
+                        'snippet' => $snippet,
+                        'score'   => (float) $r['score'],
+                    ];
+                }
+                return $out;
+            },
+        ]);
+    }
+
     /** Register the Media settings screen into the shared admin Settings tree (ACL-filtered). */
     protected function _initAdminSettings()
     {
