@@ -8,4 +8,7 @@ class Tiger_Agent_Provider_OpenAi extends Tiger_Agent_Provider_OpenAiCompatible
 {
     protected function _base()        { return 'https://api.openai.com/v1'; }
     protected function _providerKey() { return 'openai'; }
+
+    /** OpenAI's gpt-5 / o-series reject `max_tokens` and require `max_completion_tokens`. */
+    protected function _maxTokensField() { return 'max_completion_tokens'; }
 }

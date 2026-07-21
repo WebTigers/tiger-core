@@ -99,12 +99,21 @@ class Tiger_Agent_Provider_Gemini implements Tiger_Agent_Provider_Adapter
         $out = [];
         foreach ($messages as $m) {
             $content = (string) ($m['content'] ?? '');
-            if ($content === '') { continue; }
-            $role = (($m['role'] ?? 'user') === 'assistant') ? 'model' : 'user';
+            $role    = (($m['role'] ?? 'user') === 'assistant') ? 'model' : 'user';
+            $images  = ($role === 'user') ? (array) ($m['images'] ?? []) : [];   // images only on user turns
+            if ($content === '' && !$images) { continue; }
+
+            $parts = [];
+            if ($content !== '') { $parts[] = ['text' => $content]; }
+            foreach ($images as $img) {
+                $data = (string) ($img['data'] ?? '');
+                if ($data === '') { continue; }
+                $parts[] = ['inlineData' => ['mimeType' => (string) ($img['mime'] ?? 'image/png'), 'data' => $data]];
+            }
             if ($out && $out[count($out) - 1]['role'] === $role) {
-                $out[count($out) - 1]['parts'][0]['text'] .= "\n\n" . $content;
+                $out[count($out) - 1]['parts'] = array_merge($out[count($out) - 1]['parts'], $parts);
             } else {
-                $out[] = ['role' => $role, 'parts' => [['text' => $content]]];
+                $out[] = ['role' => $role, 'parts' => $parts];
             }
         }
         if ($out && $out[0]['role'] !== 'user') {

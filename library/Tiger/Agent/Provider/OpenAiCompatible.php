@@ -30,6 +30,13 @@ abstract class Tiger_Agent_Provider_OpenAiCompatible implements Tiger_Agent_Prov
         return ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey];
     }
 
+    /** The output-token limit field. Most OpenAI-compatible APIs use `max_tokens`; OpenAI's own newer
+     *  models (gpt-5 / o-series) reject it and require `max_completion_tokens` — overridden per adapter. */
+    protected function _maxTokensField()
+    {
+        return 'max_tokens';
+    }
+
     /**
      * Run one completion against a chat/completions endpoint.
      *
@@ -46,15 +53,30 @@ abstract class Tiger_Agent_Provider_OpenAiCompatible implements Tiger_Agent_Prov
         if ((string) $system !== '') { $turns[] = ['role' => 'system', 'content' => (string) $system]; }
         foreach ($messages as $m) {
             $content = (string) ($m['content'] ?? '');
-            if ($content === '') { continue; }
-            $role = (($m['role'] ?? 'user') === 'assistant') ? 'assistant' : 'user';
-            $turns[] = ['role' => $role, 'content' => $content];
+            $role    = (($m['role'] ?? 'user') === 'assistant') ? 'assistant' : 'user';
+            $images  = ($role === 'user') ? (array) ($m['images'] ?? []) : [];   // images only on user turns
+            if ($content === '' && !$images) { continue; }
+
+            if ($images) {
+                // Multimodal turn: content becomes an array of parts (OpenAI vision wire format).
+                $parts = [];
+                if ($content !== '') { $parts[] = ['type' => 'text', 'text' => $content]; }
+                foreach ($images as $img) {
+                    $data = (string) ($img['data'] ?? '');
+                    if ($data === '') { continue; }
+                    $mime = (string) ($img['mime'] ?? 'image/png');
+                    $parts[] = ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mime . ';base64,' . $data]];
+                }
+                $turns[] = ['role' => $role, 'content' => $parts];
+            } else {
+                $turns[] = ['role' => $role, 'content' => $content];
+            }
         }
 
         $body = $this->_post($this->_base() . '/chat/completions', [
-            'model'      => $model,
-            'messages'   => $turns,
-            'max_tokens' => self::MAX_TOKENS,
+            'model'                  => $model,
+            'messages'               => $turns,
+            $this->_maxTokensField() => self::MAX_TOKENS,
         ], $this->_headers($apiKey));
 
         $text = (string) ($body['choices'][0]['message']['content'] ?? '');
