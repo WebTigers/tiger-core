@@ -20,6 +20,13 @@ class Signup_Service_Signup extends Tiger_Service_Service
 {
     const VERIFY_TTL = 86400;   // 24h
 
+    /** The admin feature flag: is the public signup form turned off? Lives in the lazy option table
+     *  (checked only on the signup path — not eager config). Default: enabled. */
+    public static function isPublicDisabled(): bool
+    {
+        return (new Tiger_Model_Option())->get(Tiger_Model_Option::SCOPE_GLOBAL, '', 'signup.public_disabled') === '1';
+    }
+
     /**
      * Validate and create the tenant graph (org/user/membership/address/contact), then email a verification link.
      *
@@ -30,6 +37,8 @@ class Signup_Service_Signup extends Tiger_Service_Service
     {
         // No in-service gate needed: the /api ServiceFactory already ACL-authorized this call
         // (modules/signup/configs/acl.ini allows guest on Signup_Service_Signup).
+        // But if an admin has disabled public signup, refuse — the flag must not be cosmetic.
+        if (self::isPublicDisabled()) { $this->_error('signup.disabled'); return; }
         $form = new Signup_Form_Signup();
         if (!$form->isValid($params)) { $this->_formErrors($form); return; }
         $v = $form->getValues();

@@ -47,6 +47,9 @@ $hasSecret = !empty($this->hasSecret);
         <button class="nav-link" id="tab-cookies-btn" data-bs-toggle="tab" data-bs-target="#tab-cookies" type="button" role="tab"><i class="fa-solid fa-cookie-bite me-2"></i>Cookies</button>
     </li>
     <?php endif; ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-signup-btn" data-bs-toggle="tab" data-bs-target="#tab-signup" type="button" role="tab"><i class="fa-solid fa-user-plus me-2"></i>Signup</button>
+    </li>
 </ul>
 
 <form id="sys-settings-form" onsubmit="return false;" novalidate>
@@ -322,6 +325,26 @@ $hasSecret = !empty($this->hasSecret);
         </div>
         <?php endif; ?>
 
+        <!-- Signup ------------------------------------------------------------->
+        <div class="tab-pane fade" id="tab-signup" role="tabpanel">
+            <input type="hidden" name="signup_settings" value="1">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card">
+                        <div class="card-header fw-semibold"><i class="fa-solid fa-user-plus me-2"></i>Public signup</div>
+                        <div class="card-body">
+                            <p class="text-body-secondary small">The public <code>/signup</code> form lets anyone create an account (a new org + owner). Turn it off for an invite-only or single-tenant install — the page then returns a 404 and the API refuses new signups. Existing accounts and email verification are unaffected.</p>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="set-signup-disabled" name="signup_disabled" value="1" <?= !empty($this->signupDisabled) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="set-signup-disabled">Disable public signup form</label>
+                                <div class="form-text">Default: off (public signup is open). When on, <code>/signup</code> 404s.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </form>
 
@@ -336,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function () {
         form.querySelectorAll('.is-invalid').forEach(function (e) { e.classList.remove('is-invalid'); });
         var fd = new URLSearchParams(new FormData(form));
         // Unchecked switches don't submit — send explicit "0" so a toggle-off persists.
-        ['autologout_enabled', 'recaptcha_enabled', 'recaptcha_fail_open', 'recaptcha_hide_badge'].forEach(function (k) {
+        ['autologout_enabled', 'recaptcha_enabled', 'recaptcha_fail_open', 'recaptcha_hide_badge', 'signup_disabled'].forEach(function (k) {
             if (!fd.has(k)) { fd.set(k, '0'); }
         });
         fd.set('module', 'system'); fd.set('service', 'settings'); fd.set('method', 'save');

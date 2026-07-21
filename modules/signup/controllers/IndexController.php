@@ -28,6 +28,11 @@ class Signup_IndexController extends Tiger_Controller_Action
      */
     public function indexAction()
     {
+        // Public signup can be turned off (Settings → System → Signup). When it is, the form simply
+        // doesn't exist — a clean themed 404 (ErrorController catches the 404-coded action exception).
+        if (Signup_Service_Signup::isPublicDisabled()) {
+            throw new Zend_Controller_Action_Exception('Not Found', 404);
+        }
         if (Zend_Auth::getInstance()->hasIdentity()) {
             $this->_helper->redirector->gotoUrl('/admin');
             return;

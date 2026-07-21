@@ -60,5 +60,9 @@ class System_SettingsController extends Tiger_Controller_Admin_Action
         $this->view->location  = (class_exists('Tiger_Location') && method_exists('Tiger_Location', 'settings'))
             ? Tiger_Location::settings() : null;
         $this->view->consent   = class_exists('Tiger_Consent') ? Tiger_Consent::settings() : null;
+        // Signup: the "disable public signup" flag lives in the lazy option table (checked only on
+        // the signup route, so it doesn't belong in eager config).
+        $this->view->signupDisabled = (new Tiger_Model_Option())
+            ->get(Tiger_Model_Option::SCOPE_GLOBAL, '', 'signup.public_disabled') === '1';
     }
 }

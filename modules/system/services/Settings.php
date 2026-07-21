@@ -74,6 +74,15 @@ class System_Service_Settings extends Tiger_Service_Service
                 ]);
             }
 
+            // Signup tab — the public-signup kill switch. Lives in the lazy option table (checked only
+            // on the signup route, so it's not eager config). Absent checkbox = off.
+            if (array_key_exists('signup_settings', $params)) {
+                (new Tiger_Model_Option())->set(
+                    Tiger_Model_Option::SCOPE_GLOBAL, '', 'signup.public_disabled',
+                    !empty($params['signup_disabled']) ? '1' : '0'
+                );
+            }
+
             $this->_success([], 'system.settings.saved', '/system/settings');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
