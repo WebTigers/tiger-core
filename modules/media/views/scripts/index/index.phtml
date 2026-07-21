@@ -106,6 +106,11 @@
         <div class="mb-3">
           <label class="form-label" for="media-edit-alt">Alt text</label>
           <input type="text" class="form-control" id="media-edit-alt" maxlength="255">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="media-edit-description">Description</label>
+          <textarea class="form-control" id="media-edit-description" rows="3"></textarea>
+          <div class="form-text">A longer, searchable description — surfaces this file in site search. Can be auto-filled from image recognition (AWS Rekognition) when enabled.</div>
           <div class="form-text">Describes the image for screen readers &amp; SEO.</div>
         </div>
         <div class="mb-0">
@@ -144,6 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
              + ' data-title="'+esc(row.title||'')+'"'
              + ' data-caption="'+esc(row.caption||'')+'"'
              + ' data-alt="'+esc(row.alt_text||'')+'"'
+             + ' data-description="'+esc(row.description||'')+'"'
              + ' data-vis="'+esc(row.visibility||'public')+'"'
              + ' data-filename="'+esc(row.filename||'')+'"'
              + ' data-can-delete="'+(row.can_delete?1:0)+'"';
@@ -290,6 +296,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('media-edit-title').value   = b.getAttribute('data-title') || '';
         document.getElementById('media-edit-caption').value = b.getAttribute('data-caption') || '';
         document.getElementById('media-edit-alt').value     = b.getAttribute('data-alt') || '';
+        document.getElementById('media-edit-description').value = b.getAttribute('data-description') || '';
         document.getElementById('media-edit-vis').value     = b.getAttribute('data-vis') || 'public';
         document.getElementById('media-edit-name').textContent = b.getAttribute('data-filename') || '';
         document.getElementById('media-edit-delete').hidden = b.getAttribute('data-can-delete') !== '1';
@@ -303,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
             title:      document.getElementById('media-edit-title').value,
             caption:    document.getElementById('media-edit-caption').value,
             alt_text:   document.getElementById('media-edit-alt').value,
+            description: document.getElementById('media-edit-description').value,
             visibility: document.getElementById('media-edit-vis').value });
         TigerButton.run(this, function(){
             return fetch('/api', { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:body }).then(function(r){ return r.json(); });

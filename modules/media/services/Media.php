@@ -162,7 +162,7 @@ class Media_Service_Media extends Tiger_Service_Service
         if ($id === '' || !$model->findById($id)) { $this->_error('core.api.error.general'); return; }
 
         $data = [];
-        foreach (['title', 'caption', 'alt_text'] as $f) {
+        foreach (['title', 'caption', 'alt_text', 'description'] as $f) {
             if (array_key_exists($f, $params)) { $data[$f] = trim((string) $params[$f]); }
         }
         if (isset($params['visibility'])) {
@@ -301,6 +301,7 @@ class Media_Service_Media extends Tiger_Service_Service
             'title'      => $m['title'],
             'caption'    => $m['caption'] ?? null,
             'alt_text'   => $m['alt_text'] ?? null,
+            'description'=> $m['description'] ?? null,
             'visibility' => $m['visibility'],
             'width'      => isset($m['width']) ? (int) $m['width'] : null,
             'height'     => isset($m['height']) ? (int) $m['height'] : null,
