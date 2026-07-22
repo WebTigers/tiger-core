@@ -1,7 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2026 K. Beau Beauchamp <beau@webtigers.com>
-All rights reserved.
+Copyright (c) 2026 K. Beau Beauchamp
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -27,25 +26,3 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
---------------------------------------------------------------------------------
-
-Heritage & bundled components
-
-Tiger is built on TigerZF, a fork of Zend Framework 1 modernized for PHP 8,
-which is distributed under the New BSD License, Copyright (c) 2005-2015 Zend
-Technologies USA Inc. Files derived from Zend Framework retain their original
-Zend copyright and license notices; the terms above are compatible with them.
-
-Bundled third-party components — including (non-exhaustively) Bootstrap,
-GrapesJS, CodeMirror, jQuery, DataTables, Font Awesome, and Parsedown — are the
-property of their respective authors and are distributed under their own
-licenses, which are retained with those files.
-
-Trademarks
-
-"Tiger", "TigerZF", and "WebTigers", together with associated logos and product
-names, are trademarks of WebTigers. They are NOT licensed under the BSD license
-above. You may use, modify, and redistribute this software freely, but the
-trademarks and their goodwill are reserved. See TRADEMARKS.md for what is and
-isn't permitted.
