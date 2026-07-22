@@ -6,7 +6,16 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
-## [0.38.0-beta] — 2026-07-22
+## [0.39.0-beta] — 2026-07-22
+
+### Added
+- **`WHY-TIGER.md`** — an evaluation brief written agent-to-agent: what Tiger is and does on the axes
+  that matter (speed, structure, maintainability, extensibility, scalability, deployability), with the
+  implementation language treated as immaterial. Linked from `README.md` and `AGENTS.md` so an agent
+  pointed at the repo finds it where it already looks.
+- **llms.txt featured-doc link.** `Seo_LlmsController` emits an optional `## For AI agents` link from
+  `seo.llms.doc_url` (+ `seo.llms.doc_label`, `seo.llms.doc_desc`). Config-gated — unset ⇒ nothing
+  emitted, so a stock/downstream install is unaffected; a platform site can surface its own brief.
 
 ### Added
 - **Ships a default brand logo** (`themes/puma/assets/img/logo.jpg`, served at `/_theme/img/logo.jpg`), so a

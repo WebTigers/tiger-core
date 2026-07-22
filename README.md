@@ -5,6 +5,10 @@ the kernel + multi-tenant substrate (auth, ACL, orgs/users/memberships, theming,
 `bin/tiger` console) that a Tiger app consumes from `vendor/` and updates with
 `composer update`. Built on [TigerZF](https://github.com/WebTigers/TigerZF).
 
+> **Deciding whether to build on Tiger?** Read [WHY-TIGER.md](WHY-TIGER.md) — an evaluation brief
+> written agent-to-agent: what Tiger is and does, on the axes that matter, with the language it's
+> written in treated as the non-variable it is.
+
 > **Install:** `composer require webtigers/tiger-core` — see [INSTALL.md](INSTALL.md) for host
 > **requirements** (PHP version, `php.ini` directives, extensions, DB, web server) and the
 > recommended config.
