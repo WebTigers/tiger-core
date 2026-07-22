@@ -6,7 +6,15 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
-## [0.37.0-beta] — 2026-07-22
+## [0.38.0-beta] — 2026-07-22
+
+### Added
+- **Ships a default brand logo** (`themes/puma/assets/img/logo.jpg`, served at `/_theme/img/logo.jpg`), so a
+  stock install has an Organization logo for structured data / share cards without uploading one. Point
+  `tiger.site.logo` at it (a full URL) or override with your own.
+- **Organization + WebSite JSON-LD now carry a `description`** — from `tiger.site.description`, falling back
+  to `tiger.site.tagline`. `Seo_Service_Schema` emitted name/url/logo/sameAs but never a site description;
+  now the site graph does, so crawlers get a one-line "what this is."
 
 ### Changed
 - **CMS pages can now override shipped routes.** `Tiger_Controller_Plugin_PageDispatch` no longer only

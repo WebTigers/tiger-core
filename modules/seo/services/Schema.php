@@ -118,6 +118,12 @@ class Seo_Service_Schema
             'url'   => $base . '/',
         ];
 
+        // Description: an explicit tiger.site.description, else the site tagline.
+        $desc = trim((string) self::_config('site.description', self::_config('site.tagline', '')));
+        if ($desc !== '') {
+            $node['description'] = $desc;
+        }
+
         // Logo: the Site Identity logo (tiger.site.logo), else the SEO share image (tiger.seo.og_image).
         $logo = self::_image(self::_config('site.logo', self::_config('seo.og_image', '')), $request);
         if ($logo) {
@@ -147,6 +153,12 @@ class Seo_Service_Schema
             'name'      => self::_siteName(),
             'publisher' => ['@id' => $base . '/#organization'],
         ];
+
+        // Description: an explicit tiger.site.description, else the site tagline.
+        $desc = trim((string) self::_config('site.description', self::_config('site.tagline', '')));
+        if ($desc !== '') {
+            $node['description'] = $desc;
+        }
 
         // Sitelinks searchbox — only when the operator has a public search URL template configured.
         // e.g. tiger.seo.schema.search_url = "/search?q={search_term_string}"
