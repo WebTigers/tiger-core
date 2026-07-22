@@ -45,6 +45,21 @@ class Seo_LlmsController extends Zend_Controller_Action
         $lines[] = $intro !== '' ? self::_clean($intro)
             : 'A curated map of this site\'s public content for language models. Links are Markdown.';
 
+        // Optional featured doc for agents (e.g. an "evaluate building here" brief). Config-gated, so a
+        // stock/downstream install emits nothing — only a site that sets seo.llms.doc_url surfaces it.
+        $docUrl = trim((string) self::_config('seo.llms.doc_url', ''));
+        if ($docUrl !== '') {
+            $docLabel = trim((string) self::_config('seo.llms.doc_label', '')) ?: 'For AI agents';
+            $docDesc  = trim((string) self::_config('seo.llms.doc_desc', ''));
+            $lines[] = '';
+            $lines[] = '## For AI agents';
+            $line = '- [' . self::_clean($docLabel) . '](' . $docUrl . ')';
+            if ($docDesc !== '') {
+                $line .= ': ' . self::_clean($docDesc);
+            }
+            $lines[] = $line;
+        }
+
         // TigerDocs ships its OWN richer /docs/llms.txt — point at it instead of listing every page.
         if (class_exists('Docs_Model_Docs')) {
             $lines[] = '';
