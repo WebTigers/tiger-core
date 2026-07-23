@@ -5,11 +5,31 @@
  * PUMA public footer (MIT, Tiger-original). Rendered in the public layout scope.
  */
 $tigerVersion = $this->tigerVersion ?? (class_exists('Tiger_Version') ? Tiger_Version::VERSION : '');
+
+// Optional legal links, driven by the config tier (live-override) so they survive core updates
+// and never render on an install that hasn't set them: tiger.footer.privacy_url / .terms_url.
+$footerCfg = static function (string $key): ?string {
+    if (!Zend_Registry::isRegistered('Zend_Config')) { return null; }
+    $node = Zend_Registry::get('Zend_Config')->get('tiger');
+    foreach (['footer', $key] as $seg) {
+        if (!($node instanceof Zend_Config)) { return null; }
+        $node = $node->get($seg);
+    }
+    return (is_string($node) && $node !== '') ? $node : null;
+};
+$privacyUrl = $footerCfg('privacy_url');
+$termsUrl   = $footerCfg('terms_url');
 ?>
 <footer class="border-top mt-5 py-4" style="background: var(--bs-tertiary-bg);">
     <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2 small text-secondary">
         <span><i class="fa-solid fa-paw text-primary me-1"></i> <strong>Tiger</strong> — a 1-click SaaS platform on TigerZF.</span>
         <span class="d-flex align-items-center gap-3">
+<?php if ($privacyUrl): ?>
+            <a href="<?= $this->escape($privacyUrl) ?>" class="link-secondary text-decoration-none">Privacy</a>
+<?php endif; ?>
+<?php if ($termsUrl): ?>
+            <a href="<?= $this->escape($termsUrl) ?>" class="link-secondary text-decoration-none">Terms</a>
+<?php endif; ?>
             <a href="https://github.com/WebTigers/Tiger" class="link-secondary text-decoration-none" target="_blank" rel="noopener">GitHub</a>
             <a href="/" class="link-secondary text-decoration-none">Home</a>
 <?php if ($tigerVersion): ?>
