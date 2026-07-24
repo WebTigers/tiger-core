@@ -58,6 +58,14 @@ $includePaths = [
 ];
 set_include_path(implode(PATH_SEPARATOR, array_filter($includePaths)));
 
+// Never send real mail in tests. Tiger_Mail otherwise resolves PHP mail()/sendmail (which fails in
+// CI with no MTA — the swallow-and-error_log path then prints during a test and PHPUnit flags it
+// "risky"). Point the wrapper's default transport at a File transport writing to a throwaway dir, so
+// every send() captures-instead-of-delivers and never fails. (A per-call transport still overrides.)
+$mailDir = sys_get_temp_dir() . '/tiger-test-mail';
+if (!is_dir($mailDir)) { @mkdir($mailDir, 0777, true); }
+Tiger_Mail::setDefaultTransport(new Zend_Mail_Transport_File(['path' => $mailDir]));
+
 // --- Module class autoloader (ZF1 module convention) ------------------------------------------------
 // A module's classes (`Signup_Service_Signup`, `Signup_Form_Signup`, `Access_UserController`, …) live at
 // `modules/<mod>/<types>/<Name>.php` and are NOT on the composer/PSR-0 path the app resolves via ZF1's
