@@ -82,3 +82,69 @@ jobs:
 
       - name: Integration suite (real MariaDB schema)
         run: composer test:integration
+
+  # Full suite under pcov → a coverage summary on every PR (report-only; we ratchet MIN_COVERAGE up as
+  # the backfill climbs toward the 90% target). Separate from the gating jobs so pcov never slows them.
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: tiger_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    env:
+      TIGER_TEST_DB_HOST: 127.0.0.1
+      TIGER_TEST_DB_PORT: 3306
+      TIGER_TEST_DB_NAME: tiger_test
+      TIGER_TEST_DB_USER: root
+      TIGER_TEST_DB_PASS: root
+      # The floor we enforce today (report-only warning above it). Bump this as coverage climbs so it
+      # can only go UP — the ratchet that gets us to 90% without ever regressing.
+      MIN_COVERAGE: '18'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP (pcov)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_mysql, curl, zip, gd, sodium, apcu
+          ini-values: apc.enable_cli=1, memory_limit=512M
+          tools: composer:v2
+          coverage: pcov
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Full suite with coverage
+        run: |
+          vendor/bin/phpunit --coverage-text=coverage.txt --coverage-clover=clover.xml --colors=never
+
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          # The overall line-coverage % from Clover (covered / total elements).
+          PCT=$(php -r '
+            $x = simplexml_load_file("clover.xml");
+            $m = $x->project->metrics;
+            $c = (int)$m["coveredstatements"]; $t = (int)$m["statements"];
+            printf("%.1f", $t ? 100*$c/$t : 0);
+          ')
+          echo "## Code coverage: ${PCT}% lines" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Floor (MIN_COVERAGE): ${MIN_COVERAGE}% — target: 90%." >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          sed -n '/Summary:/,/^$/p' coverage.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Line coverage: ${PCT}% (floor ${MIN_COVERAGE}%, target 90%)"
+          # Report-only fail guard against the floor, so coverage can never silently regress below it.
+          php -r 'exit((float)$argv[1] + 1e-9 < (float)$argv[2] ? 1 : 0);' "$PCT" "$MIN_COVERAGE" \
+            || { echo "::error::Coverage ${PCT}% fell below the ${MIN_COVERAGE}% floor"; exit 1; }

@@ -121,7 +121,9 @@ abstract class IntegrationTestCase extends TestCase
     private static function adapter(string $name): Zend_Db_Adapter_Abstract
     {
         if (self::$sharedDb === null) {
-            self::$sharedDb = Zend_Db::factory('Pdo_Mysql', [
+            // The savepoint-aware adapter (not the stock one) so a service's own `_transaction()` nests
+            // inside the per-test outer transaction instead of throwing — see SavepointAdapter.
+            self::$sharedDb = new SavepointAdapter([
                 'host'     => getenv('TIGER_TEST_DB_HOST') ?: '127.0.0.1',
                 'port'     => (int) (getenv('TIGER_TEST_DB_PORT') ?: 3306),
                 'dbname'   => $name,
