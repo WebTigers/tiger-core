@@ -486,11 +486,38 @@ Plus **~31 tiger-core migrations** — one "migrate up→down on a clean DB" int
    on `ZipArchive`/`PharData` flattening `../`; the shell fallbacks (`unzip`/`tar`) also refuse traversal.
    No bug today; `InstallerExtractTest` pins the escape-proof invariant so a future extractor swap fails loud.
 
+**2026-07-24 — Wave 2 (integration/DB model spine, +102 tests → ~136 unit / ~110 integration).** 4 parallel
+agents, each on an isolated DB, collected + verified together (111 integration tests green on one DB):
+- ✅ **Data-layer base** — `Model_Table` (v7/v4 mint, actor+org stamp immutability, soft-delete +
+  `activeSelect`/`findById` exclusion), `Config`/`Option` scope isolation, `Db_Migrator`
+  (ordering/idempotency/apply-after-success/rollback). *(§6.1)*
+- ✅ **Auth models** — `AuthChallenge`, `UserCredential` (pepper-migration, TOTP-at-rest, lockout, recovery),
+  `User` (verified-factor identity), `PasswordHistory`, `Policy_Password`. *(§6.1)*
+- ✅ **Content/CMS** — `Page` (org cascade + publish gate), `Media` (private-URL scoping), `Menu`, `Org`,
+  `Page/CodeVersion`. *(§6.1)*
+- ✅ **ACL/module/session** — `Acl{Resource,Role,Rule}` (deleted-rule exclusion), `Module` (`inactiveSlugs`),
+  `Login`, `Session` (`gc`), `Translation`. *(§6.1)*
+
+**FIXED (a Wave-2 test surfaced it):** `Tiger_Model_PasswordHistory::recentForUser()` ignored its `$limit`
+(a Select passed to `fetchAll()` drops ZF1's `$count` arg → returned ALL retained rows; stricter-than-
+configured, not a hole). Limit moved onto the Select; regression test pins it.
+
+**Findings (tracked, unchanged):**
+4. **ACL loaders filter `deleted=0` only, not `status`** (`Model/Table.php` `activeSelect()`): a
+   `status='inactive'` acl_rule still loads + affects decisions. Fine if soft-delete is the only intended
+   "off", latent if `status` is ever expected to disable.
+5. **`AuthChallenge::redeem()` single-use is a non-atomic TOCTOU** — check-then-consume + a read-modify-write
+   `attempts` counter; safe single-threaded, wants a conditional `UPDATE … WHERE consumed_at IS NULL` (+
+   affected-rows) under concurrent load. (Same shape worth auditing in other redeem/counter paths.)
+6. v7 UUIDs collide within a millisecond (first 12 hex = ms) — the `substr(v7,0,12)` id idiom in tests is
+   latently flaky; use `bin2hex(random_bytes())` for unique fixture values.
+
 ### Next waves (unwritten — priority order per §5/§8)
-- **Wave 2 — integration/DB P1 spine:** `Model_Table` (tenant stamp + soft-delete), `Model_{AuthChallenge,
-  UserCredential,User}`, `Service_Authentication`, the module `/api` services (`Signup`, `Code`, `System_Modules`).
-  Single shared DB → run coordinated, not a wide fan-out.
-- **Wave 3 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
+- **Wave 3 — the `/api` service + auth-service spine:** needs a base enhancement first — add `login()` +
+  `installAcl()` helpers to `IntegrationTestCase` (identity + ACL scaffolding; the tiger-core base lacks
+  them). Then `Service_Authentication` (login/2FA/reset), `Signup_Service_Signup` (guest mass-create),
+  `System_Service_Modules` (untrusted install), `Code_Service_Code` (RCE lint gate). + `Tiger_Controller_Plugin_Authorization`.
+- **Wave 4 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
   `RateLimit`/`Challenge` — highest-value non-core), TigerDocs, then the commerce module repos.
 
 ---
