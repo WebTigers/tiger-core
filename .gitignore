@@ -3,6 +3,12 @@
 .DS_Store
 .idea/
 
+# Test + runtime artifacts (never committed): the PHPUnit result cache, and the code runtime's
+# compiled-bundle cache + generated public assets (Tiger_Code_Runtime writes these on compile).
+/.phpunit.cache/
+/storage/
+/public/_code/
+
 # Third-party/commercial theme modules are their OWN (private) repos, never inside tiger-core.
 # They install into the app modules dir (application/modules/theme-<name>/), not here.
 /modules/theme-*/

@@ -512,11 +512,57 @@ configured, not a hole). Limit moved onto the Select; regression test pins it.
 6. v7 UUIDs collide within a millisecond (first 12 hex = ms) — the `substr(v7,0,12)` id idiom in tests is
    latently flaky; use `bin2hex(random_bytes())` for unique fixture values.
 
+### Wave 3 — the `/api` service + auth-service spine (LANDED 2026-07-24)
+**Result:** 4 agents → **135 new tests** collected + verified together on one DB → the combined integration
+suite is **250 tests / 845 assertions green** (was 116). Files: `Signup/SignupServiceTest` (19),
+`Code/{RuntimeTest,CodeServiceTest}` + `System/{ModulesServiceTest,UpdatesServiceTest}` + `License/CheckerTest`
+(35), `Access/{UserServiceTest,OrgServiceTest}` + `Cms/{PageServiceTest,MenuServiceTest,SettingsServiceTest}`
+(55), `Service/AuthenticationTest` (26). Auth used Zend's `Zend_Session::$_unitTestEnabled` array-backed mode
+to exercise the REAL session/lock/2FA/return-to paths under CLI (not stubs).
+
+**Bug fixed at collection (a test surfaced it):** `Signup_Service_Signup::create()` committed the tenant graph
+in `_transaction()` and only THEN issued the `email_verify` challenge + sent mail — with the challenge
+`issue()` *outside* the mail try/catch. A throw there unwound into `create()`'s catch → `result=0` **on a
+fully-committed account** (unusable, and un-recreatable behind email-uniqueness). Fix: issue the challenge
+INSIDE the transaction (atomic with the user — a challenge-write failure now rolls the whole signup back);
+`_sendVerification` reduced to best-effort post-commit mail. (Same class of "notification failure fails a
+committed write" worth auditing elsewhere.)
+
+**Findings (tracked, not fixed — characterized green):**
+7. **Harness: base per-test `beginTransaction()` can't nest a service's own `_transaction()`** (ZF1's PDO
+   adapter doesn't ref-count; MySQL throws "already an active transaction"). Hit independently by 3 agents;
+   they worked around it (commit-and-purge / escape-and-scrub / drive the layer beneath). **Follow-up: add a
+   savepoint-aware/reentrant isolation mode to `IntegrationTestCase`** so service happy-paths test with clean
+   rollback isolation — unblocks every future service wave.
+8. **`Cms_Service_Settings::save`** writes two `config` rows without a `_transaction()` — partial state
+   possible if the 2nd throws; diverges from the documented validate→transaction flow. (Same shape, benign
+   single-statement, in `Access_Service_Org::save` / `Cms_Service_Menu::save`.)
+9. **`Tiger_Code_Runtime` writes real files** to `storage/cache/code` + `public/_code`; confirm both are
+   gitignored so a test/compile run can't leave artifacts staged.
+10. DataTables `status`/`type` toolbar filters scope **both** `recordsTotal` and `recordsFiltered` (recordsTotal
+    is the filtered working set, not the grand total) — intentional per the model docblocks; noted for consumers.
+
+### Wave 3 — the `/api` service + auth-service spine (agents' brief, 2026-07-24)
+**Base scaffolding landed** on `test/int-base`: `IntegrationTestCase` now ships `login()`/`loginAs()`/
+`logout()` (a real non-persistent `Zend_Auth` identity + the REAL shipped `Tiger_Acl_Acl` policy, so a
+service's `_isAdmin()`/ACL gate decides against the rules that actually ship, not a fixture) — proven by
+`ServiceScaffoldTest` (5 tests) dispatching the real admin-gated `Access_Service_User`. And `tests/bootstrap.php`
+gained a **module-class autoloader** (`Mod_Type_Name` → `modules/<mod>/<types>/Name.php`, `Mod_XController` →
+`controllers/`) registered LAST — so a real `/api` service + its form/model instantiate with no `require_once`
+and no ZF1 module-resource-loader boot. This is the gate that unblocks the service wave.
+
+Then **4 parallel agents** (own worktree + own DB `tiger_test_w3a-d`, off `test/int-base`):
+- **A / signup** — `Signup_Service_Signup` (guest mass-create: happy path → user+org+membership, validation +
+  rollback, guest-allowed ACL).
+- **B / RCE cluster** — `Tiger_Code_Runtime` (compile-gate/platform-scope), `Code_Service_Code`,
+  `System_Service_Modules`, `System_Service_Updates` (superadmin deny-by-default + nag-never-disable).
+- **C / admin CRUD** — `Access_Service_User`/`Org`, `Cms_Service_Page`/`Menu`/`Settings` (ACL gate, datatable
+  envelope, validate→transaction, soft-delete/restore).
+- **D / auth engine** — `Tiger_Service_Authentication` (password login, lockout, pepper, one-time challenges,
+  2FA orchestration). Collect → one DB → fold into ONE PR (dodges stacked-squash pain, per Waves 1+2).
+
 ### Next waves (unwritten — priority order per §5/§8)
-- **Wave 3 — the `/api` service + auth-service spine:** needs a base enhancement first — add `login()` +
-  `installAcl()` helpers to `IntegrationTestCase` (identity + ACL scaffolding; the tiger-core base lacks
-  them). Then `Service_Authentication` (login/2FA/reset), `Signup_Service_Signup` (guest mass-create),
-  `System_Service_Modules` (untrusted install), `Code_Service_Code` (RCE lint gate). + `Tiger_Controller_Plugin_Authorization`.
+- **Wave 3 tail:** `Tiger_Controller_Plugin_Authorization` (the unbypassable front-controller ACL gate).
 - **Wave 4 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
   `RateLimit`/`Challenge` — highest-value non-core), TigerDocs, then the commerce module repos.
 

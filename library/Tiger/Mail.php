@@ -38,6 +38,28 @@ class Tiger_Mail
     protected $_config;
 
     /**
+     * A process-wide transport override. When set, it wins over the config-resolved transport for
+     * every send() that isn't given an explicit per-call transport — mirroring Zend_Mail's default
+     * transport, but honored by this wrapper (which always resolves its own, so Zend's default alone
+     * would never apply). Null in production (config resolution is used); the test bootstrap points it
+     * at a capturing Zend_Mail_Transport_File so tests never attempt real delivery.
+     *
+     * @var Zend_Mail_Transport_Abstract|null
+     */
+    protected static $_defaultTransport = null;
+
+    /**
+     * Set (or clear) the process-wide default transport used when send() gets no explicit transport.
+     *
+     * @param  Zend_Mail_Transport_Abstract|null $transport the transport to use, or null to clear it
+     * @return void
+     */
+    public static function setDefaultTransport($transport = null)
+    {
+        self::$_defaultTransport = $transport;
+    }
+
+    /**
      * Capture the resolved config for later transport resolution.
      *
      * @return void
@@ -126,7 +148,8 @@ class Tiger_Mail
             $mail->setBodyText((string) $this->_text);
         }
 
-        $mail->send($transport ?: $this->transport());
+        // Precedence: an explicit per-call transport, else the process default (tests), else config.
+        $mail->send($transport ?: (self::$_defaultTransport ?: $this->transport()));
         return $this;
     }
 
