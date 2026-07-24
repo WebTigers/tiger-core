@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  tiger-core PHPUnit config. Two suites:
+    unit         — no external services; runs anywhere (the bulk of fast coverage).
+    integration  — needs a MySQL/MariaDB fixture DB (see tests/Support/IntegrationTestCase.php);
+                   CI provides one, and it's skipped locally when TIGER_TEST_DB is unset.
+  Schema is compatible with PHPUnit 10/11/12 (composer resolves the major per PHP version).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnRisky="true"
+         failOnWarning="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTestsThatDoNotTestAnything="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerErrors="true">
+
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">library/Tiger</directory>
+            <directory suffix=".php">modules</directory>
+            <directory suffix=".php">core/controllers</directory>
+        </include>
+        <exclude>
+            <!-- vendored third-party (see COVERAGE-PLAN §6.2): not our coverage to chase -->
+            <directory>library/Tiger/Cms/vendor</directory>
+            <!-- data-not-code: migrations + i18n arrays are covered by integration/smoke, not units -->
+            <directory>migrations</directory>
+            <directory suffix=".php">modules/*/languages</directory>
+            <directory suffix=".php">core/languages</directory>
+        </exclude>
+    </source>
+
+    <php>
+        <env name="APPLICATION_ENV" value="testing"/>
+    </php>
+</phpunit>
