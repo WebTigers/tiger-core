@@ -30,8 +30,16 @@ use Tiger_Db_Migrator;
 #[CoversClass(Tiger_Db_Migrator::class)]
 final class MigratorTest extends IntegrationTestCase
 {
-    /** Fixture versions this test may create — purged from the shared ledger in tearDown. */
+    /** Fixture versions this test may create — purged from the ISOLATED ledger in tearDown. */
     private const FIXTURE_VERSIONS = ['9001', '9002', '9003', '9101', '9102', '9201'];
+
+    /**
+     * An ISOLATED ledger table so this test's fixtures never share the real `tiger_migration` set.
+     * rollback() reverses the newest applied version GLOBALLY, so if a real (or another test's)
+     * timestamp-versioned migration is committed to the shared ledger it would sort above the 9xxx
+     * fixtures and be picked instead — a cross-test flake. A dedicated ledger makes rollback hermetic.
+     */
+    private const LEDGER = 'tiger_migration_test';
 
     /** Throwaway tables the fixtures may create — dropped in tearDown. */
     private const THROWAWAY_TABLES = [
@@ -48,7 +56,7 @@ final class MigratorTest extends IntegrationTestCase
             try { $this->db->query("DROP TABLE IF EXISTS `$t`"); } catch (\Throwable $e) {}
         }
         foreach (self::FIXTURE_VERSIONS as $v) {
-            try { $this->db->delete('tiger_migration', $this->db->quoteInto('version = ?', $v)); } catch (\Throwable $e) {}
+            try { $this->db->delete(self::LEDGER, $this->db->quoteInto('version = ?', $v)); } catch (\Throwable $e) {}
         }
         foreach ($this->tmpDirs as $dir) {
             foreach (glob($dir . '/*') ?: [] as $f) { @unlink($f); }
@@ -77,7 +85,7 @@ final class MigratorTest extends IntegrationTestCase
 
     private function ledgerHas(string $version): bool
     {
-        return (int) $this->db->fetchOne('SELECT COUNT(*) FROM tiger_migration WHERE version = ?', [$version]) > 0;
+        return (int) $this->db->fetchOne('SELECT COUNT(*) FROM ' . self::LEDGER . ' WHERE version = ?', [$version]) > 0;
     }
 
     #[Test]
@@ -88,7 +96,7 @@ final class MigratorTest extends IntegrationTestCase
             '9002_create_b.php' => self::createDropMigration('zzz_mig_b'),
             '9001_create_a.php' => self::createDropMigration('zzz_mig_a'),
         ]);
-        $migrator = new Tiger_Db_Migrator($this->db, [$dir]);
+        $migrator = new Tiger_Db_Migrator($this->db, [$dir], self::LEDGER);
 
         $applied = $migrator->migrate();
 
@@ -105,7 +113,7 @@ final class MigratorTest extends IntegrationTestCase
     public function migrate_is_idempotent_a_second_run_applies_nothing(): void
     {
         $dir = $this->fixtureDir(['9001_create_a.php' => self::createDropMigration('zzz_mig_a')]);
-        $migrator = new Tiger_Db_Migrator($this->db, [$dir]);
+        $migrator = new Tiger_Db_Migrator($this->db, [$dir], self::LEDGER);
 
         $this->assertSame(['9001' => 'create_a'], $migrator->migrate(), 'first run applies it');
         $this->assertSame([], $migrator->migrate(), 'a second run skips the already-applied version');
@@ -118,11 +126,11 @@ final class MigratorTest extends IntegrationTestCase
             '9001_create_a.php' => self::createDropMigration('zzz_mig_a'),
             '9002_create_b.php' => self::createDropMigration('zzz_mig_b'),
         ]);
-        $migrator = new Tiger_Db_Migrator($this->db, [$dir]);
+        $migrator = new Tiger_Db_Migrator($this->db, [$dir], self::LEDGER);
 
         // Apply only 9001 by hand-recording it, then let status() classify both.
         $migrator->migrate();                                  // applies both
-        $this->db->delete('tiger_migration', $this->db->quoteInto('version = ?', '9002')); // pretend 9002 pending
+        $this->db->delete(self::LEDGER, $this->db->quoteInto('version = ?', '9002')); // pretend 9002 pending
 
         $status = $migrator->status();
         $this->assertTrue($status['9001']['applied'], '9001 is applied');
@@ -142,7 +150,7 @@ final class MigratorTest extends IntegrationTestCase
                 . "\"THIS IS NOT VALID SQL\""
                 . "], 'down' => [\"DROP TABLE IF EXISTS `zzz_mig_p2`\"]];",
         ]);
-        $migrator = new Tiger_Db_Migrator($this->db, [$dir]);
+        $migrator = new Tiger_Db_Migrator($this->db, [$dir], self::LEDGER);
 
         $threw = false;
         try {
@@ -164,7 +172,7 @@ final class MigratorTest extends IntegrationTestCase
     public function rollback_runs_down_statements_and_deletes_the_ledger_row(): void
     {
         $dir = $this->fixtureDir(['9201_create_r.php' => self::createDropMigration('zzz_mig_r')]);
-        $migrator = new Tiger_Db_Migrator($this->db, [$dir]);
+        $migrator = new Tiger_Db_Migrator($this->db, [$dir], self::LEDGER);
 
         $migrator->migrate();
         $this->assertTrue($this->tableExists('zzz_mig_r'), 'precondition: up created the table');

@@ -34,17 +34,26 @@ class Tiger_Db_Migrator
     /** @var string[] directories to scan for migration files, in precedence order */
     private $paths;
 
+    /** @var string ledger table recording applied versions (default `tiger_migration`) */
+    private $ledger;
+
     /**
      * Construct the migrator over a DB adapter and a set of migration directories.
      *
      * @param Zend_Db_Adapter_Abstract $db
-     * @param string[]                 $paths migration directories (existing ones; missing are ignored)
+     * @param string[]                 $paths       migration directories (existing ones; missing are ignored)
+     * @param string                   $ledgerTable the applied-versions ledger table. Defaults to the
+     *                                              canonical `tiger_migration`; override it to run a migrator
+     *                                              against an ISOLATED ledger (so a migration test's fixture
+     *                                              versions never collide with — or roll back — the real
+     *                                              schema's applied set).
      * @return void
      */
-    public function __construct(Zend_Db_Adapter_Abstract $db, array $paths)
+    public function __construct(Zend_Db_Adapter_Abstract $db, array $paths, $ledgerTable = 'tiger_migration')
     {
-        $this->db    = $db;
-        $this->paths = array_values(array_filter($paths, 'is_dir'));
+        $this->db     = $db;
+        $this->paths  = array_values(array_filter($paths, 'is_dir'));
+        $this->ledger = (string) $ledgerTable;
     }
 
     /**
@@ -68,7 +77,7 @@ class Tiger_Db_Migrator
                 $this->run($stmt);
             }
             // Record only after every statement succeeded (see class caveat).
-            $this->db->insert('tiger_migration', [
+            $this->db->insert($this->ledger, [
                 'version'    => $version,
                 'name'       => $m['name'],
                 'applied_at' => date('Y-m-d H:i:s'),
@@ -106,7 +115,7 @@ class Tiger_Db_Migrator
             foreach ($m['down'] as $stmt) {
                 $this->run($stmt);
             }
-            $this->db->delete('tiger_migration', $this->db->quoteInto('version = ?', $version));
+            $this->db->delete($this->ledger, $this->db->quoteInto('version = ?', $version));
             $done[$version] = $m['name'];
         }
         return $done;
@@ -179,7 +188,7 @@ class Tiger_Db_Migrator
     /** @return array [version => true] of already-applied versions */
     private function appliedVersions()
     {
-        $rows = $this->db->fetchCol('SELECT version FROM tiger_migration');
+        $rows = $this->db->fetchCol('SELECT version FROM ' . $this->db->quoteIdentifier($this->ledger));
         return array_fill_keys($rows, true);
     }
 
@@ -187,12 +196,12 @@ class Tiger_Db_Migrator
     private function ensureTrackingTable()
     {
         $this->db->query(
-            "CREATE TABLE IF NOT EXISTS `tiger_migration` (
+            'CREATE TABLE IF NOT EXISTS ' . $this->db->quoteIdentifier($this->ledger) . ' (
                 `version`    VARCHAR(64)  NOT NULL,
                 `name`       VARCHAR(191) NOT NULL,
                 `applied_at` DATETIME     NOT NULL,
                 PRIMARY KEY (`version`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
 
