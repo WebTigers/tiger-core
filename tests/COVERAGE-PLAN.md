@@ -512,11 +512,27 @@ configured, not a hole). Limit moved onto the Select; regression test pins it.
 6. v7 UUIDs collide within a millisecond (first 12 hex = ms) — the `substr(v7,0,12)` id idiom in tests is
    latently flaky; use `bin2hex(random_bytes())` for unique fixture values.
 
+### Wave 3 — the `/api` service + auth-service spine (IN FLIGHT 2026-07-24)
+**Base scaffolding landed** on `test/int-base`: `IntegrationTestCase` now ships `login()`/`loginAs()`/
+`logout()` (a real non-persistent `Zend_Auth` identity + the REAL shipped `Tiger_Acl_Acl` policy, so a
+service's `_isAdmin()`/ACL gate decides against the rules that actually ship, not a fixture) — proven by
+`ServiceScaffoldTest` (5 tests) dispatching the real admin-gated `Access_Service_User`. And `tests/bootstrap.php`
+gained a **module-class autoloader** (`Mod_Type_Name` → `modules/<mod>/<types>/Name.php`, `Mod_XController` →
+`controllers/`) registered LAST — so a real `/api` service + its form/model instantiate with no `require_once`
+and no ZF1 module-resource-loader boot. This is the gate that unblocks the service wave.
+
+Then **4 parallel agents** (own worktree + own DB `tiger_test_w3a-d`, off `test/int-base`):
+- **A / signup** — `Signup_Service_Signup` (guest mass-create: happy path → user+org+membership, validation +
+  rollback, guest-allowed ACL).
+- **B / RCE cluster** — `Tiger_Code_Runtime` (compile-gate/platform-scope), `Code_Service_Code`,
+  `System_Service_Modules`, `System_Service_Updates` (superadmin deny-by-default + nag-never-disable).
+- **C / admin CRUD** — `Access_Service_User`/`Org`, `Cms_Service_Page`/`Menu`/`Settings` (ACL gate, datatable
+  envelope, validate→transaction, soft-delete/restore).
+- **D / auth engine** — `Tiger_Service_Authentication` (password login, lockout, pepper, one-time challenges,
+  2FA orchestration). Collect → one DB → fold into ONE PR (dodges stacked-squash pain, per Waves 1+2).
+
 ### Next waves (unwritten — priority order per §5/§8)
-- **Wave 3 — the `/api` service + auth-service spine:** needs a base enhancement first — add `login()` +
-  `installAcl()` helpers to `IntegrationTestCase` (identity + ACL scaffolding; the tiger-core base lacks
-  them). Then `Service_Authentication` (login/2FA/reset), `Signup_Service_Signup` (guest mass-create),
-  `System_Service_Modules` (untrusted install), `Code_Service_Code` (RCE lint gate). + `Tiger_Controller_Plugin_Authorization`.
+- **Wave 3 tail:** `Tiger_Controller_Plugin_Authorization` (the unbypassable front-controller ACL gate).
 - **Wave 4 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
   `RateLimit`/`Challenge` — highest-value non-core), TigerDocs, then the commerce module repos.
 
