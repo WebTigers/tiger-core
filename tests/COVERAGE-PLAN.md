@@ -594,14 +594,29 @@ cluster ~2–8×'d (`Dependency` 97 · `License_Authority` 94 · `Vendor` 80 · 
   full MVC/view boot the harness skips. These are functional/HTTP-test concerns — the % gaps below ~90 on
   media/profile/backup are mostly these, not missing logic.
 
+### Wave 5 — the library/Tiger KERNEL (LANDED 2026-07-24) → coverage 37.9% → 59.2%
+7 parallel agents by sub-package, **+~584 tests (861 → 1445 combined green)**, kernel **library/Tiger 32% → 66%**.
+Per-subpackage lines: Model 51→97 · Service 57→89 · Ajax 70→89 · Controller 16→77 · Admin 0→81 · Session 0→96 ·
+View 0→98 · OpenApi 0→94 · Generator 0→100 · Policy 85→100 · Acl 85→89 · Location 7→84 · I18n→95 · Validate 21→74 ·
+Media(lib) 25→~85 · Backup 0→~90 · Code(lib) 44→~85 · Agent(lib) 3→~72 · Google 0→29 · Application 0→60. **No behavioral
+bugs.** One forward-compat source fix: `Tiger_Model_AgentMessage::append()` implicit-nullable `array $meta=null` → `?array`
+(PHP 8.5 deprecation, error in PHP 9). **Remaining kernel gap (~3,150 lines) is the genuinely-hard I/O:** the live-boot
+`Tiger_Application_Bootstrap::_init*` orchestration, `Update_Composer`/`Update_Core` (composer proc_open + `vendor/` swap),
+provider/authority/GA/reCAPTCHA live HTTP, ClamAV/Rekognition scanners, AWS-SDK S3 I/O — all functional/live territory.
+- **Cross-test isolation footguns** the agents surfaced (each guarded locally; recorded for future waves): `Tiger_Model_Org::$_siteOrgId`
+  process-static must be reset to EXACTLY `null` (restoring `''` poisons lazy site-org resolution); `Zend_Translate`
+  set to null in the registry stays registered-as-null → use `offsetUnset`, not `set(null)`; `Tiger_Application::defineConstants()`
+  mints `MODULES_PATH` etc. → the app-boot test runs `#[RunInSeparateProcess]`. **RECOMMENDED base hygiene (deferred):** reset
+  `Org::$_siteOrgId` in `IntegrationTestCase::tearDown`. CI floor `MIN_COVERAGE` 35 → 55.
+
 ### Next waves (priority order) — the drive to 90%
-- **Wave 5 — the library/Tiger KERNEL** (9,176 lines @ 32% = the dominant remaining gap, ~6,200 uncovered):
-  the CMS engine (`Cms_*`, `Menu`, `Page*` finders), `Mail`, `Log`, `Location` adapters, `Admin_*` registries,
-  `Form`/`Validate`/`Form_Element_*`, `Ajax_ServiceFactory` remainder, and the untested branches of the Model
-  + Service classes. This is what actually moves the overall number to the 80s. Parallel agents by sub-package.
-- **Wave 6 — the remaining modules:** `agent` (462 @ 5% — needs a provider-adapter stub), `cms` module (510 @
-  33%), `code` (238 @ 41%), and `core/controllers` (360 @ 0% — needs the controller-dispatch harness).
-- **Wave 7 — satellite repos:** stand up a harness in each, then TigerShield WAF engines first.
+- **Wave 6 — the remaining MODULES:** `agent` module (462 @ 5% — needs a provider-adapter stub, but the `Tiger_Agent_*`
+  library it builds on is now ~72% so the seams exist), `cms` module (510 @ 33%), `system` remainder (579 @ 37%), `code`
+  module (238 @ 41%), profile/media/analytics/backup/identity remainders (mostly upload-ceiling + render-only), and
+  `core/controllers` (360 @ 0% — needs a controller-dispatch harness). ~2,700 reachable module lines.
+- **Wave 7 — the hard kernel remainder:** an integration harness that boots enough of `Tiger_Application` to cover the
+  `_init*` cascade; live-I/O seams for Update/Github behind a real local fixture server if worth it.
+- **Wave 8 — satellite repos:** stand up a harness in each, then TigerShield WAF engines first.
 
 ---
 *Manifest generated 2026-07-18 by 6 parallel read-only scans; graduated into `tests/COVERAGE-PLAN.md` +
