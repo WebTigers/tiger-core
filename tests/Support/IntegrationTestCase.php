@@ -5,8 +5,11 @@
 namespace Tiger\Tests\Support;
 
 use PHPUnit\Framework\TestCase;
+use Tiger_Acl_Acl;
 use Tiger_Db_Migrator;
 use Tiger_Model_Table;
+use Zend_Auth;
+use Zend_Auth_Storage_NonPersistent;
 use Zend_Db;
 use Zend_Db_Adapter_Abstract;
 use Zend_Db_Table_Abstract;
@@ -65,7 +68,53 @@ abstract class IntegrationTestCase extends TestCase
         }
         Tiger_Model_Table::setActor(null);
         Tiger_Model_Table::setOrg('');
+        Zend_Auth::getInstance()->clearIdentity();   // Zend_Auth is a process singleton — never leak an identity
         parent::tearDown();
+    }
+
+    /**
+     * Sign a caller in for the duration of a test (Wave 3 `/api`-service scaffolding).
+     *
+     * Sets a non-persistent `Zend_Auth` identity ({user_id, org_id, role}) so a service's
+     * `_isAdmin()`/ACL gate and `$this->_user_id`/`_org_id` see an authenticated actor, stamps the
+     * model actor + org so writes carry `created_by`/`org_id`, and registers the **real** shipped ACL
+     * policy (`Tiger_Acl_Acl` — core + every module's `acl.ini`) so `isAllowed()` reflects the rules
+     * that actually ship, not a fixture. Cleared in tearDown. Call with role `guest` (or don't call it)
+     * to test the deny path. Returns the identity object.
+     *
+     * @param  string $userId the acting user id
+     * @param  string $orgId  the acting org (tenant) id
+     * @param  string $role   the ACL role (guest|user|manager|supermanager|admin|superadmin|developer)
+     * @return object         the identity written to Zend_Auth
+     */
+    protected function login(string $userId, string $orgId = 'org-test', string $role = 'user'): object
+    {
+        $identity = (object) ['user_id' => $userId, 'org_id' => $orgId, 'role' => $role];
+
+        $auth = Zend_Auth::getInstance();
+        $auth->setStorage(new Zend_Auth_Storage_NonPersistent());   // in-memory: no $_SESSION in CLI
+        $auth->getStorage()->write($identity);
+
+        Tiger_Model_Table::setActor($userId);
+        if ($orgId !== '') { Tiger_Model_Table::setOrg($orgId); }
+
+        // The real policy (ini + DB tiers). Rebuilt per login so a test that seeds DB rules first sees them.
+        Zend_Registry::set('Zend_Acl', new Tiger_Acl_Acl());
+
+        return $identity;
+    }
+
+    /** Shorthand: sign in a synthetic user carrying $role, in the shared test org. */
+    protected function loginAs(string $role): object
+    {
+        return $this->login('user-' . $role, 'org-test', $role);
+    }
+
+    /** Drop the signed-in identity (revert to guest) mid-test. */
+    protected function logout(): void
+    {
+        Zend_Auth::getInstance()->clearIdentity();
+        Zend_Auth::getInstance()->setStorage(new Zend_Auth_Storage_NonPersistent());
     }
 
     /** The shared, migrated adapter (built once, reused across the process). */
