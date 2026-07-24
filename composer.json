@@ -1,8 +1,14 @@
 {
     "name": "webtigers/tiger-core",
-    "description": "Tiger platform Core — kernel + multi-tenant substrate (org/user/org_user/ACL) on TigerZF",
+    "description": "Tiger platform Core \u2014 kernel + multi-tenant substrate (org/user/org_user/ACL) on TigerZF",
     "type": "library",
-    "keywords": ["tiger", "saas", "multi-tenant", "zf1", "tigerzf"],
+    "keywords": [
+        "tiger",
+        "saas",
+        "multi-tenant",
+        "zf1",
+        "tigerzf"
+    ],
     "homepage": "https://github.com/WebTigers/tiger-core/",
     "license": "BSD-3-Clause",
     "require": {
@@ -31,5 +37,18 @@
     ],
     "config": {
         "sort-packages": true
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5 || ^11.5 || ^12.0"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite unit",
+        "test:integration": "phpunit --testsuite integration"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tiger\\Tests\\": "tests/"
+        }
     }
 }
