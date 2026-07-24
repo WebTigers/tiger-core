@@ -456,5 +456,43 @@ Plus **~31 tiger-core migrations** — one "migrate up→down on a clean DB" int
     1.0 `@api`-freeze gate.
 
 ---
-*Manifest generated 2026-07-18 by 6 parallel read-only scans. Temporary working doc — relocate into
-`tiger-core/` (e.g. `tests/COVERAGE-PLAN.md`) if it graduates from scratch to the real test effort.*
+
+## 9. Progress log (the running backfill tracker)
+
+**2026-07-24 — harness promoted to `main` + CI (§3 DONE), then Wave 1.**
+
+- **Foundation:** `phpunit.xml` + `tests/bootstrap.php` + `Support/{Unit,Integration}TestCase` + `composer
+  test:*` + `.github/workflows/tests.yml` (unit 8.1–8.5 + integration on MariaDB), all green in CI.
+- **Baseline unioned onto main (17 files):** crypto/auth/gateway (`Acl`, `Ajax_ServiceFactory`, `Auth_Totp`,
+  `Crypto`, `Security`, `Uuid`, integration `OrgUser`+schema) + the commerce/license/agent/module set
+  (`Crypto_Signature`, `License_{Authority,Checker}`, `Module_{Pricing,Compat,Dependency,Installer-sig}`, agent).
+- **Wave 1 — 3 parallel no-DB clusters (+119 tests → 247 unit / 8 integration):**
+  - ✅ **Media** — `Storage_Filesystem` (traversal guard + public/private split), `Storage` factory,
+    `Image` (never-upscale), `Storage_S3` (`_fullKey` guard). *(§6.3)*
+  - ✅ **CMS/routing/i18n** — `Cms_Renderer` (trust-tier dispatch), `Routing_Overrides` (reserved-prefix),
+    `I18n_Country`, `Location_Place`. *(§6.2/6.3)*
+  - ✅ **Module install** — `Module_Installer` (zip-slip/tar-slip guard + slug/manifest + migrationPaths),
+    `Module_Discovery`, `Vendor` (sha256 + semver). *(§6.2)*
+
+### Findings surfaced by the tests (source unchanged — decide + address separately)
+1. **`Tiger_Cms_Renderer` markdown is NOT safe-mode** (Renderer.php ~83): `Parsedown::instance()->text()`
+   with no `setSafeMode(true)` → raw HTML / `<script>` passes through, contradicting the "safe Markdown"
+   labeling in the docblock + FEATURES/ARCHITECTURE. CMS bodies are admin-gated, so it may be an accepted
+   trust tier — but the "safe" wording is misleading for any lower-trust path. Current behavior is pinned by
+   `RendererTest::markdown_passes_raw_html_through_unescaped` so hardening is a deliberate, visible change.
+2. **`Tiger_Media_Image` calls no-op `imagedestroy()`** (Image.php:92,94) — a PHP 8.5 deprecation (2 of the
+   suite's 5). Trivial cleanup (remove the two calls).
+3. **`Tiger_Module_Installer::_extract` has no explicit in-code traversal guard** — relies (safely, verified)
+   on `ZipArchive`/`PharData` flattening `../`; the shell fallbacks (`unzip`/`tar`) also refuse traversal.
+   No bug today; `InstallerExtractTest` pins the escape-proof invariant so a future extractor swap fails loud.
+
+### Next waves (unwritten — priority order per §5/§8)
+- **Wave 2 — integration/DB P1 spine:** `Model_Table` (tenant stamp + soft-delete), `Model_{AuthChallenge,
+  UserCredential,User}`, `Service_Authentication`, the module `/api` services (`Signup`, `Code`, `System_Modules`).
+  Single shared DB → run coordinated, not a wide fan-out.
+- **Wave 3 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
+  `RateLimit`/`Challenge` — highest-value non-core), TigerDocs, then the commerce module repos.
+
+---
+*Manifest generated 2026-07-18 by 6 parallel read-only scans; graduated into `tests/COVERAGE-PLAN.md` +
+harness on main 2026-07-24. This is the living tracker — update the §9 log as waves land.*
