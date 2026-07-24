@@ -108,7 +108,7 @@ jobs:
       TIGER_TEST_DB_PASS: root
       # The floor we enforce today (report-only warning above it). Bump this as coverage climbs so it
       # can only go UP — the ratchet that gets us to 90% without ever regressing.
-      MIN_COVERAGE: '18'
+      MIN_COVERAGE: '35'
     steps:
       - uses: actions/checkout@v4
 

@@ -578,13 +578,30 @@ Then **4 parallel agents** (own worktree + own DB `tiger_test_w3a-d`, off `test/
   lines** (2863/14397) — the tested spine is ~100%, the drag is untested feature modules (blog/seo/media/
   profile/analytics/backup/identity/schedule at 0%) + the marketplace/install cluster. **Target: 90%.**
 
-### Next waves (priority order per §5/§8) — the drive to 90%
-- **Wave 4 — breadth over the zero-coverage core modules** (now unblocked by the savepoint mode): each is
-  small — media, profile, identity, blog, seo, analytics, backup, schedule, ally, search, agent — parallel
-  agents, one module (or a cluster) each, service + model + controller coverage. Biggest, fastest % gain.
-- **Wave 5 — finish the kernel install/marketplace cluster** (`Module_Installer`, `Vendor`, `Update_Checker`,
-  `Module_Github`, `Module_Dependency`) — the largest untested library chunk, security-adjacent.
-- **Wave 6 — satellite repos:** stand up a harness in each, then TigerShield WAF engines first.
+### Wave 4 — module breadth + install cluster (LANDED 2026-07-24) → coverage 20.5% → 37.9%
+6 parallel agents (own worktree + DB each), **+316 integration tests** (265 → 581 green) + install-cluster unit
+tests. Per-bucket line-%: **ally 100 · seo 88 · blog 83 · signup 87 · search 73 · access 69 · schedule 62 ·
+profile 56 · identity 45 · analytics 41 · media 34 · backup 31 · system 37**; the kernel install/marketplace
+cluster ~2–8×'d (`Dependency` 97 · `License_Authority` 94 · `Vendor` 80 · `Update_Checker` 79 · `Installer` 68 ·
+`Github` 66) lifting **library/Tiger 25 → 32%**. No product bugs found. CI floor `MIN_COVERAGE` 18 → 35.
+- **Real fix at collection:** `Tiger_Db_Migrator` gained an optional **ledger-table** arg (default
+  `tiger_migration`, prod unchanged); `MigratorTest` now uses an ISOLATED ledger. Root cause: `rollback()`
+  reverses the newest applied version GLOBALLY, and a module's timestamp-versioned migration (committed past
+  the per-test rollback — DDL auto-commits — by the install lifecycle test) sorted above the `9xxx` fixtures →
+  a cross-test flake. Hermetic ledger kills it.
+- **Recurring ceiling (not bugs):** `is_uploaded_file()` gates upload happy-paths (profile Avatar/OrgLogo,
+  media upload) → unreachable from CLI; render-only controllers + `exit;`-ending file/serve actions need a
+  full MVC/view boot the harness skips. These are functional/HTTP-test concerns — the % gaps below ~90 on
+  media/profile/backup are mostly these, not missing logic.
+
+### Next waves (priority order) — the drive to 90%
+- **Wave 5 — the library/Tiger KERNEL** (9,176 lines @ 32% = the dominant remaining gap, ~6,200 uncovered):
+  the CMS engine (`Cms_*`, `Menu`, `Page*` finders), `Mail`, `Log`, `Location` adapters, `Admin_*` registries,
+  `Form`/`Validate`/`Form_Element_*`, `Ajax_ServiceFactory` remainder, and the untested branches of the Model
+  + Service classes. This is what actually moves the overall number to the 80s. Parallel agents by sub-package.
+- **Wave 6 — the remaining modules:** `agent` (462 @ 5% — needs a provider-adapter stub), `cms` module (510 @
+  33%), `code` (238 @ 41%), and `core/controllers` (360 @ 0% — needs the controller-dispatch harness).
+- **Wave 7 — satellite repos:** stand up a harness in each, then TigerShield WAF engines first.
 
 ---
 *Manifest generated 2026-07-18 by 6 parallel read-only scans; graduated into `tests/COVERAGE-PLAN.md` +
