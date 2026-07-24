@@ -73,10 +73,24 @@ class Signup_Service_Signup extends Tiger_Service_Service
                 (new Tiger_Model_OrgContact())->insert(['org_id' => $orgId, 'contact_id' => $contactId, 'is_primary' => 1]);
                 (new Tiger_Model_UserContact())->insert(['user_id' => $userId, 'contact_id' => $contactId, 'is_primary' => 1]);
 
-                return ['user_id' => $userId, 'email' => strtolower(trim((string) $v['email']))];
+                // The verification challenge is part of the account's unit of work — issue it INSIDE
+                // the transaction so it's atomic with the user. A challenge-write failure then rolls the
+                // whole signup back to a clean result=0, instead of committing an account and only THEN
+                // throwing (which reported failure on a live account the user could neither use nor
+                // re-create, blocked by email-uniqueness).
+                $token       = bin2hex(random_bytes(32));
+                $challengeId = (new Tiger_Model_AuthChallenge())->issue($userId, 'email_verify', $token, self::VERIFY_TTL);
+
+                return [
+                    'email'        => strtolower(trim((string) $v['email'])),
+                    'challenge_id' => $challengeId,
+                    'token'        => $token,
+                ];
             });
 
-            $this->_sendVerification($ids['user_id'], $ids['email']);
+            // Mail is best-effort I/O AFTER commit: the account already exists, so a mail hiccup must
+            // never surface as failure (_sendVerification swallows its own send errors).
+            $this->_sendVerification($ids['challenge_id'], $ids['token'], $ids['email']);
             $this->_success(['sent' => 1, 'email' => $ids['email']], 'signup.check_email');
         } catch (Throwable $e) {
             $this->_error(APPLICATION_ENV !== 'production' ? $e->getMessage() : 'core.api.error.general');
@@ -119,12 +133,9 @@ class Signup_Service_Signup extends Tiger_Service_Service
         return $slug;
     }
 
-    /** Issue an email_verify challenge and email the verification link. */
-    protected function _sendVerification($userId, $email): void
+    /** Email the verification link for an already-issued email_verify challenge (best-effort I/O). */
+    protected function _sendVerification($challengeId, $token, $email): void
     {
-        $token       = bin2hex(random_bytes(32));
-        $challengeId = (new Tiger_Model_AuthChallenge())->issue($userId, 'email_verify', $token, self::VERIFY_TTL);
-
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
         $url    = $scheme . '://' . $host . '/signup/index/verify/cid/' . rawurlencode($challengeId) . '/code/' . rawurlencode($token);

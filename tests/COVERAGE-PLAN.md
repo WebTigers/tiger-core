@@ -512,7 +512,37 @@ configured, not a hole). Limit moved onto the Select; regression test pins it.
 6. v7 UUIDs collide within a millisecond (first 12 hex = ms) — the `substr(v7,0,12)` id idiom in tests is
    latently flaky; use `bin2hex(random_bytes())` for unique fixture values.
 
-### Wave 3 — the `/api` service + auth-service spine (IN FLIGHT 2026-07-24)
+### Wave 3 — the `/api` service + auth-service spine (LANDED 2026-07-24)
+**Result:** 4 agents → **135 new tests** collected + verified together on one DB → the combined integration
+suite is **250 tests / 845 assertions green** (was 116). Files: `Signup/SignupServiceTest` (19),
+`Code/{RuntimeTest,CodeServiceTest}` + `System/{ModulesServiceTest,UpdatesServiceTest}` + `License/CheckerTest`
+(35), `Access/{UserServiceTest,OrgServiceTest}` + `Cms/{PageServiceTest,MenuServiceTest,SettingsServiceTest}`
+(55), `Service/AuthenticationTest` (26). Auth used Zend's `Zend_Session::$_unitTestEnabled` array-backed mode
+to exercise the REAL session/lock/2FA/return-to paths under CLI (not stubs).
+
+**Bug fixed at collection (a test surfaced it):** `Signup_Service_Signup::create()` committed the tenant graph
+in `_transaction()` and only THEN issued the `email_verify` challenge + sent mail — with the challenge
+`issue()` *outside* the mail try/catch. A throw there unwound into `create()`'s catch → `result=0` **on a
+fully-committed account** (unusable, and un-recreatable behind email-uniqueness). Fix: issue the challenge
+INSIDE the transaction (atomic with the user — a challenge-write failure now rolls the whole signup back);
+`_sendVerification` reduced to best-effort post-commit mail. (Same class of "notification failure fails a
+committed write" worth auditing elsewhere.)
+
+**Findings (tracked, not fixed — characterized green):**
+7. **Harness: base per-test `beginTransaction()` can't nest a service's own `_transaction()`** (ZF1's PDO
+   adapter doesn't ref-count; MySQL throws "already an active transaction"). Hit independently by 3 agents;
+   they worked around it (commit-and-purge / escape-and-scrub / drive the layer beneath). **Follow-up: add a
+   savepoint-aware/reentrant isolation mode to `IntegrationTestCase`** so service happy-paths test with clean
+   rollback isolation — unblocks every future service wave.
+8. **`Cms_Service_Settings::save`** writes two `config` rows without a `_transaction()` — partial state
+   possible if the 2nd throws; diverges from the documented validate→transaction flow. (Same shape, benign
+   single-statement, in `Access_Service_Org::save` / `Cms_Service_Menu::save`.)
+9. **`Tiger_Code_Runtime` writes real files** to `storage/cache/code` + `public/_code`; confirm both are
+   gitignored so a test/compile run can't leave artifacts staged.
+10. DataTables `status`/`type` toolbar filters scope **both** `recordsTotal` and `recordsFiltered` (recordsTotal
+    is the filtered working set, not the grand total) — intentional per the model docblocks; noted for consumers.
+
+### Wave 3 — the `/api` service + auth-service spine (agents' brief, 2026-07-24)
 **Base scaffolding landed** on `test/int-base`: `IntegrationTestCase` now ships `login()`/`loginAs()`/
 `logout()` (a real non-persistent `Zend_Auth` identity + the REAL shipped `Tiger_Acl_Acl` policy, so a
 service's `_isAdmin()`/ACL gate decides against the rules that actually ship, not a fixture) — proven by
