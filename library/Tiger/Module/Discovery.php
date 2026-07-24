@@ -58,6 +58,10 @@ class Tiger_Module_Discovery
                     'homepage'     => (string) ($m['homepage'] ?? ''),
                     'pricing'      => $m['pricing']['model'] ?? null,
                     'asset_base'   => (string) ($m['assetBase'] ?? ''),       // themes: the public/_<x> symlink base
+                    // Advisory compatibility metadata (min/max tested Tiger version) — passed through
+                    // for Tiger_Module_Compat to interpret; legacy `requires.tiger` doubles as the min.
+                    'requires'     => isset($m['requires']) && is_array($m['requires']) ? $m['requires'] : [],
+                    'compat'       => isset($m['compat']) && is_array($m['compat']) ? $m['compat'] : [],
                     'has_manifest' => (bool) $m,
                 ];
             }

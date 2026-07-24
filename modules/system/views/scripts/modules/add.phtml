@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', function () {
               '<a href="'+esc(d.repo)+'" target="_blank" rel="noopener" class="badge text-bg-light text-decoration-none"><i class="fa-brands fa-github me-1"></i>'+esc(d.repo.replace('https://github.com/',''))+'@'+esc(d.ref)+'</a>' +
               (reqBits.length?' <span class="small text-body-secondary ms-1">Requires '+reqBits.join(', ')+'</span>':'') +
             '</div>' +
+            ((m.compat && !m.compat.ok && m.compat.message) ? '<div class="alert alert-warning py-2 px-3 small mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>'+esc(m.compat.message)+'</div>' : '') +
             (m.description ? '<p>'+esc(m.description)+'</p>' : '') +
             (d.description_html ? '<hr><div class="mod-readme">'+d.description_html+'</div>' : '<p class="text-body-secondary small">No TIGER.md provided.</p>');
 

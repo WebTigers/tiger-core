@@ -133,6 +133,11 @@ class Tiger_Application
         defined('LOG_PATH')             || define('LOG_PATH', $this->root . '/logs');
         defined('TMP_PATH')             || define('TMP_PATH', $this->root . '/tmp');
 
+        // The canonical "Tiger version" is tiger-core's version — the framework IS Tiger, so Tiger and
+        // TigerCore are in lockstep by construction (no separately-drifting number to confuse a module
+        // dev). Modules declare compatibility against this; Tiger_Module_Compat reads it.
+        defined('TIGER_VERSION')        || define('TIGER_VERSION', Tiger_Version::VERSION);
+
         $env = getenv('APPLICATION_ENV') ?: ($_SERVER['APPLICATION_ENV'] ?? 'production');
         defined('APPLICATION_ENV') || define('APPLICATION_ENV', $env);
     }

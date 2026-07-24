@@ -181,6 +181,62 @@ registry), so a host never fetches an unvetted, unpinned, unbounded dependency.
 
 ---
 
+## 11. Module compatibility & inter-module dependencies — advisory metadata (the WordPress model)
+
+Two more kinds of "dependency" are **pure notifications, never gates** — a module out of range will
+most likely still run; we just tell the developer so they keep it in step with the platform. Nothing
+is ever blocked (`Tiger_Module_Installer::_checkRequires` keeps only PHP as a hard gate — a real fatal).
+
+### 11a. Tested-Tiger-version range (`compat`)
+
+Declare in `module.json` the Tiger version range the module was **tested** against:
+
+```json
+"compat": { "tiger": { "min": "0.36.0-beta", "max": "0.41.0-beta" } }
+```
+
+`Tiger_Module_Compat::check($manifest)` compares that to the running **`TIGER_VERSION`** (the canonical
+"Tiger version" — literally `tiger-core`'s `Tiger_Version::VERSION`; the framework *is* Tiger, so the
+two never drift, and a module targets **one** version identity). The verdict is advisory:
+
+| Running vs. range | status | notice |
+|---|---|---|
+| within (or no range) | `ok` | — |
+| newer than `max` | `untested` | *"This module has not been tested for Tiger X.Y.Z (tested up to …). It will most likely still work."* |
+| older than `min` | `below_min` | *"…built for Tiger … or newer — this install is X.Y.Z. It may rely on features that aren't here yet."* |
+
+Legacy `requires.tiger` is honored as the `min`. The notice shows on the **Module Manager** row and in
+the **Add** screen's pre-install preview (`inspect`). It never stops install/activate/update.
+
+### 11b. Inter-module dependencies, now version-aware (`configs/dependency.ini`)
+
+Still the lightweight, lazy `[requires] modules[]` (§0 of `Tiger_Module_Dependency`), but an entry may
+carry a **version constraint** (space / `@` / `:` separated), compared with the same
+`Tiger_Module_Compat::satisfies()`:
+
+```ini
+[requires]
+modules[] = "account"
+modules[] = "billing >=0.5.0-beta"
+```
+
+- **on activate** — `missingReport($slug)` surfaces requirements that are **absent, inactive, or too
+  old** ("requires billing >=0.5.0 — you have 0.4.0"). An unknown installed version never false-alarms.
+- **on deactivate** — `dependents($slug)` (the reverse edge) drives the Module Manager's confirm:
+  *"This module is required by X, Y to function. Deactivate anyway?"* — you can always proceed.
+
+Both are the **notification system**, not a resolver: no graph, no ordering guarantees, no auto-install.
+
+### 11c. A module owns its schema across its lifecycle
+
+Capability-detected (a `migrations/` folder), not declared: a module's own migrations run on
+**install / update / activate** — for app modules **and** first-party bundled `tiger-core` modules.
+`Tiger_Module_Installer::migrationPaths()` is the single authority both the installer and the CLI
+(`bin/tiger migrate`) use, so a bundled-module migration is never scanned on one path but missed on
+another. Deactivate leaves schema in place (migrations are additive-only; nothing is dropped).
+
+---
+
 *The whole trick: never solve a dependency graph on a shared host. Solve it once, off-box, freeze the
 result into a checksummed bundle, and make the host a dumb unpacker with a shared autoloader. Composer
 where you can, pre-resolved bundles where you can't, raw tarballs where there's nothing to resolve —

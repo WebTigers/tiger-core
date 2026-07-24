@@ -181,12 +181,17 @@ INI;
 
         $dependencyIni = <<<'INI'
 ; Modules this one depends on — LIGHTWEIGHT + optional. A convenience ALERT only, never a block:
-;   - on activate:   you're told if a required module isn't active ("requires account, billing")
-;   - on deactivate: modules that list this one are surfaced ("still required by …")
-; Parsed lazily (only when toggling this module) — no boot cost. Delete this file if unused.
+;   - on activate:   you're told if a required module is missing, inactive, or too OLD
+;                    ("requires billing >=0.5.0 — you have 0.4.0")
+;   - on deactivate: modules that list this one are surfaced ("required by X, Y — deactivate anyway?")
+; A bare slug means "any version"; add a constraint after a space/@/: to pin one. Parsed lazily
+; (only when toggling this module) — no boot cost. Delete this file if unused.
 [requires]
 ; modules[] = "account"
-; modules[] = "billing"
+; modules[] = "billing >=0.5.0-beta"
+;
+; Tested-Tiger-version metadata (also advisory, "not tested for Tiger X.Y.Z") lives in a module.json
+; manifest, not here — "compat": { "tiger": { "min": "0.36.0-beta", "max": "0.41.0-beta" } }.
 
 INI;
 

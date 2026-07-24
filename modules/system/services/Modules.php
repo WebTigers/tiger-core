@@ -63,8 +63,8 @@ class System_Service_Modules extends Tiger_Service_Service
             if ($on) {
                 $model->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
                 Tiger_Module_Installer::publishAssets($slug);   // symlink assets/ into public/_modules/<slug> if present
-                // Convenience alert (non-blocking): required modules that aren't active.
-                $data = ['slug' => $slug, 'active' => $on, 'requires_missing' => Tiger_Module_Dependency::missing($slug)];
+                // Convenience alert (non-blocking): required modules absent, inactive, or too old.
+                $data = ['slug' => $slug, 'active' => $on, 'requires_missing' => Tiger_Module_Dependency::missingReport($slug)];
             } else {
                 $data = ['slug' => $slug, 'active' => $on, 'dependents' => Tiger_Module_Dependency::dependents($slug)];
                 $model->setActive($slug, $on, ['name' => $d['name'], 'version' => $d['version']]);
@@ -207,6 +207,8 @@ class System_Service_Modules extends Tiger_Service_Service
                 'description' => $m['description'] ?? '',
                 'requires'    => $m['requires'] ?? new stdClass(),
                 'pricing'     => $m['pricing']['model'] ?? null,
+                // Advisory: has this module been tested for the Tiger version running here? (never blocks)
+                'compat'      => Tiger_Module_Compat::check($m),
             ],
             'description_html' => $descHtml,
             'installed'        => (bool) $present,

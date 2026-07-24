@@ -42,6 +42,10 @@ class System_ModulesController extends Tiger_Controller_Admin_Action
                 'active'    => $active,
                 'source'    => $source,
                 'protected' => in_array($slug, System_Service_Modules::PROTECTED, true),
+                // Advisory: tested-version compat notice (never blocks) + who requires this module
+                // (drives the "required by X, Y — deactivate anyway?" confirm; empty for most).
+                'compat'      => Tiger_Module_Compat::check($m),
+                'required_by' => $isTheme ? [] : Tiger_Module_Dependency::dependents($slug),
             ];
         }
 

@@ -389,22 +389,13 @@ class Tiger_Module_Installer
 
     protected static function _checkRequires(array $req)
     {
-        if (!empty($req['php']) && !self::_satisfies(PHP_VERSION, $req['php'])) {
+        // PHP stays a HARD gate — a version mismatch is a genuine fatal, not "probably fine".
+        if (!empty($req['php']) && !Tiger_Module_Compat::satisfies(PHP_VERSION, $req['php'])) {
             throw new RuntimeException('This module requires PHP ' . $req['php'] . ' (this server has ' . PHP_VERSION . ').');
         }
-        if (!empty($req['tiger']) && defined('TIGER_VERSION') && !self::_satisfies(TIGER_VERSION, $req['tiger'])) {
-            throw new RuntimeException('This module requires Tiger ' . $req['tiger'] . '.');
-        }
-    }
-
-    protected static function _satisfies($have, $constraint)
-    {
-        if (!preg_match('/^\s*(>=|<=|>|<|=|==|\^|~)?\s*([0-9][0-9.]*)/', (string) $constraint, $m)) {
-            return true;
-        }
-        $op  = $m[1] ?: '>=';
-        $op  = ($op === '^' || $op === '~') ? '>=' : (($op === '=') ? '==' : $op);
-        return version_compare((string) $have, $m[2], $op);
+        // The TIGER-version check is deliberately NOT here: min/max compat is ADVISORY (a "not tested
+        // for Tiger X" notice), never a block — see Tiger_Module_Compat, surfaced in the Module
+        // Manager. Like WordPress: it'll most likely still run; we just warn the developer.
     }
 
     protected static function _publishAssets($slug, $moduleDir)
@@ -527,7 +518,15 @@ class Tiger_Module_Installer
         return $out;
     }
 
-    protected static function migrationPaths()
+    /**
+     * Every migration directory an install should run, in precedence order: core → app → each
+     * module's `migrations/` (app modules AND first-party bundled tiger-core modules). This is the
+     * ONE authority for the migration scan — the CLI (`bin/tiger migrate`) and the install/update
+     * path both use it, so a bundled-module migration is never missed on one path but run on another.
+     *
+     * @return string[] absolute migration directory paths (missing dirs are filtered by the Migrator)
+     */
+    public static function migrationPaths()
     {
         $paths = [];
         if (defined('TIGER_CORE_PATH'))  { $paths[] = TIGER_CORE_PATH . '/migrations'; }

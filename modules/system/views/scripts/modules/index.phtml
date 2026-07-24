@@ -44,6 +44,9 @@ $badge = ['bundled' => 'secondary', 'custom' => 'info', 'registry' => 'primary',
                             <?php if (!empty($m['license'])): ?><span class="ms-2 badge text-bg-light"><?= $this->escape($m['license']) ?></span><?php endif; ?>
                             <?php if (!empty($m['pricing']) && $m['pricing'] !== 'paid'): ?><span class="ms-1 badge text-bg-success-subtle text-success-emphasis border border-success-subtle">free tier</span><?php endif; ?>
                         </div>
+                        <?php if (!empty($m['compat']) && empty($m['compat']['ok']) && !empty($m['compat']['message'])): ?>
+                            <div class="small text-warning-emphasis mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i><?= $this->escape($m['compat']['message']) ?></div>
+                        <?php endif; ?>
                     </td>
                     <td class="text-body-secondary"><?= $m['version'] ? $this->escape($m['version']) : '—' ?></td>
                     <td><span class="badge text-bg-<?= $badge[$m['source']] ?? 'secondary' ?>"><?= $this->escape($m['source']) ?></span></td>
@@ -55,7 +58,7 @@ $badge = ['bundled' => 'secondary', 'custom' => 'info', 'registry' => 'primary',
                         <?php if ($m['protected']): ?>
                             <span class="text-body-secondary small">always on</span>
                         <?php elseif ($m['active']): ?>
-                            <button type="button" class="btn btn-sm btn-outline-warning" data-mod-toggle="deactivate" data-slug="<?= $this->escape($m['slug']) ?>" data-theme="<?= (($m['type'] ?? '') === 'theme') ? 1 : 0 ?>"><i class="fa-solid fa-pause me-1"></i>Deactivate</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-mod-toggle="deactivate" data-slug="<?= $this->escape($m['slug']) ?>" data-theme="<?= (($m['type'] ?? '') === 'theme') ? 1 : 0 ?>" data-required-by="<?= $this->escape(implode(',', array_values($m['required_by'] ?? []))) ?>"><i class="fa-solid fa-pause me-1"></i>Deactivate</button>
                         <?php else: ?>
                             <button type="button" class="btn btn-sm btn-outline-success" data-mod-toggle="activate" data-slug="<?= $this->escape($m['slug']) ?>" data-theme="<?= (($m['type'] ?? '') === 'theme') ? 1 : 0 ?>"><i class="fa-solid fa-play me-1"></i>Activate</button>
                         <?php endif; ?>
@@ -73,10 +76,19 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function () {
             var method = btn.getAttribute('data-mod-toggle'), slug = btn.getAttribute('data-slug');
             var isTheme = btn.getAttribute('data-theme') === '1';
-            var msg = isTheme
-                ? 'Deactivate the "' + slug + '" theme? The public site reverts to the default theme.'
-                : 'Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.';
-            if (method === 'deactivate' && !confirm(msg)) { return; }
+            var requiredBy = (btn.getAttribute('data-required-by') || '').split(',').filter(Boolean);
+            if (method === 'deactivate') {
+                var msg;
+                if (requiredBy.length) {
+                    // Advisory only — never a block. The admin can always proceed.
+                    msg = 'This module is required by ' + requiredBy.join(', ') + ' to function. Deactivate anyway?';
+                } else if (isTheme) {
+                    msg = 'Deactivate the "' + slug + '" theme? The public site reverts to the default theme.';
+                } else {
+                    msg = 'Deactivate "' + slug + '"? Its routes stop working until you reactivate it. Nothing is deleted.';
+                }
+                if (!confirm(msg)) { return; }
+            }
             var body = new URLSearchParams({ module: 'system', service: 'modules', method: method, slug: slug });
             TigerButton.run(btn, function () {
                 return fetch('/api', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })

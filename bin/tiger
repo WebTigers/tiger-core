@@ -44,14 +44,12 @@ function tiger_db()
     return $db;
 }
 
-/** Migration dirs, in precedence order: core (package) -> app -> each module. */
+/** Migration dirs, in precedence order: core (package) -> app -> each module (app AND first-party
+ *  bundled core modules). Delegates to the ONE authority so `tiger migrate` and the install/update
+ *  path scan exactly the same set — a bundled-module migration is never missed on one path only. */
 function tiger_migration_paths()
 {
-    $paths = [TIGER_CORE_PATH . '/migrations', APPLICATION_PATH . '/migrations'];
-    foreach (glob(MODULES_PATH . '/*/migrations') ?: [] as $modMigrations) {
-        $paths[] = $modMigrations;
-    }
-    return $paths;
+    return Tiger_Module_Installer::migrationPaths();
 }
 
 /** Parse `--key=value` flags from argv into an assoc array. */
@@ -260,6 +258,9 @@ switch ($cmd) {
             // Convenience alert (never a block): required modules that aren't active.
             $missing = Tiger_Module_Dependency::missing($slug);
             if ($missing) { echo "  \xE2\x9A\xA0 {$slug} requires: " . implode(', ', $missing) . " (activate them too)\n"; }
+            // A module owns its schema: apply its migrations on activate (parity with the admin UI;
+            // idempotent, no-op without a migrations/ dir). Capability-detected, not type-declared.
+            Tiger_Module_Installer::migrateModule($slug);
             (new Tiger_Model_Module())->setActive($slug, $on);
             Tiger_Module_Installer::publishAssets($slug);   // symlink public/_modules/<slug> if it has assets/
         } else {

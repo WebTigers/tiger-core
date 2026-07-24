@@ -6,6 +6,31 @@ All notable changes to **Tiger Core** (`webtigers/tiger-core`). Format follows
 
 ## [Unreleased]
 
+## [0.41.0-beta] — 2026-07-24
+
+### Added
+- **Modules own their schema across the lifecycle.** A module's `migrations/` now run on **activate**
+  from the CLI too (parity with the admin UI), and `bin/tiger migrate` scans **first-party bundled
+  `tiger-core` modules** — not just `application/modules` — via one authority
+  (`Tiger_Module_Installer::migrationPaths()`) shared by the installer and the CLI. Fixes bundled-module
+  migrations (e.g. `agent_attachment`) being missed by a bare `tiger migrate`. Deactivate leaves schema
+  in place (additive-only).
+- **Advisory module-compatibility metadata (`Tiger_Module_Compat`).** A module may declare the Tiger
+  version range it was *tested* against — `"compat": { "tiger": { "min": …, "max": … } }` (legacy
+  `requires.tiger` honored as the min). The Module Manager (rows + the Add-screen preview) shows a
+  WordPress-style **"This module has not been tested for Tiger X.Y.Z"** notice — **never a block**; it'll
+  most likely still run. The canonical running version is the new **`TIGER_VERSION`** constant
+  (= `tiger-core`'s `Tiger_Version::VERSION` — the framework *is* Tiger, so they stay in lockstep).
+- **Version-aware inter-module dependencies.** `configs/dependency.ini` `[requires] modules[]` entries
+  may carry a constraint (`"billing >=0.5.0-beta"`). Activate surfaces requirements that are absent,
+  inactive, **or too old**; deactivate prompts **"required by X, Y — deactivate anyway?"** (the reverse
+  edge). Advisory throughout — a notification system, not a resolver; nothing is blocked or auto-installed.
+
+### Changed
+- `Tiger_Module_Installer::_checkRequires` no longer hard-blocks on `requires.tiger` (it was dead code —
+  `TIGER_VERSION` was never defined); Tiger-version compatibility is now the advisory notice above. PHP
+  version stays a hard gate (a genuine fatal).
+
 ## [0.40.0-beta] — 2026-07-24
 
 ### Added
