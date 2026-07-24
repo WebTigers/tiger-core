@@ -561,10 +561,30 @@ Then **4 parallel agents** (own worktree + own DB `tiger_test_w3a-d`, off `test/
 - **D / auth engine** — `Tiger_Service_Authentication` (password login, lockout, pepper, one-time challenges,
   2FA orchestration). Collect → one DB → fold into ONE PR (dodges stacked-squash pain, per Waves 1+2).
 
-### Next waves (unwritten — priority order per §5/§8)
-- **Wave 3 tail:** `Tiger_Controller_Plugin_Authorization` (the unbypassable front-controller ACL gate).
-- **Wave 4 — satellite repos:** stand up a harness in each, then TigerShield WAF engines (`Waf`/`Blocklist`/
-  `RateLimit`/`Challenge` — highest-value non-core), TigerDocs, then the commerce module repos.
+### Wave 3 tail + test-infra (LANDED 2026-07-24) → 265 integration green
+- **Finding #7 RESOLVED — re-entrant transaction isolation.** `tests/Support/SavepointAdapter.php` (a
+  test-only `Zend_Db_Adapter_Pdo_Mysql` subclass) maps nested `begin/commit/rollBack` onto MySQL
+  SAVEPOINTs, so a service's own `_transaction()` (or a model `save()`) composes inside the per-test
+  outer transaction instead of throwing — and the outer rollback still discards everything. Wired into
+  `IntegrationTestCase::adapter()`. `SavepointIsolationTest` (6) locks it, incl. a real
+  `Access_Service_User::save` nesting with no commit-and-purge. **Future service tests no longer need the
+  escape-and-scrub workaround** — dispatch inside the base txn and rely on rollback isolation.
+- **`Tiger_Controller_Plugin_Authorization`** (9) — the live-role guarantee: `_resolveRole()` reads the
+  role FRESH from `org_user` (session role is ignored; a revoked membership drops to base next request; a
+  locked session → guest; actor/org stamped) + `_resourceFor()` controller→resource mapping. The
+  preDispatch→redirect/403 cycle (front controller + exiting redirector) stays a functional/smoke concern.
+- **Coverage in CI.** `.github/workflows/tests.yml` gained a `coverage` job (pcov, full suite) that
+  publishes a line-% summary to the PR and enforces a ratcheting `MIN_COVERAGE` floor. **Baseline ≈20%
+  lines** (2863/14397) — the tested spine is ~100%, the drag is untested feature modules (blog/seo/media/
+  profile/analytics/backup/identity/schedule at 0%) + the marketplace/install cluster. **Target: 90%.**
+
+### Next waves (priority order per §5/§8) — the drive to 90%
+- **Wave 4 — breadth over the zero-coverage core modules** (now unblocked by the savepoint mode): each is
+  small — media, profile, identity, blog, seo, analytics, backup, schedule, ally, search, agent — parallel
+  agents, one module (or a cluster) each, service + model + controller coverage. Biggest, fastest % gain.
+- **Wave 5 — finish the kernel install/marketplace cluster** (`Module_Installer`, `Vendor`, `Update_Checker`,
+  `Module_Github`, `Module_Dependency`) — the largest untested library chunk, security-adjacent.
+- **Wave 6 — satellite repos:** stand up a harness in each, then TigerShield WAF engines first.
 
 ---
 *Manifest generated 2026-07-18 by 6 parallel read-only scans; graduated into `tests/COVERAGE-PLAN.md` +
