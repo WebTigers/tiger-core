@@ -10,8 +10,9 @@
  * the shared tail (also usable for offline/local installs + testing).
  *
  * Safety: public-repo-only (raw 404 = not installable), slug + reserved-name validation,
- * extraction confined to a temp dir then moved, and `remove()` only touches installer-managed
- * modules — never a developer's custom module.
+ * extraction confined to a temp dir then moved, artifact-signature verification before extract when
+ * signature material is supplied (mandatory for a licensed module — Tiger_Module_Pricing), and `remove()`
+ * only touches installer-managed modules — never a developer's custom module.
  *
  * @api
  */
@@ -84,7 +85,9 @@ class Tiger_Module_Installer
      *
      * @param  string $tarPath    path to the module's archive package
      * @param  array  $provenance install provenance (repository, ref, source)
-     * @param  array  $opts       install options (e.g. ['force' => true] to update in place)
+     * @param  array  $opts       install options: ['force'=>true] to update in place; ['signature'=>[
+     *                            'algo','public_key','signature','sha256']] to verify the artifact before
+     *                            extract (mandatory for a module whose manifest declares a licensed model)
      * @return array{slug:string,name:string,version:?string,ref:?string} the installed module summary
      * @throws RuntimeException if extraction, the manifest, the slug, or placement fails
      */
@@ -95,6 +98,14 @@ class Tiger_Module_Installer
             throw new RuntimeException('Could not create a temp extraction dir.');
         }
         try {
+            // Integrity gate: if the caller supplied signature material (a licensed download does), verify the
+            // downloaded artifact BEFORE extracting a single file — a tampered/MITM'd package is refused up front.
+            $signed = false;
+            if (!empty($opts['signature']) && is_array($opts['signature'])) {
+                self::_verifySignature($tarPath, $opts['signature']);
+                $signed = true;
+            }
+
             self::_extract($tarPath, $parent);
 
             $root = self::_findModuleRoot($parent);
@@ -104,6 +115,14 @@ class Tiger_Module_Installer
             }
             $slug = self::_validSlug($manifest['slug']);
             self::_checkRequires($manifest['requires'] ?? []);
+
+            // A licensed module (Module-Manager-sold, authority-gated) MUST arrive signed — integrity across an
+            // untrusted transport / third-party seller. A malformed pricing block is rejected too. Both fire
+            // before the module reaches the modules dir.
+            Tiger_Module_Pricing::assertValid($manifest);
+            if (Tiger_Module_Pricing::isLicensed($manifest) && empty($signed)) {
+                throw new RuntimeException("Module '{$slug}' declares a licensed pricing model but arrived unsigned — refusing to install.");
+            }
 
             $target = self::modulesDir() . '/' . $slug;
             if (is_dir($target) && empty($opts['force'])) {
@@ -174,6 +193,33 @@ class Tiger_Module_Installer
     }
 
     // ---- helpers ---------------------------------------------------------------
+
+    /**
+     * Verify a downloaded artifact against caller-supplied signature material, BEFORE extraction.
+     * Fail-closed: any problem throws and the install aborts. The material shape (a licensed download
+     * supplies it): ['algo' => 'ed25519', 'public_key' => <b64>, 'signature' => <b64>, 'sha256' => <hex, optional>].
+     *
+     * @param  string $artifactPath the downloaded archive
+     * @param  array  $sig          the signature material
+     * @return void
+     * @throws RuntimeException if the material is incomplete, the algorithm is unsupported, or verification fails
+     */
+    protected static function _verifySignature($artifactPath, array $sig)
+    {
+        $algo = strtolower((string) ($sig['algo'] ?? Tiger_Crypto_Signature::ALGO));
+        if ($algo !== Tiger_Crypto_Signature::ALGO) {
+            throw new RuntimeException("Unsupported artifact signature algorithm '{$algo}'.");
+        }
+        $publicKey = (string) ($sig['public_key'] ?? '');
+        $signature = (string) ($sig['signature'] ?? '');
+        if ($publicKey === '' || $signature === '') {
+            throw new RuntimeException('Artifact signature material is incomplete (need public_key + signature).');
+        }
+        $sha256 = isset($sig['sha256']) ? (string) $sig['sha256'] : null;
+        if (!Tiger_Crypto_Signature::verifyFile($artifactPath, $signature, $publicKey, $sha256)) {
+            throw new RuntimeException('Artifact signature verification FAILED — refusing to install (possible tampering).');
+        }
+    }
 
     protected static function _extract($archivePath, $into)
     {
