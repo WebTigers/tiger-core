@@ -81,6 +81,66 @@ class Tiger_Module_Installer
     }
 
     /**
+     * Install (or update, with opts[force]) a LICENSED module from its authority. The authority verifies the
+     * license server-side and returns a short-lived SIGNED download; we fetch it, verify the signature BEFORE
+     * extraction (the same gate installFromTarball applies), install, then remember the license so future
+     * update checks + gating work. The seller's repo token never reaches us — we only hold the signed URL.
+     *
+     * @param  string $authority the authority base URL (module.json `pricing.authority`)
+     * @param  string $key       the buyer's license key
+     * @param  array  $meta       {product|slug, vendor, public_key, domain?, repository?} — public_key is the
+     *                            vendor's artifact-signing key (from the vendor's TigerVendor repo)
+     * @param  array  $opts      install options (e.g. ['force' => true] to update in place)
+     * @return array{slug:string,name:string,version:?string,ref:?string} the installed module summary
+     * @throws RuntimeException if the license isn't authorized, the download fails, or the signature is invalid
+     */
+    public static function installFromAuthority($authority, $key, array $meta, array $opts = [])
+    {
+        $authority = (string) $authority;
+        $key       = (string) $key;
+        $product   = (string) ($meta['product'] ?? $meta['slug'] ?? '');
+        $publicKey = (string) ($meta['public_key'] ?? '');
+        if ($authority === '' || $key === '' || $product === '' || $publicKey === '') {
+            throw new RuntimeException('A licensed install needs an authority, a license key, a product, and the vendor public key.');
+        }
+
+        $desc = Tiger_License_Authority::download($authority, $key, $product, (string) ($meta['domain'] ?? ''));
+        if ($desc === null) {
+            throw new RuntimeException('The license authority did not authorize this download — the license may be invalid, lapsed, or the authority unreachable.');
+        }
+
+        $tar = tempnam(sys_get_temp_dir(), 'tigerlic') . '.zip';
+        if (!Tiger_Module_Github::download($desc['url'], $tar)) {
+            @unlink($tar);
+            throw new RuntimeException('Failed to download the licensed release from the authority.');
+        }
+        try {
+            $r = self::installFromTarball($tar, [
+                'repository' => $meta['repository'] ?? null,
+                'ref'        => $desc['version'] ?? null,
+                'source'     => Tiger_Model_Module::SOURCE_URL,
+            ], ['signature' => [
+                'algo'       => Tiger_Crypto_Signature::ALGO,
+                'public_key' => $publicKey,
+                'signature'  => $desc['signature'],
+                'sha256'     => $desc['sha256'],
+            ]] + $opts);
+        } finally {
+            @unlink($tar);
+        }
+
+        // Remember the license so update checks + gating (Tiger_License_Checker) work from here on.
+        Tiger_License_Checker::remember((string) $r['slug'], [
+            'key'        => $key,
+            'authority'  => $authority,
+            'vendor'     => (string) ($meta['vendor'] ?? ''),
+            'public_key' => $publicKey,
+        ]);
+
+        return $r;
+    }
+
+    /**
      * Shared install tail: extract an archive (.tar.gz or .zip), validate, place, migrate, publish, record.
      *
      * @param  string $tarPath    path to the module's archive package
