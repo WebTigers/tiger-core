@@ -32,7 +32,7 @@ class Tiger_Model_AgentMessage extends Tiger_Model_Table
      * @param  string     $runId          the turn that produced it ('' for a bare user message)
      * @return string                     the new message_id
      */
-    public function append($conversationId, $role, $content, array $meta = null, $runId = '')
+    public function append($conversationId, $role, $content, ?array $meta = null, $runId = '')
     {
         return $this->insert([
             'conversation_id' => (string) $conversationId,
