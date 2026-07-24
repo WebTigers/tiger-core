@@ -72,9 +72,15 @@ final class AgentModelsTest extends IntegrationTestCase
         $me   = Tiger_Uuid::v7();
         $cid  = $conv->start(Tiger_Uuid::v7(), $me, 'T', 'anthropic', 'claude');
 
-        $msg->append($cid, Tiger_Model_AgentMessage::ROLE_USER, 'hello');
+        $userId = $msg->append($cid, Tiger_Model_AgentMessage::ROLE_USER, 'hello');
         $runId = Tiger_Uuid::v7();
         $asst  = $msg->append($cid, Tiger_Model_AgentMessage::ROLE_ASSISTANT, 'hi there', ['actions' => [['type' => 'navigate']]], $runId);
+
+        // Both appends land in the same millisecond here, so neither created_at (second precision) nor the
+        // time-ordered v7 message_id can order them deterministically — real conversation turns are seconds
+        // apart. Force a gap so the oldest-first transcript ordering is deterministic.
+        $this->db->update('agent_message', ['created_at' => '2020-01-01 00:00:01'], $this->db->quoteInto('message_id = ?', $userId));
+        $this->db->update('agent_message', ['created_at' => '2020-01-01 00:00:02'], $this->db->quoteInto('message_id = ?', $asst));
 
         $rows = $msg->transcript($cid, 100);
         $this->assertCount(2, $rows);
