@@ -65,7 +65,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
     #[Test]
     public function installsAFreeModuleFromATarballAndRecordsIt(): void
     {
-        $tar = $this->makeModuleTarGz('w4free', ['name' => 'W4 Free', 'version' => '1.0.0']);
+        $tar = $this->makeModulePackage('w4free', ['name' => 'W4 Free', 'version' => '1.0.0']);
 
         $r = Tiger_Module_Installer::installFromUpload($tar);
         $this->installed[] = 'w4free';
@@ -89,7 +89,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
         $this->installFixture('w4force', ['version' => '1.0.0']);
 
         // Same slug again, no force → the already-installed guard fires.
-        $tar = $this->makeModuleTarGz('w4force', ['version' => '1.1.0']);
+        $tar = $this->makeModulePackage('w4force', ['version' => '1.1.0']);
         try {
             Tiger_Module_Installer::installFromUpload($tar);
             $this->fail('a second install without force should throw');
@@ -98,7 +98,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
         }
 
         // With force → the update lands and the recorded version moves.
-        $r = Tiger_Module_Installer::installFromUpload($this->makeModuleTarGz('w4force', ['version' => '1.1.0']), ['force' => true]);
+        $r = Tiger_Module_Installer::installFromUpload($this->makeModulePackage('w4force', ['version' => '1.1.0']), ['force' => true]);
         $this->assertSame('1.1.0', $r['version']);
         $this->assertSame('1.1.0', (string) (new Tiger_Model_Module())->bySlug('w4force')->version);
     }
@@ -113,7 +113,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
         ];
 
         // UNSIGNED → refused up front (a licensed artifact MUST arrive signed).
-        $unsignedTar = $this->makeModuleTarGz('w4lic', $manifest);
+        $unsignedTar = $this->makeModulePackage('w4lic', $manifest);
         try {
             Tiger_Module_Installer::installFromUpload($unsignedTar);
             $this->fail('an unsigned licensed module must be refused');
@@ -123,7 +123,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
         $this->assertDirectoryDoesNotExist(APPLICATION_PATH . '/modules/w4lic', 'nothing was placed');
 
         // SIGNED with a real Ed25519 keypair over the tarball bytes → the signature verifies and it installs.
-        $signedTar = $this->makeModuleTarGz('w4lic', $manifest);
+        $signedTar = $this->makeModulePackage('w4lic', $manifest);
         $keys      = Tiger_Crypto_Signature::generateKeypair();
         $signature = Tiger_Crypto_Signature::signFile($signedTar, $keys['secret_key']);
         $sha256    = Tiger_Crypto_Signature::sha256File($signedTar);
@@ -144,7 +144,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
     #[Test]
     public function aTamperedSignedArtifactIsRefusedBeforePlacement(): void
     {
-        $tar  = $this->makeModuleTarGz('w4tamper', ['version' => '1.0.0']);
+        $tar  = $this->makeModulePackage('w4tamper', ['version' => '1.0.0']);
         $keys = Tiger_Crypto_Signature::generateKeypair();
         $sig  = Tiger_Crypto_Signature::signFile($tar, $keys['secret_key']);
 
@@ -168,7 +168,7 @@ final class InstallerLifecycleTest extends IntegrationTestCase
     public function aPhpRequirementBeyondThisServerIsAHardBlock(): void
     {
         // PHP is the one HARD gate in _checkRequires (Tiger compat is advisory; PHP is not).
-        $tar = $this->makeModuleTarGz('w4php', ['requires' => ['php' => '>=99.0']]);
+        $tar = $this->makeModulePackage('w4php', ['requires' => ['php' => '>=99.0']]);
         try {
             Tiger_Module_Installer::installFromUpload($tar);
             $this->fail('an impossible PHP requirement must block the install');
@@ -301,26 +301,33 @@ final class InstallerLifecycleTest extends IntegrationTestCase
     /** Install a free fixture module and register it for cleanup. */
     private function installFixture(string $slug, array $manifest): array
     {
-        $r = Tiger_Module_Installer::installFromUpload($this->makeModuleTarGz($slug, $manifest));
+        $r = Tiger_Module_Installer::installFromUpload($this->makeModulePackage($slug, $manifest));
         $this->installed[] = $slug;
         return $r;
     }
 
     /**
-     * Build a real .tar.gz containing a single top dir <slug>/ with a module.json — the shape a GitHub/
-     * upload archive has (installFromTarball unwraps the single top dir).
+     * Build a real package archive containing a single top dir <slug>/ with a module.json — the shape a
+     * GitHub/upload archive has (the installer unwraps the single top dir).
+     *
+     * We use a ZIP (ZipArchive), not a PharData tar.gz: the installer extracts a zip via the universally
+     * available `zip` extension (detected by the "PK" magic, so the extensionless path is irrelevant),
+     * whereas PharData tar.gz round-tripping is not portable across every PHP build/CI runner. The
+     * installer, the signature gate, and the single-top-dir unwrap are all archive-format-agnostic.
      */
-    private function makeModuleTarGz(string $slug, array $manifest): string
+    private function makeModulePackage(string $slug, array $manifest): string
     {
         $manifest += ['slug' => $slug, 'name' => ucfirst($slug)];
         $manifest['slug'] = $slug;
-        $base = $this->tmp . '/' . $slug . '_' . bin2hex(random_bytes(3)) . '.tar';
-        $phar = new \PharData($base);
-        $phar->addFromString($slug . '/module.json', json_encode($manifest));
-        $phar->addFromString($slug . '/README.md', "# {$slug}\n");
-        $phar->compress(\Phar::GZ);
-        unset($phar);
-        return $base . '.gz';
+        $path = $this->tmp . '/' . $slug . '_' . bin2hex(random_bytes(3)) . '.zip';
+        $zip  = new \ZipArchive();
+        if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            $this->fail('could not create the fixture zip at ' . $path);
+        }
+        $zip->addFromString($slug . '/module.json', json_encode($manifest));
+        $zip->addFromString($slug . '/README.md', "# {$slug}\n");
+        $zip->close();
+        return $path;
     }
 
     /** Plant a module dir directly under the app modules root (for the activate-time hooks). */
