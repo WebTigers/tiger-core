@@ -73,6 +73,14 @@ Tiger_Mail::setDefaultTransport(new Zend_Mail_Transport_File(['path' => $mailDir
 // fires after the Tiger_*/Zend_* loaders miss — it never hijacks a framework class (whose first segment
 // isn't a module dir). Lets an integration test instantiate a real /api service + its form/model.
 spl_autoload_register(static function ($class) {
+    // Default-namespace controllers (`ApiController`, `AuthController`, …) live in tiger-core's
+    // core/controllers dir (the module-less MVC face), not under modules/ and not composer-autoloaded.
+    // Resolve them so a ControllerTestCase can instantiate + dispatch a core controller directly.
+    if (strpos($class, '_') === false && substr($class, -10) === 'Controller') {
+        $file = TIGER_CORE_PATH . '/core/controllers/' . $class . '.php';
+        if (is_file($file)) { require $file; }
+        return;
+    }
     if (strpos($class, '_') === false) { return; }
     $parts = explode('_', $class);
     $mod   = strtolower($parts[0]);
