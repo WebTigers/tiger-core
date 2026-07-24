@@ -96,7 +96,9 @@ final class TranslationTest extends IntegrationTestCase
 
         $map = $this->t->getForLocale('en', Tiger_Model_Translation::SCOPE_GLOBAL, '');
 
-        $this->assertSame(['a.one' => 'One', 'a.two' => 'Two'], $map, 'exactly the en/global overrides as a key=>value map — no other locale or scope');
+        // assertEquals (not assertSame): the map is an unordered key=>value set and getForLocale has no
+        // ORDER BY, so row order is DB-defined and differs across engines/runs — only the pairs matter.
+        $this->assertEquals(['a.one' => 'One', 'a.two' => 'Two'], $map, 'exactly the en/global overrides as a key=>value map — no other locale or scope');
     }
 
     #[Test]
