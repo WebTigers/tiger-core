@@ -10,9 +10,8 @@ use Tiger\Tests\Support\IntegrationTestCase;
 use Zend_Auth;
 use Zend_Registry;
 
-// A module `/api` service isn't on the test autoload path (no module resource loader in the harness),
-// but it only extends the autoloadable Tiger_Service_Service — so require the file and dispatch it.
-require_once TIGER_CORE_PATH . '/modules/access/services/User.php';
+// `Access_Service_User` is a module class — resolved by the harness's module autoloader (tests/bootstrap.php),
+// so it (and its form/model) instantiate naturally, no require_once. This test also proves that loader works.
 
 /**
  * Proves the Wave-3 `/api`-service scaffolding on IntegrationTestCase (`login()`/`loginAs()`/`logout()`)

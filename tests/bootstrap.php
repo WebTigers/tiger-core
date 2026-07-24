@@ -57,3 +57,31 @@ $includePaths = [
     get_include_path(),
 ];
 set_include_path(implode(PATH_SEPARATOR, array_filter($includePaths)));
+
+// --- Module class autoloader (ZF1 module convention) ------------------------------------------------
+// A module's classes (`Signup_Service_Signup`, `Signup_Form_Signup`, `Access_UserController`, …) live at
+// `modules/<mod>/<types>/<Name>.php` and are NOT on the composer/PSR-0 path the app resolves via ZF1's
+// module resource loader (which the test harness deliberately doesn't boot). Registered LAST, so it only
+// fires after the Tiger_*/Zend_* loaders miss — it never hijacks a framework class (whose first segment
+// isn't a module dir). Lets an integration test instantiate a real /api service + its form/model.
+spl_autoload_register(static function ($class) {
+    if (strpos($class, '_') === false) { return; }
+    $parts = explode('_', $class);
+    $mod   = strtolower($parts[0]);
+
+    $base = null;
+    foreach ([APPLICATION_PATH . '/modules/' . $mod, TIGER_CORE_PATH . '/modules/' . $mod] as $cand) {
+        if (is_dir($cand)) { $base = $cand; break; }   // app module wins over a first-party one
+    }
+    if ($base === null) { return; }
+
+    if (count($parts) === 2 && substr($parts[1], -10) === 'Controller') {
+        $file = $base . '/controllers/' . $parts[1] . '.php';           // Access_UserController → controllers/UserController.php
+    } else {
+        static $types = ['Service' => 'services', 'Form' => 'forms', 'Model' => 'models', 'Widget' => 'widgets', 'Plugin' => 'plugins'];
+        $type = $types[$parts[1]] ?? null;
+        if ($type === null) { return; }
+        $file = $base . '/' . $type . '/' . implode('/', array_slice($parts, 2)) . '.php';   // Signup_Service_Signup → services/Signup.php
+    }
+    if (is_file($file)) { require $file; }
+});
