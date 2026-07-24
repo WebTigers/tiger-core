@@ -66,6 +66,11 @@ abstract class ControllerTestCase extends IntegrationTestCase
         $vr->setView($view);
         $vr->setNoRender(true);                              // cover action logic, not .phtml rendering
 
+        // The redirector helper calls `exit` after sending headers by default — which would end the
+        // PHPUnit process mid-test. Turn that off so an action's `gotoUrl()`/`_redirect()` is assertable
+        // via redirectLocation() instead of killing the run.
+        Zend_Controller_Action_HelperBroker::getStaticHelper('redirector')->setExit(false);
+
         Zend_Layout::startMvc()->setView($view)->disableLayout();
     }
 

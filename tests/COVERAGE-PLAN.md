@@ -609,6 +609,24 @@ provider/authority/GA/reCAPTCHA live HTTP, ClamAV/Rekognition scanners, AWS-SDK 
   mints `MODULES_PATH` etc. → the app-boot test runs `#[RunInSeparateProcess]`. **RECOMMENDED base hygiene (deferred):** reset
   `Org::$_siteOrgId` in `IntegrationTestCase::tearDown`. CI floor `MIN_COVERAGE` 35 → 55.
 
+### Wave 6 — remaining modules + the dispatch harness (LANDED 2026-07-24) → coverage 59.2% → 70.0%
+First landed a **controller dispatch harness** (`tests/Support/ControllerTestCase.php`, PR #66): instantiates a
+controller + dispatches ONE action with view-rendering OFF, so the action BODY runs (branch logic, `_json` body,
+redirect/`_forward`) without the theme/view-script stack — unlocking `core/controllers` (0% before). Then 5 agents:
+core-controllers 0→**87%** (all 6: Api 80, Auth 79, Error 95, Index 87, Page 98, Admin 91), cms 33→**94**, code 41→**90**,
+agent module 6→**66-78**, system 37→**59**, + a module-controller sweep (profile 68, access 84, media/analytics/identity/
+blog/signup/search/schedule controllers 90-100%). ~167 tests; combined suite **1617 green**.
+- **REAL BUG FIXED (a test found it):** `Backup_IndexController::_json(int,string,array):string` was an INCOMPATIBLE
+  override of `Tiger_Controller_Action::_json($data,$status)` → a PHP 8.5 **fatal at class load**, so EVERY `/backup`
+  request 500'd (the backup admin UI was entirely broken). Renamed the helper to `_jsonBody()`; replaced the
+  characterization test with real dispatch coverage.
+- **Harness hardening (3 agents hit it):** folded `redirector->setExit(false)` into `ControllerTestCase` setUp (the
+  redirector `exit`s after headers by default → would kill the PHPUnit process on a controller redirect).
+- CI floor 55 → 66. Ceilings (bounded honestly, not chased): `Updates::_applyOne` would run a real `composer update`/
+  `vendor/` swap on a dev box (covered at guard level only); `is_uploaded_file()` uploads; live-model agent turns;
+  render-only `.phtml` leaves; `pcov` under-reports module `elements()` forms (multi-line-array-literal artifact).
+
+### Next waves (priority order) — the drive to 90%
 ### Next waves (priority order) — the drive to 90%
 - **Wave 6 — the remaining MODULES:** `agent` module (462 @ 5% — needs a provider-adapter stub, but the `Tiger_Agent_*`
   library it builds on is now ~72% so the seams exist), `cms` module (510 @ 33%), `system` remainder (579 @ 37%), `code`

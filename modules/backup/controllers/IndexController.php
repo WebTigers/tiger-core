@@ -78,19 +78,19 @@ class Backup_IndexController extends Tiger_Controller_Admin_Action
         $response = $this->getResponse();
         $response->setHeader('Content-Type', 'application/json', true);
 
-        if (($this->getParam('confirm', '')) !== 'RESTORE') { $response->setBody($this->_json(0, 'backup.restore.confirm')); return; }
+        if (($this->getParam('confirm', '')) !== 'RESTORE') { $response->setBody($this->_jsonBody(0, 'backup.restore.confirm')); return; }
         $file = $_FILES['archive'] ?? null;
-        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) { $response->setBody($this->_json(0, 'backup.upload.failed')); return; }
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) { $response->setBody($this->_jsonBody(0, 'backup.upload.failed')); return; }
 
         $dir = APPLICATION_ROOT . '/var/backup';
         @is_dir($dir) || @mkdir($dir, 0775, true);
         $tmp = $dir . '/upload-' . bin2hex(random_bytes(4)) . '.zip';
-        if (!@move_uploaded_file($file['tmp_name'], $tmp)) { $response->setBody($this->_json(0, 'backup.upload.failed')); return; }
+        if (!@move_uploaded_file($file['tmp_name'], $tmp)) { $response->setBody($this->_jsonBody(0, 'backup.upload.failed')); return; }
 
         // Validate it's a TigerBackup archive before doing anything destructive.
         if (Tiger_Backup_Archive::read($tmp, 'manifest.json') === false) {
             @unlink($tmp);
-            $response->setBody($this->_json(0, 'backup.upload.invalid'));
+            $response->setBody($this->_jsonBody(0, 'backup.upload.invalid'));
             return;
         }
 
@@ -103,9 +103,9 @@ class Backup_IndexController extends Tiger_Controller_Admin_Action
         @unlink($tmp);
 
         if (($res['status'] ?? '') === 'ok') {
-            $response->setBody($this->_json(1, 'backup.restore.done', ['restored' => $res['restored']]));
+            $response->setBody($this->_jsonBody(1, 'backup.restore.done', ['restored' => $res['restored']]));
         } else {
-            $response->setBody($this->_json(0, APPLICATION_ENV !== 'production' ? ('Restore failed: ' . ($res['error'] ?? '')) : 'backup.restore.failed'));
+            $response->setBody($this->_jsonBody(0, APPLICATION_ENV !== 'production' ? ('Restore failed: ' . ($res['error'] ?? '')) : 'backup.restore.failed'));
         }
     }
 
@@ -133,7 +133,7 @@ class Backup_IndexController extends Tiger_Controller_Admin_Action
     }
 
     /** Minimal JSON envelope for the two non-service actions (message key is translated client-side-agnostic). */
-    protected function _json(int $result, string $messageKey, array $data = []): string
+    protected function _jsonBody(int $result, string $messageKey, array $data = []): string
     {
         $t = Zend_Registry::isRegistered('Zend_Translate') ? Zend_Registry::get('Zend_Translate') : null;
         $msg = $t ? $t->translate($messageKey) : $messageKey;
