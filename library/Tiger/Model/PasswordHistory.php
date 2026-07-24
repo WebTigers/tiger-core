@@ -35,9 +35,11 @@ class Tiger_Model_PasswordHistory extends Tiger_Model_Table
      */
     public function recentForUser($userId, $limit = 5)
     {
+        // The limit MUST live on the Select: Zend_Db_Table_Abstract::fetchAll() ignores its
+        // $count/$offset args when the first arg is already a Select (it only honors them when
+        // building the Select itself). Passing `null, $limit` alongside a Select was a silent no-op.
         return $this->fetchAll(
-            $this->select()->where('user_id = ?', $userId)->order('created_at DESC'),
-            null, (int) $limit
+            $this->select()->where('user_id = ?', $userId)->order('created_at DESC')->limit((int) $limit)
         );
     }
 
